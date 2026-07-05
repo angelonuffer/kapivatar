@@ -1,0 +1,5 @@
+{
+  "name": "kapivatar",
+  "pages_build_output_dir": "./www",
+  "history_api_fallback": true
+}
