@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=DynaPuff:wght@400..700&display=swap');
+
+body {
+  background-color: #111;
+  color: #eee;
+  display: flex;
+  font-family: 'DynaPuff', sans-serif;
+  height: 100vh;
+  margin: 0;
+}
+
+img {
+  border-radius: 1em;
+}
+
+button {
+  background-color: #333;
+  border: none;
+  border-radius: 0.5em;
+  color: #eee;
+  cursor: pointer;
+  font-family: 'DynaPuff', sans-serif;
+  font-size: 1em;
+  padding: 0.5em 1em;
+}
+
+button:hover {
+  background-color: #444;
+}
+
+a {
+  color: #eee;
+  cursor: pointer;
+  text-decoration: none;
+  border-radius: 0.5em;
+  padding: 0.5em 1em;
+}
+
+a:hover {
+  background-color: #444;
+}
+
+.linha {
+  display: flex;
+  padding: 1em;
+  gap: 1em;
+}
+
+.coluna {
+  display: flex;
+  flex-direction: column;
+  padding: 1em;
+  gap: 1em;
+}
