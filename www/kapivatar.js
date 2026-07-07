@@ -15,6 +15,11 @@ const páginas = [
   {
     nome: "Início",
     url: "/",
+    render: (conteudo) => {
+      const p = document.createElement("p")
+      p.textContent = "Bem-vindo ao Kapivatar! Escolha uma opção no menu lateral."
+      conteudo.appendChild(p)
+    }
   },
   {
     nome: "Perfis",
@@ -25,18 +30,53 @@ const páginas = [
         url: "/perfis/criar",
       },
     ],
+    render: (conteudo) => {
+      const p = document.createElement("p")
+      p.textContent = "Aqui você pode gerenciar seus perfis."
+      conteudo.appendChild(p)
+    }
   },
   {
     nome: "Contatos",
     url: "/contatos",
+    render: (conteudo) => {
+      const p = document.createElement("p")
+      p.textContent = "Sua lista de contatos aparecerá aqui."
+      conteudo.appendChild(p)
+    }
   },
   {
     nome: "Conversas",
     url: "/conversas",
+    render: (conteudo) => {
+      const p = document.createElement("p")
+      p.textContent = "Suas conversas criptografadas."
+      conteudo.appendChild(p)
+    }
   },
 ]
 
+const navegar = (url) => {
+  history.pushState({}, "", url)
+  rotear()
+}
+
+const esta_autenticado = async () => {
+  const db = await banco_kapivatar
+  return new Promise((resolve) => {
+    const transaction = db.transaction("byName", "readonly")
+    const obter_diretório = transaction.objectStore("byName").get("diretório")
+    obter_diretório.onsuccess = (event) => {
+      resolve(event.target.result !== undefined)
+    }
+    obter_diretório.onerror = () => {
+      resolve(false)
+    }
+  })
+}
+
 const carregar_tela_login = async () => {
+  document.body.innerHTML = ""
   const logo = document.createElement("img")
   logo.style.width = "6vw"
   logo.style.position = "absolute"
@@ -78,8 +118,7 @@ const carregar_tela_login = async () => {
     const diretório = await showDirectoryPicker();
     const definir_diretório = (await banco_kapivatar).transaction("byName", "readwrite").objectStore("byName").put(diretório, "diretório")
     definir_diretório.onsuccess = () => {
-      document.body.innerHTML = ""
-      carregar_tela_início()
+      navegar("/")
     }
     definir_diretório.onerror = (event) => {
       console.error("Erro ao salvar diretório:", event.target.error)
@@ -89,7 +128,10 @@ const carregar_tela_login = async () => {
   document.body.appendChild(coluna_2)
 }
 
-const carregar_tela_início = async () => {
+let layout_referencias = null
+
+const carregar_layout = () => {
+  document.body.innerHTML = ""
   const coluna_1 = document.createElement("div")
   coluna_1.classList.add("coluna")
   coluna_1.style.flex = 1
@@ -104,11 +146,13 @@ const carregar_tela_início = async () => {
   coluna_1_2.style.gap = "0"
   const link_sair = document.createElement("a")
   link_sair.textContent = "Sair"
-  link_sair.onclick = async () => {
+  link_sair.href = "#"
+  link_sair.onclick = async (e) => {
+    e.preventDefault()
     const remover_diretório = (await banco_kapivatar).transaction("byName", "readwrite").objectStore("byName").delete("diretório")
     remover_diretório.onsuccess = () => {
-      document.body.innerHTML = ""
-      carregar_tela_login()
+      layout_referencias = null
+      navegar("/")
     }
     remover_diretório.onerror = (event) => {
       console.error("Erro ao remover diretório:", event.target.error)
@@ -138,39 +182,99 @@ const carregar_tela_início = async () => {
   coluna_2_linha_2.style.backgroundColor = "#222"
   coluna_2_linha_2.style.borderRadius = "1em"
   coluna_2_linha_2.style.flexGrow = "1"
+  coluna_2_linha_2.style.padding = "2em"
   coluna_2.appendChild(coluna_2_linha_2)
   document.body.appendChild(coluna_2)
-  páginas.forEach(página => {
-    const link = document.createElement("a")
-    if (location.pathname === página.url) {
-      link.style.backgroundColor = "#444"
-      h1.textContent = página.nome
-      página.ações?.forEach(ação => {
-        const botão_ação = document.createElement("button")
-        botão_ação.textContent = ação.nome
-        botão_ação.onclick = () => {
-          location.href = ação.url
-        }
-        ações.appendChild(botão_ação)
-      })
-    }
-    link.textContent = página.nome
-    link.href = página.url
-    coluna_1_1.appendChild(link)
-  })
+
+  layout_referencias = {
+    menu: coluna_1_1,
+    titulo: h1,
+    acoes: ações,
+    conteudo: coluna_2_linha_2
+  }
 }
 
-onload = async () => {
-  const db = await banco_kapivatar
-  const obter_diretório = db.transaction("byName", "readwrite").objectStore("byName").get("diretório")
-  obter_diretório.onsuccess = async (event) => {
-    if (event.target.result === undefined) {
-      carregar_tela_login()
-      return
+const renderizar_página = (página) => {
+  const { menu, titulo, acoes, conteudo } = layout_referencias
+
+  // Atualiza Menu
+  menu.innerHTML = ""
+  páginas.forEach(p => {
+    const link = document.createElement("a")
+    link.textContent = p.nome
+    link.href = p.url
+    if (location.pathname === p.url) {
+      link.style.backgroundColor = "#444"
     }
-    carregar_tela_início()
-  }
-  obter_diretório.onerror = (event) => {
-    console.error("Erro ao obter diretório:", event.target.error)
+    menu.appendChild(link)
+  })
+
+  // Atualiza Título
+  titulo.textContent = página.nome
+
+  // Atualiza Ações
+  acoes.innerHTML = ""
+  página.ações?.forEach(ação => {
+    const botão_ação = document.createElement("button")
+    botão_ação.textContent = ação.nome
+    botão_ação.onclick = () => {
+      navegar(ação.url)
+    }
+    acoes.appendChild(botão_ação)
+  })
+
+  // Atualiza Conteúdo
+  conteudo.innerHTML = ""
+  if (página.render) {
+    página.render(conteudo)
   }
 }
+
+const renderizar_404 = () => {
+  const { menu, titulo, acoes, conteudo } = layout_referencias
+
+  // Atualiza Menu (limpa seleção)
+  menu.querySelectorAll("a").forEach(a => a.style.backgroundColor = "")
+
+  titulo.textContent = "404 - Não Encontrado"
+  acoes.innerHTML = ""
+  conteudo.innerHTML = "<p>A página que você procura não existe.</p>"
+}
+
+const rotear = async () => {
+  const autenticado = await esta_autenticado()
+
+  if (!autenticado) {
+    layout_referencias = null
+    carregar_tela_login()
+    return
+  }
+
+  if (!layout_referencias) {
+    carregar_layout()
+  }
+
+  const path = location.pathname
+  const página = páginas.find(p => p.url === path)
+
+  if (página) {
+    renderizar_página(página)
+  } else {
+    renderizar_404()
+  }
+}
+
+window.addEventListener("popstate", rotear)
+
+document.addEventListener("click", (e) => {
+  const link = e.target.closest("a")
+  if (link && link.href && link.href.startsWith(location.origin)) {
+    const url = new URL(link.href)
+    if (url.hash === "" && !link.onclick) {
+      e.preventDefault()
+      navegar(url.pathname)
+    }
+  }
+})
+
+onload = rotear
