@@ -11,6 +11,48 @@ const banco_kapivatar = banco({
   ],
 })
 
+const gerar_hash = async (conteudo) => {
+  const buffer = typeof conteudo === "string" ? new TextEncoder().encode(conteudo) : conteudo
+  const hash_buffer = await crypto.subtle.digest("SHA-256", buffer)
+  return Array.from(new Uint8Array(hash_buffer)).map((b) => b.toString(16).padStart(2, "0")).join("")
+}
+
+const obter_diretorio = async () => {
+  const db = await banco_kapivatar
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction("byName", "readonly")
+    const obter_diretório = transaction.objectStore("byName").get("diretório")
+    obter_diretório.onsuccess = (event) => {
+      let result = event.target.result
+      // Re-instancia o mock se necessário (apenas para testes)
+      if (result && !result.getFileHandle && window.MockDirectoryHandle) {
+        result = Object.assign(new window.MockDirectoryHandle(), result)
+      }
+      resolve(result)
+    }
+    obter_diretório.onerror = () => {
+      reject(obter_diretório.error)
+    }
+  })
+}
+
+const ler_arquivo = async (diretorio, nome) => {
+  try {
+    const handle = await diretorio.getFileHandle(nome)
+    const file = await handle.getFile()
+    return file
+  } catch (e) {
+    return null
+  }
+}
+
+const escrever_arquivo = async (diretorio, nome, conteudo) => {
+  const handle = await diretorio.getFileHandle(nome, { create: true })
+  const writable = await handle.createWritable()
+  await writable.write(conteudo)
+  await writable.close()
+}
+
 const páginas = [
   {
     nome: "Início",
@@ -30,10 +72,216 @@ const páginas = [
         url: "/perfis/criar",
       },
     ],
+    render: async (conteudo, params) => {
+      const diretorio = await obter_diretorio()
+      const hash_lista_atual = params.get("v") || (await (await ler_arquivo(diretorio, "perfis"))?.text())
+
+      const carregar_lista = async (hash) => {
+        if (!hash) return null
+        const arquivo = await ler_arquivo(diretorio, hash)
+        if (!arquivo) return null
+        return JSON.parse(await arquivo.text())
+      }
+
+      const lista = await carregar_lista(hash_lista_atual)
+
+      if (!lista) {
+        conteudo.innerHTML = "<p>Nenhum perfil encontrado.</p>"
+      } else {
+        const grid = document.createElement("div")
+        grid.style.display = "grid"
+        grid.style.gridTemplateColumns = "repeat(auto-fill, minmax(200px, 1fr))"
+        grid.style.gap = "1em"
+        conteudo.appendChild(grid)
+
+        for (const hash_perfil of lista.perfis) {
+          const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+          if (!arquivo_perfil) continue
+          const dados = JSON.parse(await arquivo_perfil.text())
+
+          const card = document.createElement("div")
+          card.style.backgroundColor = "#333"
+          card.style.borderRadius = "0.5em"
+          card.style.overflow = "hidden"
+          card.style.display = "flex"
+          card.style.flexDirection = "column"
+
+          if (dados.capa) {
+            const img_capa = document.createElement("img")
+            const arquivo_capa = await ler_arquivo(diretorio, dados.capa)
+            if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
+            img_capa.style.width = "100%"
+            img_capa.style.height = "80px"
+            img_capa.style.objectFit = "cover"
+            card.appendChild(img_capa)
+          }
+
+          const info = document.createElement("div")
+          info.style.padding = "1em"
+          info.style.position = "relative"
+
+          if (dados.foto) {
+            const img_foto = document.createElement("img")
+            const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
+            if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
+            img_foto.style.width = "50px"
+            img_foto.style.height = "50px"
+            img_foto.style.borderRadius = "50%"
+            img_foto.style.border = "2px solid #333"
+            img_foto.style.marginTop = dados.capa ? "-35px" : "0"
+            img_foto.style.objectFit = "cover"
+            img_foto.style.backgroundColor = "#222"
+            info.appendChild(img_foto)
+          }
+
+          const nome = document.createElement("h3")
+          nome.textContent = dados.nome
+          nome.style.margin = "0.5em 0 0.2em 0"
+          info.appendChild(nome)
+
+          const bio = document.createElement("p")
+          bio.textContent = dados.bio
+          bio.style.fontSize = "0.9em"
+          bio.style.color = "#ccc"
+          bio.style.margin = "0"
+          info.appendChild(bio)
+
+          card.appendChild(info)
+          grid.appendChild(card)
+        }
+      }
+
+      // Histórico
+      const secao_historico = document.createElement("div")
+      secao_historico.style.marginTop = "2em"
+      secao_historico.style.borderTop = "1px solid #444"
+      secao_historico.style.paddingTop = "1em"
+      const h2 = document.createElement("h2")
+      h2.textContent = "Histórico de Versões"
+      secao_historico.appendChild(h2)
+
+      const lista_historico = document.createElement("ul")
+      let cursor = lista
+      while (cursor && cursor.anterior) {
+        const item = document.createElement("li")
+        const link = document.createElement("a")
+        link.textContent = `Versão: ${cursor.anterior}`
+        link.href = `/perfis?v=${cursor.anterior}`
+        item.appendChild(link)
+        lista_historico.appendChild(item)
+        cursor = await carregar_lista(cursor.anterior)
+      }
+
+      if (lista_historico.children.length > 0) {
+        secao_historico.appendChild(lista_historico)
+        conteudo.appendChild(secao_historico)
+      }
+    }
+  },
+  {
+    nome: "Criar Perfil",
+    url: "/perfis/criar",
+    ocultar_no_menu: true,
     render: (conteudo) => {
-      const p = document.createElement("p")
-      p.textContent = "Aqui você pode gerenciar seus perfis."
-      conteudo.appendChild(p)
+      const form = document.createElement("form")
+      form.style.display = "flex"
+      form.style.flexDirection = "column"
+      form.style.gap = "1em"
+      form.style.maxWidth = "400px"
+
+      const criar_campo = (label, tipo, id, attributes = {}) => {
+        const div = document.createElement("div")
+        div.style.display = "flex"
+        div.style.flexDirection = "column"
+        const l = document.createElement("label")
+        l.textContent = label
+        l.htmlFor = id
+        div.appendChild(l)
+        let input
+        if (tipo === "textarea") {
+          input = document.createElement("textarea")
+        } else {
+          input = document.createElement("input")
+          input.type = tipo
+        }
+        input.id = id
+        Object.assign(input, attributes)
+        div.appendChild(input)
+        return div
+      }
+
+      form.appendChild(criar_campo("Capa", "file", "capa", { accept: "image/*" }))
+      form.appendChild(criar_campo("Foto de Perfil", "file", "foto", { accept: "image/*" }))
+      form.appendChild(criar_campo("Nome", "text", "nome", { required: true }))
+      form.appendChild(criar_campo("Bio", "textarea", "bio"))
+
+      const botao = document.createElement("button")
+      botao.textContent = "Salvar Perfil"
+      botao.type = "submit"
+      form.appendChild(botao)
+
+      form.onsubmit = async (e) => {
+        e.preventDefault()
+        botao.disabled = true
+        botao.textContent = "Salvando..."
+
+        try {
+          const diretorio = await obter_diretorio()
+        const dados = {
+          nome: form.nome.value,
+          bio: form.bio.value
+        }
+
+        const salvar_imagem = async (input) => {
+          if (input.files.length > 0) {
+            const file = input.files[0]
+            const buffer = await file.arrayBuffer()
+            const hash = await gerar_hash(buffer)
+            await escrever_arquivo(diretorio, hash, buffer)
+            return hash
+          }
+          return null
+        }
+
+        const hash_capa = await salvar_imagem(form.capa)
+        if (hash_capa) dados.capa = hash_capa
+
+        const hash_foto = await salvar_imagem(form.foto)
+        if (hash_foto) dados.foto = hash_foto
+
+        const conteudo_perfil = JSON.stringify(dados)
+        const hash_perfil = await gerar_hash(conteudo_perfil)
+        await escrever_arquivo(diretorio, hash_perfil, conteudo_perfil)
+
+        // Atualizar lista de perfis
+        const arquivo_perfis = await ler_arquivo(diretorio, "perfis")
+        const hash_lista_anterior = arquivo_perfis ? await arquivo_perfis.text() : null
+
+        let nova_lista = {
+          perfis: [hash_perfil]
+        }
+
+        if (hash_lista_anterior) {
+          const arquivo_lista_anterior = await ler_arquivo(diretorio, hash_lista_anterior)
+          if (arquivo_lista_anterior) {
+            const lista_anterior = JSON.parse(await arquivo_lista_anterior.text())
+            nova_lista.perfis = [...lista_anterior.perfis, hash_perfil]
+            nova_lista.anterior = hash_lista_anterior
+          }
+        }
+
+        const conteudo_lista = JSON.stringify(nova_lista)
+        const hash_nova_lista = await gerar_hash(conteudo_lista)
+        await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista)
+        await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
+
+        navegar("/perfis")
+        } catch (err) {
+          console.error("Erro ao salvar perfil:", err)
+        }
+      }
+
+      conteudo.appendChild(form)
     }
   },
   {
@@ -62,17 +310,7 @@ const navegar = (url) => {
 }
 
 const esta_autenticado = async () => {
-  const db = await banco_kapivatar
-  return new Promise((resolve) => {
-    const transaction = db.transaction("byName", "readonly")
-    const obter_diretório = transaction.objectStore("byName").get("diretório")
-    obter_diretório.onsuccess = (event) => {
-      resolve(event.target.result !== undefined)
-    }
-    obter_diretório.onerror = () => {
-      resolve(false)
-    }
-  })
+  return await obter_diretorio() !== undefined
 }
 
 const carregar_tela_login = async () => {
@@ -194,12 +432,13 @@ const carregar_layout = () => {
   }
 }
 
-const renderizar_página = (página) => {
+const renderizar_página = (página, params) => {
   const { menu, titulo, acoes, conteudo } = layout_referencias
 
   // Atualiza Menu
   menu.innerHTML = ""
   páginas.forEach(p => {
+    if (p.ocultar_no_menu) return
     const link = document.createElement("a")
     link.textContent = p.nome
     link.href = p.url
@@ -226,7 +465,7 @@ const renderizar_página = (página) => {
   // Atualiza Conteúdo
   conteudo.innerHTML = ""
   if (página.render) {
-    página.render(conteudo)
+    página.render(conteudo, params)
   }
 }
 
@@ -255,10 +494,11 @@ const rotear = async () => {
   }
 
   const path = location.pathname
+  const params = new URLSearchParams(location.search)
   const página = páginas.find(p => p.url === path)
 
   if (página) {
-    renderizar_página(página)
+    renderizar_página(página, params)
   } else {
     renderizar_404()
   }
