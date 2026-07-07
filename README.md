@@ -1,8 +1,10 @@
 # Kapivatar
 
-![Logo](www/kapivatar.svg)
-
-**Sua identidade pertence a você!**
+<h3>
+  <img src="www/kapivatar.svg" width="42" align="center">
+  &nbsp;
+  <span>Sua identidade pertence a você!</span>
+</h3>
 
 O Kapivatar é uma rede social descentralizada que coloca o usuário no controle total de seus dados. Acreditamos que a internet deve ser descentralizada por padrão, e por isso o Kapivatar não armazena suas senhas, fotos ou conversas em servidores centrais. Tudo é processado e armazenado localmente no seu navegador e no seu sistema de arquivos.
 
