@@ -1,0 +1,14 @@
+{
+  "name": "kapivatar",
+  "version": "1.0.0",
+  "description": "Kapivatar tests",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.45.0",
+    "@types/node": "^20.0.0",
+    "serve": "^14.2.3"
+  }
+}
