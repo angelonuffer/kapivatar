@@ -1,0 +1,66 @@
+ INFO  Accepting connections at http://localhost:3000
+ HTTP  7/8/2026 10:24:27 AM ::1 GET /
+ HTTP  7/8/2026 10:24:27 AM ::1 Returned 200 in 34 ms
+ HTTP  7/8/2026 10:24:28 AM ::1 GET /kapivatar.css
+ HTTP  7/8/2026 10:24:28 AM ::1 GET /kapivatar.js
+ HTTP  7/8/2026 10:24:28 AM ::1 Returned 200 in 11 ms
+ HTTP  7/8/2026 10:24:28 AM ::1 Returned 200 in 10 ms
+ HTTP  7/8/2026 10:24:28 AM ::1 GET /banco.js
+ HTTP  7/8/2026 10:24:28 AM ::1 Returned 200 in 3 ms
+ HTTP  7/8/2026 10:24:28 AM ::1 GET /kapivatar.svg
+ HTTP  7/8/2026 10:24:28 AM ::1 GET /capivara.jpeg
+ HTTP  7/8/2026 10:24:28 AM ::1 Returned 200 in 6 ms
+ HTTP  7/8/2026 10:24:28 AM ::1 Returned 200 in 7 ms
+ HTTP  7/8/2026 10:24:28 AM ::1 GET /
+ HTTP  7/8/2026 10:24:28 AM ::1 Returned 200 in 1 ms
+ HTTP  7/8/2026 10:24:28 AM ::1 GET /kapivatar.css
+ HTTP  7/8/2026 10:24:28 AM ::1 Returned 200 in 3 ms
+ HTTP  7/8/2026 10:24:28 AM ::1 GET /kapivatar.js
+ HTTP  7/8/2026 10:24:28 AM ::1 Returned 200 in 2 ms
+ HTTP  7/8/2026 10:24:28 AM ::1 GET /banco.js
+ HTTP  7/8/2026 10:24:28 AM ::1 Returned 200 in 1 ms
+ HTTP  7/8/2026 10:24:28 AM ::1 GET /kapivatar.svg
+ HTTP  7/8/2026 10:24:28 AM ::1 GET /capivara.jpeg
+ HTTP  7/8/2026 10:24:28 AM ::1 Returned 200 in 1 ms
+ HTTP  7/8/2026 10:24:28 AM ::1 Returned 200 in 2 ms
+ HTTP  7/8/2026 10:24:31 AM 127.0.0.1 GET /
+ HTTP  7/8/2026 10:24:31 AM 127.0.0.1 Returned 200 in 1 ms
+ HTTP  7/8/2026 10:24:31 AM 127.0.0.1 GET /
+ HTTP  7/8/2026 10:24:31 AM 127.0.0.1 Returned 200 in 1 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 1 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /kapivatar.css
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 4 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 1 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /kapivatar.js
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 2 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /banco.js
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 2 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /kapivatar.css
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /kapivatar.js
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 2 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 4 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /kapivatar.svg
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /capivara.jpeg
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /banco.js
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 3 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 2 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 4 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /kapivatar.svg
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 4 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /capivara.jpeg
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 8 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 3 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /kapivatar.css
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 1 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /kapivatar.js
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 1 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /banco.js
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 1 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /kapivatar.svg
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 GET /capivara.jpeg
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 2 ms
+ HTTP  7/8/2026 10:24:33 AM 127.0.0.1 Returned 200 in 1 ms
+INFO  Gracefully shutting down. Please wait...

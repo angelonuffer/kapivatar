@@ -61,7 +61,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('Deve criar um perfil e listar no histórico', async ({ page }) => {
-  await page.getByRole('link', { name: 'Perfis', exact: true }).click();
+  await page.click('a[href="/perfis"]');
   await page.getByRole('button', { name: 'Criar perfil' }).click();
 
   await page.getByLabel('Nome').fill('Capivara de Teste');
@@ -71,7 +71,7 @@ test('Deve criar um perfil e listar no histórico', async ({ page }) => {
   await saveButton.click();
 
   // Aguardar o redirecionamento verificando o título da página
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Perfis');
+  await expect(page.locator('.pagina-titulo')).toHaveText('Perfis');
 
   // Verificar se o perfil aparece
   await expect(page.getByRole('heading', { level: 3 })).toHaveText('Capivara de Teste');

@@ -57,6 +57,7 @@ const páginas = [
   {
     nome: "Início",
     url: "/",
+    ícone: "home",
     render: (conteudo) => {
       const p = document.createElement("p")
       p.textContent = "Bem-vindo ao Kapivatar! Escolha uma opção no menu lateral."
@@ -66,10 +67,12 @@ const páginas = [
   {
     nome: "Perfis",
     url: "/perfis",
+    ícone: "groups",
     ações: [
       {
         nome: "Criar perfil",
         url: "/perfis/criar",
+        ícone: "add"
       },
     ],
     render: async (conteudo, params) => {
@@ -89,9 +92,7 @@ const páginas = [
         conteudo.innerHTML = "<p>Nenhum perfil encontrado.</p>"
       } else {
         const grid = document.createElement("div")
-        grid.style.display = "grid"
-        grid.style.gridTemplateColumns = "repeat(auto-fill, minmax(200px, 1fr))"
-        grid.style.gap = "1em"
+        grid.classList.add("perfis-grid")
         conteudo.appendChild(grid)
 
         for (const hash_perfil of lista.perfis) {
@@ -100,50 +101,36 @@ const páginas = [
           const dados = JSON.parse(await arquivo_perfil.text())
 
           const card = document.createElement("div")
-          card.style.backgroundColor = "#333"
-          card.style.borderRadius = "0.5em"
-          card.style.overflow = "hidden"
-          card.style.display = "flex"
-          card.style.flexDirection = "column"
+          card.classList.add("perfil-card")
 
           if (dados.capa) {
             const img_capa = document.createElement("img")
             const arquivo_capa = await ler_arquivo(diretorio, dados.capa)
             if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
-            img_capa.style.width = "100%"
-            img_capa.style.height = "80px"
-            img_capa.style.objectFit = "cover"
+            img_capa.classList.add("perfil-capa")
             card.appendChild(img_capa)
           }
 
           const info = document.createElement("div")
-          info.style.padding = "1em"
-          info.style.position = "relative"
+          info.classList.add("perfil-info")
 
           if (dados.foto) {
             const img_foto = document.createElement("img")
             const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
             if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
-            img_foto.style.width = "50px"
-            img_foto.style.height = "50px"
-            img_foto.style.borderRadius = "50%"
-            img_foto.style.border = "2px solid #333"
-            img_foto.style.marginTop = dados.capa ? "-35px" : "0"
-            img_foto.style.objectFit = "cover"
-            img_foto.style.backgroundColor = "#222"
+            img_foto.classList.add("perfil-foto")
+            if (dados.capa) img_foto.classList.add("com-capa")
             info.appendChild(img_foto)
           }
 
           const nome = document.createElement("h3")
           nome.textContent = dados.nome
-          nome.style.margin = "0.5em 0 0.2em 0"
+          nome.classList.add("perfil-nome")
           info.appendChild(nome)
 
           const bio = document.createElement("p")
           bio.textContent = dados.bio
-          bio.style.fontSize = "0.9em"
-          bio.style.color = "#ccc"
-          bio.style.margin = "0"
+          bio.classList.add("perfil-bio")
           info.appendChild(bio)
 
           card.appendChild(info)
@@ -153,9 +140,7 @@ const páginas = [
 
       // Histórico
       const secao_historico = document.createElement("div")
-      secao_historico.style.marginTop = "2em"
-      secao_historico.style.borderTop = "1px solid #444"
-      secao_historico.style.paddingTop = "1em"
+      secao_historico.classList.add("historico-secao")
       const h2 = document.createElement("h2")
       h2.textContent = "Histórico de Versões"
       secao_historico.appendChild(h2)
@@ -184,15 +169,11 @@ const páginas = [
     ocultar_no_menu: true,
     render: (conteudo) => {
       const form = document.createElement("form")
-      form.style.display = "flex"
-      form.style.flexDirection = "column"
-      form.style.gap = "1em"
-      form.style.maxWidth = "400px"
+      form.classList.add("form-padrao")
 
       const criar_campo = (label, tipo, id, attributes = {}) => {
         const div = document.createElement("div")
-        div.style.display = "flex"
-        div.style.flexDirection = "column"
+        div.classList.add("campo-form")
         const l = document.createElement("label")
         l.textContent = label
         l.htmlFor = id
@@ -216,7 +197,8 @@ const páginas = [
       form.appendChild(criar_campo("Bio", "textarea", "bio"))
 
       const botao = document.createElement("button")
-      botao.textContent = "Salvar Perfil"
+      botao.appendChild(criar_ícone("save"))
+      botao.appendChild(document.createTextNode("Salvar Perfil"))
       botao.type = "submit"
       form.appendChild(botao)
 
@@ -287,6 +269,7 @@ const páginas = [
   {
     nome: "Contatos",
     url: "/contatos",
+    ícone: "person",
     render: (conteudo) => {
       const p = document.createElement("p")
       p.textContent = "Sua lista de contatos aparecerá aqui."
@@ -296,6 +279,7 @@ const páginas = [
   {
     nome: "Conversas",
     url: "/conversas",
+    ícone: "chat",
     render: (conteudo) => {
       const p = document.createElement("p")
       p.textContent = "Suas conversas criptografadas."
@@ -310,140 +294,184 @@ const navegar = (url) => {
 }
 
 const esta_autenticado = async () => {
-  return await obter_diretorio() !== undefined
+  const dir = await obter_diretorio()
+  return dir !== undefined && dir !== null
 }
 
-const carregar_tela_login = async () => {
-  document.body.innerHTML = ""
-  const logo = document.createElement("img")
-  logo.style.width = "6vw"
-  logo.style.position = "absolute"
-  logo.style.top = "4em"
-  logo.style.left = "4em"
-  logo.src = "kapivatar.svg"
-  document.body.appendChild(logo)
-  const coluna_1 = document.createElement("div")
-  coluna_1.classList.add("coluna")
-  coluna_1.style.flex = 3
-  coluna_1.style.alignItems = "center"
-  coluna_1.style.justifyContent = "center"
-  const h1 = document.createElement("h1")
-  h1.textContent = "Sua identidade pertence a você!"
-  coluna_1.appendChild(h1)
-  const img = document.createElement("img")
-  img.src = "capivara.jpeg"
-  img.style.width = "50%"
-  coluna_1.appendChild(img)
-  const p_1 = document.createElement("p")
-  p_1.style.width = "60%"
-  p_1.style.textAlign = "center"
-  p_1.textContent = "Não guardamos suas senhas, suas fotos ou suas conversas, porque acreditamos que a internet deve ser descentralizada por padrão. Use o poder do seu próprio navegador para autenticar, navegar e construir uma rede social que é verdadeiramente sua."
-  coluna_1.appendChild(p_1)
-  document.body.appendChild(coluna_1)
-  const coluna_2 = document.createElement("div")
-  coluna_2.classList.add("coluna")
-  coluna_2.style.flex = 1
-  coluna_2.style.backgroundColor = "#222"
-  coluna_2.style.margin = "1em"
-  coluna_2.style.borderRadius = "1em"
-  coluna_2.style.padding = "4em"
-  const p_2 = document.createElement("p")
-  p_2.textContent = "Entrar no Kapivatar"
-  coluna_2.appendChild(p_2)
-  const botão = document.createElement("button")
-  botão.textContent = "Escolher pasta de dados" 
-  botão.onclick = async () => {
-    const diretório = await showDirectoryPicker();
-    const definir_diretório = (await banco_kapivatar).transaction("byName", "readwrite").objectStore("byName").put(diretório, "diretório")
-    definir_diretório.onsuccess = () => {
-      navegar("/")
-    }
-    definir_diretório.onerror = (event) => {
-      console.error("Erro ao salvar diretório:", event.target.error)
-    }
-  }
-  coluna_2.appendChild(botão)
-  document.body.appendChild(coluna_2)
+const criar_ícone = (nome) => {
+  const i = document.createElement("span")
+  i.classList.add("material-symbols-outlined")
+  i.textContent = nome
+  return i
 }
 
 let layout_referencias = null
 
-const carregar_layout = () => {
+const carregar_layout_base = () => {
   document.body.innerHTML = ""
-  const coluna_1 = document.createElement("div")
-  coluna_1.classList.add("coluna")
-  coluna_1.style.flex = 1
-  coluna_1.style.padding = 0
-  coluna_1.style.justifyContent = "space-between"
-  const coluna_1_1 = document.createElement("div")
-  coluna_1_1.classList.add("coluna")
-  coluna_1_1.style.gap = "1px"
-  coluna_1.appendChild(coluna_1_1)
-  const coluna_1_2 = document.createElement("div")
-  coluna_1_2.classList.add("coluna")
-  coluna_1_2.style.gap = "0"
+  const container = document.createElement("div")
+  container.classList.add("app-container")
+
+  const header = document.createElement("header")
+  header.classList.add("header")
+
+  const header_esquerda = document.createElement("div")
+  header_esquerda.classList.add("header-esquerda")
+
+  const menu_toggle = document.createElement("button")
+  menu_toggle.classList.add("menu-toggle")
+  menu_toggle.appendChild(criar_ícone("menu"))
+  menu_toggle.onclick = () => {
+    document.querySelector(".sidebar").classList.toggle("aberto")
+  }
+  header_esquerda.appendChild(menu_toggle)
+
+  const logo = document.createElement("img")
+  logo.src = "kapivatar.svg"
+  logo.classList.add("logo")
+  header_esquerda.appendChild(logo)
+
+  const titulo_app = document.createElement("div")
+  titulo_app.textContent = "Kapivatar"
+  titulo_app.classList.add("app-titulo")
+  header_esquerda.appendChild(titulo_app)
+
+  const titulo_pagina = document.createElement("h1")
+  titulo_pagina.classList.add("pagina-titulo")
+  header_esquerda.appendChild(titulo_pagina)
+
+  header.appendChild(header_esquerda)
+
+  const header_direita = document.createElement("div")
+  header_direita.classList.add("header-direita")
+  const header_acoes = document.createElement("div")
+  header_acoes.classList.add("header-acoes")
+  header_direita.appendChild(header_acoes)
+  header.appendChild(header_direita)
+
+  container.appendChild(header)
+
+  const corpo = document.createElement("div")
+  corpo.classList.add("app-corpo")
+
+  const sidebar = document.createElement("aside")
+  sidebar.classList.add("sidebar")
+
+  const sidebar_header = document.createElement("div")
+  sidebar_header.classList.add("sidebar-header")
+  const fechar_menu = document.createElement("button")
+  fechar_menu.classList.add("menu-toggle-interno")
+  fechar_menu.appendChild(criar_ícone("close"))
+  fechar_menu.onclick = () => {
+    sidebar.classList.remove("aberto")
+  }
+  sidebar_header.appendChild(fechar_menu)
+  sidebar.appendChild(sidebar_header)
+
+  const menu = document.createElement("nav")
+  menu.classList.add("sidebar-menu")
+  sidebar.appendChild(menu)
+
+  const sidebar_footer = document.createElement("div")
+  sidebar_footer.classList.add("sidebar-footer")
   const link_sair = document.createElement("a")
-  link_sair.textContent = "Sair"
   link_sair.href = "#"
+  link_sair.appendChild(criar_ícone("logout"))
+  link_sair.appendChild(document.createTextNode("Sair"))
   link_sair.onclick = async (e) => {
     e.preventDefault()
-    const remover_diretório = (await banco_kapivatar).transaction("byName", "readwrite").objectStore("byName").delete("diretório")
+    const db = await banco_kapivatar
+    const transaction = db.transaction("byName", "readwrite")
+    const remover_diretório = transaction.objectStore("byName").delete("diretório")
     remover_diretório.onsuccess = () => {
       layout_referencias = null
       navegar("/")
     }
-    remover_diretório.onerror = (event) => {
-      console.error("Erro ao remover diretório:", event.target.error)
-    }
   }
-  coluna_1_2.appendChild(link_sair)
-  coluna_1.appendChild(coluna_1_2)
-  document.body.appendChild(coluna_1)
-  const coluna_2 = document.createElement("div")
-  coluna_2.classList.add("coluna")
-  coluna_2.style.margin = "1em 1em 1em 0"
-  coluna_2.style.padding = "0"
-  coluna_2.style.flex = 3
-  const coluna_2_linha_1 = document.createElement("div")
-  coluna_2_linha_1.classList.add("linha")
-  coluna_2_linha_1.style.justifyContent = "space-between"
-  const h1 = document.createElement("h1")
-  h1.style.margin = "0"
-  coluna_2_linha_1.appendChild(h1)
-  const ações = document.createElement("div")
-  ações.style.padding = "0"
-  ações.classList.add("linha")
-  coluna_2_linha_1.appendChild(ações)
-  coluna_2.appendChild(coluna_2_linha_1)
-  const coluna_2_linha_2 = document.createElement("div")
-  coluna_2_linha_2.classList.add("linha")
-  coluna_2_linha_2.style.backgroundColor = "#222"
-  coluna_2_linha_2.style.borderRadius = "1em"
-  coluna_2_linha_2.style.flexGrow = "1"
-  coluna_2_linha_2.style.padding = "2em"
-  coluna_2.appendChild(coluna_2_linha_2)
-  document.body.appendChild(coluna_2)
+  sidebar_footer.appendChild(link_sair)
+  sidebar.appendChild(sidebar_footer)
+
+  corpo.appendChild(sidebar)
+
+  const main = document.createElement("main")
+  main.classList.add("main-content")
+  corpo.appendChild(main)
+
+  container.appendChild(corpo)
+  document.body.appendChild(container)
 
   layout_referencias = {
-    menu: coluna_1_1,
-    titulo: h1,
-    acoes: ações,
-    conteudo: coluna_2_linha_2
+    menu: menu,
+    titulo: titulo_pagina,
+    acoes: header_acoes,
+    conteudo: main,
+    sidebar: sidebar
   }
 }
 
+const carregar_tela_login = async () => {
+  document.body.classList.remove("app-logado")
+  carregar_layout_base()
+  const { menu, titulo, acoes, conteudo, sidebar } = layout_referencias
+
+  sidebar.classList.remove("aberto")
+  titulo.textContent = "Entrar"
+
+  conteudo.innerHTML = ""
+  conteudo.classList.remove("main-content")
+  conteudo.classList.add("login-container")
+
+  const info = document.createElement("div")
+  info.classList.add("login-info")
+  const h2 = document.createElement("h2")
+  h2.textContent = "Sua identidade pertence a você!"
+  info.appendChild(h2)
+  const img = document.createElement("img")
+  img.src = "capivara.jpeg"
+  info.appendChild(img)
+  const p = document.createElement("p")
+  p.textContent = "Não guardamos suas senhas, suas fotos ou suas conversas, porque acreditamos que a internet deve ser descentralizada por padrão. Use o poder do seu próprio navegador para autenticar, navegar e construir uma rede social que é verdadeiramente sua."
+  info.appendChild(p)
+  conteudo.appendChild(info)
+
+  const card = document.createElement("div")
+  card.classList.add("login-card")
+  const p2 = document.createElement("p")
+  p2.textContent = "Entrar no Kapivatar"
+  card.appendChild(p2)
+  const botao = document.createElement("button")
+  botao.appendChild(criar_ícone("folder_open"))
+  botao.appendChild(document.createTextNode("Escolher pasta de dados"))
+  botao.onclick = async () => {
+    const diretório = await showDirectoryPicker();
+    const db = await banco_kapivatar
+    const transaction = db.transaction("byName", "readwrite")
+    const definir_diretório = transaction.objectStore("byName").put(diretório, "diretório")
+    definir_diretório.onsuccess = () => {
+      navegar("/")
+    }
+  }
+  card.appendChild(botao)
+  conteudo.appendChild(card)
+}
+
 const renderizar_página = (página, params) => {
-  const { menu, titulo, acoes, conteudo } = layout_referencias
+  document.body.classList.add("app-logado")
+  const { menu, titulo, acoes, conteudo, sidebar } = layout_referencias
+
+  // Fecha sidebar mobile
+  sidebar.classList.remove("aberto")
 
   // Atualiza Menu
   menu.innerHTML = ""
   páginas.forEach(p => {
     if (p.ocultar_no_menu) return
     const link = document.createElement("a")
-    link.textContent = p.nome
+    if (p.ícone) link.appendChild(criar_ícone(p.ícone))
+    link.appendChild(document.createTextNode(p.nome))
     link.href = p.url
     if (location.pathname === p.url) {
-      link.style.backgroundColor = "#444"
+      link.classList.add("ativo")
     }
     menu.appendChild(link)
   })
@@ -455,7 +483,8 @@ const renderizar_página = (página, params) => {
   acoes.innerHTML = ""
   página.ações?.forEach(ação => {
     const botão_ação = document.createElement("button")
-    botão_ação.textContent = ação.nome
+    if (ação.ícone) botão_ação.appendChild(criar_ícone(ação.ícone))
+    botão_ação.appendChild(document.createTextNode(ação.nome))
     botão_ação.onclick = () => {
       navegar(ação.url)
     }
@@ -463,6 +492,8 @@ const renderizar_página = (página, params) => {
   })
 
   // Atualiza Conteúdo
+  conteudo.classList.add("main-content")
+  conteudo.classList.remove("login-container")
   conteudo.innerHTML = ""
   if (página.render) {
     página.render(conteudo, params)
@@ -470,13 +501,14 @@ const renderizar_página = (página, params) => {
 }
 
 const renderizar_404 = () => {
-  const { menu, titulo, acoes, conteudo } = layout_referencias
-
-  // Atualiza Menu (limpa seleção)
-  menu.querySelectorAll("a").forEach(a => a.style.backgroundColor = "")
-
-  titulo.textContent = "404 - Não Encontrado"
+  document.body.classList.add("app-logado")
+  const { menu, titulo, acoes, conteudo, sidebar } = layout_referencias
+  sidebar.classList.remove("aberto")
+  menu.querySelectorAll("a").forEach(a => a.classList.remove("ativo"))
+  titulo.textContent = "404"
   acoes.innerHTML = ""
+  conteudo.classList.add("main-content")
+  conteudo.classList.remove("login-container")
   conteudo.innerHTML = "<p>A página que você procura não existe.</p>"
 }
 
@@ -489,8 +521,8 @@ const rotear = async () => {
     return
   }
 
-  if (!layout_referencias) {
-    carregar_layout()
+  if (!layout_referencias || !document.querySelector(".sidebar")) {
+    carregar_layout_base()
   }
 
   const path = location.pathname
