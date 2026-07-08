@@ -295,8 +295,17 @@ const páginas = [
 ]
 
 const navegar = (url) => {
+  fechar_sidebar()
   history.pushState({}, "", url)
   rotear()
+}
+
+const abrir_sidebar = () => {
+  document.body.classList.add("sidebar-aberta")
+}
+
+const fechar_sidebar = () => {
+  document.body.classList.remove("sidebar-aberta")
 }
 
 const esta_autenticado = async () => {
@@ -354,11 +363,54 @@ let layout_referencias = null
 
 const carregar_layout = () => {
   document.body.innerHTML = ""
+  document.body.classList.add("app-logado")
+
+  const overlay = document.createElement("div")
+  overlay.classList.add("overlay")
+  overlay.onclick = fechar_sidebar
+  document.body.appendChild(overlay)
+
   const coluna_1 = document.createElement("div")
   coluna_1.classList.add("coluna", "sidebar")
+
+  const sidebar_header = document.createElement("div")
+  sidebar_header.classList.add("sidebar-header")
+
+  const link_home = document.createElement("a")
+  link_home.href = "/"
+  link_home.classList.add("sidebar-brand")
+  link_home.onclick = (e) => {
+    e.preventDefault()
+    navegar("/")
+  }
+
+  const logo = document.createElement("img")
+  logo.src = "kapivatar.svg"
+  logo.classList.add("sidebar-logo")
+  link_home.appendChild(logo)
+
+  const titulo_brand = document.createElement("span")
+  titulo_brand.textContent = "Kapivatar"
+  titulo_brand.classList.add("sidebar-titulo")
+  link_home.appendChild(titulo_brand)
+
+  sidebar_header.appendChild(link_home)
+
+  const botao_fechar = document.createElement("button")
+  botao_fechar.classList.add("botao-fechar-sidebar")
+  const icone_fechar = document.createElement("span")
+  icone_fechar.classList.add("material-symbols-outlined")
+  icone_fechar.textContent = "close"
+  botao_fechar.appendChild(icone_fechar)
+  botao_fechar.onclick = fechar_sidebar
+  sidebar_header.appendChild(botao_fechar)
+
+  coluna_1.appendChild(sidebar_header)
+
   const coluna_1_1 = document.createElement("div")
   coluna_1_1.classList.add("coluna", "menu")
   coluna_1.appendChild(coluna_1_1)
+
   const coluna_1_2 = document.createElement("div")
   coluna_1_2.classList.add("coluna", "sidebar-rodape")
   const link_sair = document.createElement("a")
@@ -375,6 +427,7 @@ const carregar_layout = () => {
     const remover_diretório = (await banco_kapivatar).transaction("byName", "readwrite").objectStore("byName").delete("diretório")
     remover_diretório.onsuccess = () => {
       layout_referencias = null
+      document.body.classList.remove("app-logado")
       navegar("/")
     }
     remover_diretório.onerror = (event) => {
@@ -384,17 +437,31 @@ const carregar_layout = () => {
   coluna_1_2.appendChild(link_sair)
   coluna_1.appendChild(coluna_1_2)
   document.body.appendChild(coluna_1)
+
   const coluna_2 = document.createElement("div")
   coluna_2.classList.add("coluna", "conteudo-principal")
+
   const coluna_2_linha_1 = document.createElement("div")
   coluna_2_linha_1.classList.add("linha", "cabecalho")
+
+  const botao_menu = document.createElement("button")
+  botao_menu.classList.add("botao-menu")
+  const icone_menu = document.createElement("span")
+  icone_menu.classList.add("material-symbols-outlined")
+  icone_menu.textContent = "menu"
+  botao_menu.appendChild(icone_menu)
+  botao_menu.onclick = abrir_sidebar
+  coluna_2_linha_1.appendChild(botao_menu)
+
   const h1 = document.createElement("h1")
   h1.classList.add("titulo-pagina")
   coluna_2_linha_1.appendChild(h1)
+
   const ações = document.createElement("div")
   ações.classList.add("linha", "acoes")
   coluna_2_linha_1.appendChild(ações)
   coluna_2.appendChild(coluna_2_linha_1)
+
   const coluna_2_linha_2 = document.createElement("div")
   coluna_2_linha_2.classList.add("linha", "conteudo-pagina")
   coluna_2.appendChild(coluna_2_linha_2)
@@ -414,7 +481,7 @@ const renderizar_página = (página, params) => {
   // Atualiza Menu
   menu.innerHTML = ""
   páginas.forEach(p => {
-    if (p.ocultar_no_menu) return
+    if (p.ocultar_no_menu || p.url === "/") return
     const link = document.createElement("a")
     if (p.ícone) {
       const span_ícone = document.createElement("span")

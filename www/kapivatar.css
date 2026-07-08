@@ -100,6 +100,44 @@ a:hover, a.ativo {
   flex: 1;
   padding: 0;
   justify-content: space-between;
+  background-color: #111;
+  z-index: 100;
+  transition: transform 0.3s ease;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1em;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0;
+}
+
+.sidebar-brand:hover {
+  background-color: transparent;
+}
+
+.sidebar-logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 0.5em;
+}
+
+.sidebar-titulo {
+  font-size: 1.5em;
+  font-weight: bold;
+}
+
+.botao-fechar-sidebar {
+  display: none;
+  background: none;
+  padding: 0.5em;
 }
 
 .menu {
@@ -118,6 +156,13 @@ a:hover, a.ativo {
 
 .cabecalho {
   justify-content: space-between;
+  align-items: center;
+}
+
+.botao-menu {
+  display: none;
+  background: none;
+  padding: 0.5em;
 }
 
 .titulo-pagina {
@@ -151,6 +196,76 @@ a:hover, a.ativo {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 90;
+}
+
+@media (max-width: 767px) {
+  body {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    transform: translateX(-100%);
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+  }
+
+  .sidebar-aberta .sidebar {
+    transform: translateX(0);
+  }
+
+  .sidebar-aberta .overlay {
+    display: block;
+  }
+
+  .botao-fechar-sidebar {
+    display: flex;
+  }
+
+  .conteudo-principal {
+    margin: 0;
+  }
+
+  .botao-menu {
+    display: flex;
+  }
+
+  .login-logo {
+    width: 20vw;
+    top: 2em;
+    left: 2em;
+  }
+
+  .login-info {
+    flex: none;
+  }
+
+  .login-imagem {
+    width: 80%;
+  }
+
+  .login-descricao {
+    width: 90%;
+  }
+
+  .login-acao {
+    padding: 2em;
+    margin: 1em;
+  }
 }
 
 .material-symbols-outlined {
