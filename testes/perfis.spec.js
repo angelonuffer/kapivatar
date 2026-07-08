@@ -15,21 +15,17 @@ test('Deve criar um perfil e listar no histórico', async ({ page }) => {
   const saveButton = page.getByRole('button', { name: 'Salvar Perfil' });
   await saveButton.click();
 
-  // Aguardar o redirecionamento verificando o título da página
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Perfis/);
-
-  // Verificar se o perfil aparece
-  await expect(page.getByRole('heading', { level: 3 })).toHaveText('Capivara de Teste');
-  await expect(page.getByText('Uma bio de teste')).toBeVisible();
+  // Aguardar o redirecionamento e verificar o perfil criado
+  await expect(page.locator('.perfil-card').first()).toHaveScreenshot('perfil-criado.png');
 
   // Criar segundo perfil para testar histórico
   await page.getByRole('button', { name: /Criar perfil/ }).click();
   await page.getByLabel('Nome').fill('Segunda Capivara');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
 
-  await expect(page.getByText('Segunda Capivara')).toBeVisible();
+  // Verificar se o segundo perfil aparece
+  await expect(page.locator('.perfis-grid')).toHaveScreenshot('perfis-grid-duas-capivaras.png');
 
   // Verificar se o histórico apareceu
-  await expect(page.getByRole('heading', { level: 2, name: 'Histórico de Versões' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /^Versão:/ })).toHaveCount(1);
+  await expect(page.locator('.historico')).toHaveScreenshot('historico-perfil.png');
 });
