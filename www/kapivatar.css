@@ -28,6 +28,11 @@ button:hover {
   background-color: #444;
 }
 
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 a {
   color: #eee;
   cursor: pointer;
@@ -36,7 +41,7 @@ a {
   padding: 0.5em 1em;
 }
 
-a:hover {
+a:hover, a.ativo {
   background-color: #444;
 }
 
@@ -51,4 +56,139 @@ a:hover {
   flex-direction: column;
   padding: 1em;
   gap: 1em;
+}
+
+/* Tela de Login */
+.login-logo {
+  width: 6vw;
+  position: absolute;
+  top: 4em;
+  left: 4em;
+}
+
+.login-info {
+  flex: 3;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-imagem {
+  width: 50%;
+}
+
+.login-descricao {
+  width: 60%;
+  text-align: center;
+}
+
+.login-acao {
+  flex: 1;
+  background-color: #222;
+  margin: 1em;
+  border-radius: 1em;
+  padding: 4em;
+}
+
+/* Layout Principal */
+.sidebar {
+  flex: 1;
+  padding: 0;
+  justify-content: space-between;
+}
+
+.menu {
+  gap: 1px;
+}
+
+.sidebar-rodape {
+  gap: 0;
+}
+
+.conteudo-principal {
+  margin: 1em 1em 1em 0;
+  padding: 0;
+  flex: 3;
+}
+
+.cabecalho {
+  justify-content: space-between;
+}
+
+.titulo-pagina {
+  margin: 0;
+}
+
+.acoes {
+  padding: 0;
+}
+
+.conteudo-pagina {
+  background-color: #222;
+  border-radius: 1em;
+  flex-grow: 1;
+  padding: 2em;
+}
+
+/* Perfis */
+.perfis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1em;
+}
+
+.perfil-card {
+  background-color: #333;
+  border-radius: 0.5em;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.perfil-capa {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+}
+
+.perfil-info {
+  padding: 1em;
+  position: relative;
+}
+
+.perfil-foto {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 2px solid #333;
+  object-fit: cover;
+  background-color: #222;
+}
+
+.perfil-nome {
+  margin: 0.5em 0 0.2em 0;
+}
+
+.perfil-bio {
+  font-size: 0.9em;
+  color: #ccc;
+  margin: 0;
+}
+
+.historico {
+  margin-top: 2em;
+  border-top: 1px solid #444;
+  padding-top: 1em;
+}
+
+/* Formulários */
+.form-perfil {
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  max-width: 400px;
+}
+
+.form-campo {
+  display: flex;
+  flex-direction: column;
 }
