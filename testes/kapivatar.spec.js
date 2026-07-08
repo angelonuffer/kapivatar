@@ -1,15 +1,6 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './mocks/fs-mock.js';
 
 test.beforeEach(async ({ page }) => {
-  // Mock showDirectoryPicker
-  await page.addInitScript(() => {
-    window.showDirectoryPicker = async () => {
-      return {
-        kind: 'directory',
-        name: 'mock-data',
-      };
-    };
-  });
   await page.goto('/');
 });
 
