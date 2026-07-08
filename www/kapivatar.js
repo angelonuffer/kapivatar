@@ -57,6 +57,7 @@ const páginas = [
   {
     nome: "Início",
     url: "/",
+    ícone: "home",
     render: (conteudo) => {
       const p = document.createElement("p")
       p.textContent = "Bem-vindo ao Kapivatar! Escolha uma opção no menu lateral."
@@ -66,10 +67,12 @@ const páginas = [
   {
     nome: "Perfis",
     url: "/perfis",
+    ícone: "account_circle",
     ações: [
       {
         nome: "Criar perfil",
         url: "/perfis/criar",
+        ícone: "person_add",
       },
     ],
     render: async (conteudo, params) => {
@@ -163,6 +166,7 @@ const páginas = [
   {
     nome: "Criar Perfil",
     url: "/perfis/criar",
+    ícone: "person_add",
     ocultar_no_menu: true,
     render: (conteudo) => {
       const form = document.createElement("form")
@@ -194,14 +198,20 @@ const páginas = [
       form.appendChild(criar_campo("Bio", "textarea", "bio"))
 
       const botao = document.createElement("button")
-      botao.textContent = "Salvar Perfil"
+      const span_ícone = document.createElement("span")
+      span_ícone.classList.add("material-symbols-outlined")
+      span_ícone.textContent = "save"
+      botao.appendChild(span_ícone)
+      const span_texto = document.createElement("span")
+      span_texto.textContent = "Salvar Perfil"
+      botao.appendChild(span_texto)
       botao.type = "submit"
       form.appendChild(botao)
 
-      form.onsubmit = async (e) => {
+        form.onsubmit = async (e) => {
         e.preventDefault()
         botao.disabled = true
-        botao.textContent = "Salvando..."
+        span_texto.textContent = "Salvando..."
 
         try {
           const diretorio = await obter_diretorio()
@@ -265,6 +275,7 @@ const páginas = [
   {
     nome: "Contatos",
     url: "/contatos",
+    ícone: "contacts",
     render: (conteudo) => {
       const p = document.createElement("p")
       p.textContent = "Sua lista de contatos aparecerá aqui."
@@ -274,6 +285,7 @@ const páginas = [
   {
     nome: "Conversas",
     url: "/conversas",
+    ícone: "chat",
     render: (conteudo) => {
       const p = document.createElement("p")
       p.textContent = "Suas conversas criptografadas."
@@ -317,7 +329,13 @@ const carregar_tela_login = async () => {
   p_2.textContent = "Entrar no Kapivatar"
   coluna_2.appendChild(p_2)
   const botão = document.createElement("button")
-  botão.textContent = "Escolher pasta de dados" 
+  const icone_pasta = document.createElement("span")
+  icone_pasta.classList.add("material-symbols-outlined")
+  icone_pasta.textContent = "folder_open"
+  botão.appendChild(icone_pasta)
+  const texto_botão = document.createElement("span")
+  texto_botão.textContent = "Escolher pasta de dados"
+  botão.appendChild(texto_botão)
   botão.onclick = async () => {
     const diretório = await showDirectoryPicker();
     const definir_diretório = (await banco_kapivatar).transaction("byName", "readwrite").objectStore("byName").put(diretório, "diretório")
@@ -344,7 +362,13 @@ const carregar_layout = () => {
   const coluna_1_2 = document.createElement("div")
   coluna_1_2.classList.add("coluna", "sidebar-rodape")
   const link_sair = document.createElement("a")
-  link_sair.textContent = "Sair"
+  const icone_sair = document.createElement("span")
+  icone_sair.classList.add("material-symbols-outlined")
+  icone_sair.textContent = "logout"
+  link_sair.appendChild(icone_sair)
+  const texto_sair = document.createElement("span")
+  texto_sair.textContent = "Sair"
+  link_sair.appendChild(texto_sair)
   link_sair.href = "#"
   link_sair.onclick = async (e) => {
     e.preventDefault()
@@ -392,7 +416,15 @@ const renderizar_página = (página, params) => {
   páginas.forEach(p => {
     if (p.ocultar_no_menu) return
     const link = document.createElement("a")
-    link.textContent = p.nome
+    if (p.ícone) {
+      const span_ícone = document.createElement("span")
+      span_ícone.classList.add("material-symbols-outlined")
+      span_ícone.textContent = p.ícone
+      link.appendChild(span_ícone)
+    }
+    const span_texto = document.createElement("span")
+    span_texto.textContent = p.nome
+    link.appendChild(span_texto)
     link.href = p.url
     if (location.pathname === p.url) {
       link.classList.add("ativo")
@@ -401,13 +433,30 @@ const renderizar_página = (página, params) => {
   })
 
   // Atualiza Título
-  titulo.textContent = página.nome
+  titulo.innerHTML = ""
+  if (página.ícone) {
+    const span_ícone = document.createElement("span")
+    span_ícone.classList.add("material-symbols-outlined")
+    span_ícone.textContent = página.ícone
+    titulo.appendChild(span_ícone)
+  }
+  const span_titulo_texto = document.createElement("span")
+  span_titulo_texto.textContent = página.nome
+  titulo.appendChild(span_titulo_texto)
 
   // Atualiza Ações
   acoes.innerHTML = ""
   página.ações?.forEach(ação => {
     const botão_ação = document.createElement("button")
-    botão_ação.textContent = ação.nome
+    if (ação.ícone) {
+      const span_ícone = document.createElement("span")
+      span_ícone.classList.add("material-symbols-outlined")
+      span_ícone.textContent = ação.ícone
+      botão_ação.appendChild(span_ícone)
+    }
+    const span_texto = document.createElement("span")
+    span_texto.textContent = ação.nome
+    botão_ação.appendChild(span_texto)
     botão_ação.onclick = () => {
       navegar(ação.url)
     }
@@ -427,7 +476,15 @@ const renderizar_404 = () => {
   // Atualiza Menu (limpa seleção)
   menu.querySelectorAll("a").forEach(a => a.classList.remove("ativo"))
 
-  titulo.textContent = "404 - Não Encontrado"
+  titulo.innerHTML = ""
+  const span_ícone = document.createElement("span")
+  span_ícone.classList.add("material-symbols-outlined")
+  span_ícone.textContent = "error"
+  titulo.appendChild(span_ícone)
+  const span_texto = document.createElement("span")
+  span_texto.textContent = "404 - Não Encontrado"
+  titulo.appendChild(span_texto)
+
   acoes.innerHTML = ""
   conteudo.innerHTML = "<p>A página que você procura não existe.</p>"
 }
