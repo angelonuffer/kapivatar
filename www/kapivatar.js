@@ -74,6 +74,11 @@ const páginas = [
         url: "/perfis/criar",
         ícone: "person_add",
       },
+      {
+        nome: "Histórico",
+        url: "/perfis/histórico",
+        ícone: "history",
+      },
     ],
     render: async (conteudo, params) => {
       const diretorio = await obter_diretorio()
@@ -140,29 +145,6 @@ const páginas = [
         }
       }
 
-      // Histórico
-      const secao_historico = document.createElement("div")
-      secao_historico.classList.add("historico")
-      const h2 = document.createElement("h2")
-      h2.textContent = "Histórico de Versões"
-      secao_historico.appendChild(h2)
-
-      const lista_historico = document.createElement("ul")
-      let cursor = lista
-      while (cursor && cursor.anterior) {
-        const item = document.createElement("li")
-        const link = document.createElement("a")
-        link.textContent = `Versão: ${cursor.anterior}`
-        link.href = `/perfis?v=${cursor.anterior}`
-        item.appendChild(link)
-        lista_historico.appendChild(item)
-        cursor = await carregar_lista(cursor.anterior)
-      }
-
-      if (lista_historico.children.length > 0) {
-        secao_historico.appendChild(lista_historico)
-        conteudo.appendChild(secao_historico)
-      }
     }
   },
   {
@@ -310,7 +292,8 @@ const páginas = [
         const hash_lista_anterior = arquivo_perfis ? await arquivo_perfis.text() : null
 
         let nova_lista = {
-          perfis: [hash_perfil]
+          perfis: [hash_perfil],
+          data: new Date().toISOString()
         }
 
         if (hash_lista_anterior) {
@@ -334,6 +317,52 @@ const páginas = [
       }
 
       conteudo.appendChild(form)
+    }
+  },
+  {
+    nome: "Histórico de Perfis",
+    url: "/perfis/histórico",
+    ícone: "history",
+    ocultar_no_menu: true,
+    render: async (conteudo) => {
+      const diretorio = await obter_diretorio()
+      const hash_lista_atual = await (await ler_arquivo(diretorio, "perfis"))?.text()
+
+      const carregar_lista = async (hash) => {
+        if (!hash) return null
+        const arquivo = await ler_arquivo(diretorio, hash)
+        if (!arquivo) return null
+        return JSON.parse(await arquivo.text())
+      }
+
+      const secao_historico = document.createElement("div")
+      secao_historico.classList.add("historico")
+      secao_historico.style.marginTop = "0"
+      secao_historico.style.borderTop = "none"
+
+      const lista_historico = document.createElement("ul")
+      let hash_cursor = hash_lista_atual
+      while (hash_cursor) {
+        const dados_lista = await carregar_lista(hash_cursor)
+        if (!dados_lista) break
+
+        const item = document.createElement("li")
+        const link = document.createElement("a")
+        const data = dados_lista.data ? new Date(dados_lista.data).toLocaleString() : `Versão: ${hash_cursor}`
+        link.textContent = data
+        link.href = `/perfis?v=${hash_cursor}`
+        item.appendChild(link)
+        lista_historico.appendChild(item)
+
+        hash_cursor = dados_lista.anterior
+      }
+
+      if (lista_historico.children.length > 0) {
+        secao_historico.appendChild(lista_historico)
+        conteudo.appendChild(secao_historico)
+      } else {
+        conteudo.innerHTML = "<p>Nenhum histórico encontrado.</p>"
+      }
     }
   },
   {
@@ -638,7 +667,7 @@ const rotear = async () => {
     carregar_layout()
   }
 
-  const path = location.pathname
+  const path = decodeURIComponent(location.pathname)
   const params = new URLSearchParams(location.search)
   const página = páginas.find(p => p.url === path)
 
