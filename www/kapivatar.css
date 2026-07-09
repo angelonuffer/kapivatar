@@ -207,16 +207,26 @@ a.ativo {
 /* Perfis */
 .perfis-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1em;
+  grid-template-columns: repeat(auto-fill, 250px);
+  gap: 1.5em;
+  width: 100%;
 }
 
 .perfil-card {
   background-color: #333;
-  border-radius: 0.5em;
+  border-radius: 1em;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  width: 250px;
+  height: 320px;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.perfil-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .overlay {
@@ -306,6 +316,9 @@ a.ativo {
 .perfil-info {
   padding: 1em;
   position: relative;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .perfil-foto {
@@ -320,12 +333,88 @@ a.ativo {
 .perfil-nome {
   margin: 0.5em 0 0.2em 0;
   color: var(--cor-primaria);
+  font-size: 1.2em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .perfil-bio {
   font-size: 0.9em;
   color: #ccc;
   margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Menu do Perfil */
+.perfil-menu-container {
+  position: absolute;
+  top: 0.5em;
+  right: 0.5em;
+  z-index: 5;
+}
+
+.perfil-menu-botao {
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  justify-content: center;
+  color: #eee;
+  backdrop-filter: blur(4px);
+}
+
+.perfil-menu-botao:hover {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.perfil-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background-color: #444;
+  border-radius: 0.5em;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  display: none;
+  z-index: 10;
+  min-width: 160px;
+  overflow: hidden;
+}
+
+.perfil-menu-dropdown.aberto {
+  display: block;
+}
+
+.perfil-menu-item {
+  padding: 0.8em 1em;
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  cursor: pointer;
+  color: #eee;
+  font-size: 0.9em;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.perfil-menu-item:hover {
+  background-color: #555;
+}
+
+.perfil-menu-item.remover {
+  color: #ff6b6b;
+}
+
+.perfil-menu-item.remover:hover {
+  background-color: rgba(255, 107, 107, 0.15);
 }
 
 .historico {

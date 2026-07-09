@@ -53,6 +53,30 @@ const escrever_arquivo = async (diretorio, nome, conteudo) => {
   await writable.close()
 }
 
+const remover_perfil = async (hash_remover) => {
+  const diretorio = await obter_diretorio()
+  const arquivo_perfis = await ler_arquivo(diretorio, "perfis")
+  if (!arquivo_perfis) return
+
+  const hash_lista_atual = await arquivo_perfis.text()
+  const arquivo_lista_atual = await ler_arquivo(diretorio, hash_lista_atual)
+  if (!arquivo_lista_atual) return
+
+  const lista_atual = JSON.parse(await arquivo_lista_atual.text())
+  const nova_lista = {
+    perfis: lista_atual.perfis.filter(hash => hash !== hash_remover),
+    data: new Date().toISOString(),
+    anterior: hash_lista_atual
+  }
+
+  const conteudo_lista = JSON.stringify(nova_lista)
+  const hash_nova_lista = await gerar_hash(conteudo_lista)
+  await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista)
+  await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
+
+  rotear()
+}
+
 const páginas = [
   {
     nome: "Início",
@@ -93,7 +117,7 @@ const páginas = [
 
       const lista = await carregar_lista(hash_lista_atual)
 
-      if (!lista) {
+      if (!lista || lista.perfis.length === 0) {
         conteudo.innerHTML = "<p>Nenhum perfil encontrado.</p>"
       } else {
         const grid = document.createElement("div")
@@ -107,6 +131,56 @@ const páginas = [
 
           const card = document.createElement("div")
           card.classList.add("perfil-card")
+
+          // Menu de Ações
+          const menu_container = document.createElement("div")
+          menu_container.classList.add("perfil-menu-container")
+
+          const botao_menu = document.createElement("button")
+          botao_menu.classList.add("perfil-menu-botao")
+          botao_menu.setAttribute("aria-label", `Ações para ${dados.nome}`)
+          const icone_menu = document.createElement("span")
+          icone_menu.classList.add("material-symbols-outlined")
+          icone_menu.textContent = "more_vert"
+          botao_menu.appendChild(icone_menu)
+
+          const dropdown = document.createElement("div")
+          dropdown.classList.add("perfil-menu-dropdown")
+
+          const item_remover = document.createElement("button")
+          item_remover.classList.add("perfil-menu-item", "remover")
+          const icone_remover = document.createElement("span")
+          icone_remover.classList.add("material-symbols-outlined")
+          icone_remover.textContent = "delete"
+          item_remover.appendChild(icone_remover)
+          const texto_remover = document.createElement("span")
+          texto_remover.textContent = "Remover perfil"
+          item_remover.appendChild(texto_remover)
+
+          item_remover.onclick = async () => {
+            if (confirm(`Tem certeza que deseja remover o perfil de "${dados.nome}"?`)) {
+              await remover_perfil(hash_perfil)
+            }
+          }
+
+          dropdown.appendChild(item_remover)
+          menu_container.appendChild(botao_menu)
+          menu_container.appendChild(dropdown)
+          card.appendChild(menu_container)
+
+          botao_menu.onclick = (e) => {
+            e.stopPropagation()
+            const ja_aberto = dropdown.classList.contains("aberto")
+            document.querySelectorAll(".perfil-menu-dropdown.aberto").forEach(d => d.classList.remove("aberto"))
+            if (!ja_aberto) {
+              dropdown.classList.add("aberto")
+              const fechar = () => {
+                dropdown.classList.remove("aberto")
+                document.removeEventListener("click", fechar)
+              }
+              setTimeout(() => document.addEventListener("click", fechar), 0)
+            }
+          }
 
           if (dados.capa) {
             const img_capa = document.createElement("img")
