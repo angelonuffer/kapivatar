@@ -174,6 +174,66 @@ const páginas = [
       const form = document.createElement("form")
       form.classList.add("form-perfil")
 
+      const criar_campo_arquivo = (label, id) => {
+        const div = document.createElement("div")
+        div.classList.add("form-campo")
+        const l = document.createElement("label")
+        l.textContent = label
+        l.htmlFor = id
+        div.appendChild(l)
+
+        const container = document.createElement("div")
+        container.classList.add("input-arquivo-container")
+
+        const input = document.createElement("input")
+        input.type = "file"
+        input.id = id
+        input.name = id
+        input.accept = "image/*"
+        input.style.display = "none"
+
+        const botao_upload = document.createElement("button")
+        botao_upload.type = "button"
+        const icone = document.createElement("span")
+        icone.classList.add("material-symbols-outlined")
+        icone.textContent = "upload_file"
+        botao_upload.appendChild(icone)
+        const texto = document.createElement("span")
+        texto.textContent = "Escolher imagem"
+        botao_upload.appendChild(texto)
+
+        botao_upload.onclick = () => input.click()
+
+        const preview_container = document.createElement("div")
+        preview_container.classList.add("preview-container")
+        preview_container.style.display = "none"
+
+        const preview_img = document.createElement("img")
+        preview_img.classList.add("preview-imagem")
+        preview_container.appendChild(preview_img)
+
+        const nome_arquivo = document.createElement("span")
+        nome_arquivo.classList.add("nome-arquivo")
+        preview_container.appendChild(nome_arquivo)
+
+        input.onchange = () => {
+          if (input.files.length > 0) {
+            const file = input.files[0]
+            nome_arquivo.textContent = file.name
+            preview_img.src = URL.createObjectURL(file)
+            preview_container.style.display = "flex"
+          } else {
+            preview_container.style.display = "none"
+          }
+        }
+
+        container.appendChild(input)
+        container.appendChild(botao_upload)
+        container.appendChild(preview_container)
+        div.appendChild(container)
+        return div
+      }
+
       const criar_campo = (label, tipo, id, attributes = {}) => {
         const div = document.createElement("div")
         div.classList.add("form-campo")
@@ -189,13 +249,14 @@ const páginas = [
           input.type = tipo
         }
         input.id = id
+        input.name = id
         Object.assign(input, attributes)
         div.appendChild(input)
         return div
       }
 
-      form.appendChild(criar_campo("Capa", "file", "capa", { accept: "image/*" }))
-      form.appendChild(criar_campo("Foto de Perfil", "file", "foto", { accept: "image/*" }))
+      form.appendChild(criar_campo_arquivo("Capa", "capa"))
+      form.appendChild(criar_campo_arquivo("Foto de Perfil", "foto"))
       form.appendChild(criar_campo("Nome", "text", "nome", { required: true }))
       form.appendChild(criar_campo("Bio", "textarea", "bio"))
 
