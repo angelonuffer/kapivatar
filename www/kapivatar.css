@@ -45,6 +45,12 @@ button:disabled {
   cursor: not-allowed;
 }
 
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--cor-primaria-clara);
+  outline-offset: 2px;
+}
+
 a {
   color: #eee;
   cursor: pointer;

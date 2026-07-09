@@ -108,6 +108,7 @@ const páginas = [
             const arquivo_capa = await ler_arquivo(diretorio, dados.capa)
             if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
             img_capa.classList.add("perfil-capa")
+            img_capa.alt = `Capa de ${dados.nome}`
             card.appendChild(img_capa)
           }
 
@@ -119,6 +120,7 @@ const páginas = [
             const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
             if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
             img_foto.classList.add("perfil-foto")
+            img_foto.alt = `Foto de ${dados.nome}`
             img_foto.style.marginTop = dados.capa ? "-35px" : "0"
             info.appendChild(img_foto)
           }
@@ -206,6 +208,7 @@ const páginas = [
       span_texto.textContent = "Salvar Perfil"
       botao.appendChild(span_texto)
       botao.type = "submit"
+      botao.setAttribute("aria-live", "polite")
       form.appendChild(botao)
 
         form.onsubmit = async (e) => {
@@ -317,6 +320,7 @@ const carregar_tela_login = async () => {
   const logo = document.createElement("img")
   logo.classList.add("login-logo")
   logo.src = "kapivatar.svg"
+  logo.alt = "Kapivatar Logo"
   document.body.appendChild(logo)
   const coluna_1 = document.createElement("div")
   coluna_1.classList.add("coluna", "login-info")
@@ -326,6 +330,7 @@ const carregar_tela_login = async () => {
   const img = document.createElement("img")
   img.src = "capivara.jpeg"
   img.classList.add("login-imagem")
+  img.alt = "Mascote Capivara"
   coluna_1.appendChild(img)
   const p_1 = document.createElement("p")
   p_1.classList.add("login-descricao")
@@ -386,6 +391,7 @@ const carregar_layout = () => {
 
   const logo = document.createElement("img")
   logo.src = "kapivatar.svg"
+  logo.alt = "Kapivatar Logo"
   logo.classList.add("sidebar-logo")
   link_home.appendChild(logo)
 
@@ -398,6 +404,7 @@ const carregar_layout = () => {
 
   const botao_fechar = document.createElement("button")
   botao_fechar.classList.add("botao-fechar-sidebar")
+  botao_fechar.setAttribute("aria-label", "Fechar menu")
   const icone_fechar = document.createElement("span")
   icone_fechar.classList.add("material-symbols-outlined")
   icone_fechar.textContent = "close"
@@ -446,6 +453,7 @@ const carregar_layout = () => {
 
   const botao_menu = document.createElement("button")
   botao_menu.classList.add("botao-menu")
+  botao_menu.setAttribute("aria-label", "Abrir menu")
   const icone_menu = document.createElement("span")
   icone_menu.classList.add("material-symbols-outlined")
   icone_menu.textContent = "menu"
