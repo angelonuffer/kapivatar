@@ -2,6 +2,7 @@
   "name": "kapivatar",
   "version": "1.0.0",
   "description": "Kapivatar tests",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "test": "npx playwright test"
