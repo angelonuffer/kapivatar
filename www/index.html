@@ -527,34 +527,11 @@ a.ativo {
   })
 }
 
-    window.páginas = [
-  {
-    "nome": "Início",
-    "url": "/",
-    "ícone": "home",
-    "render": (conteudo) => {
+    window.páginas = [{ ...{"nome":"Início","url":"/","ícone":"home"}, render: (conteudo) => {
       const p = document.createElement("p")
       p.textContent = "Bem-vindo ao Kapivatar! Escolha uma opção no menu lateral."
       conteudo.appendChild(p)
-    }
-  },
-  {
-    "nome": "Perfis",
-    "url": "/perfis",
-    "ícone": "account_circle",
-    "ações": [
-      {
-        "nome": "Criar perfil",
-        "url": "/perfis/criar",
-        "ícone": "person_add"
-      },
-      {
-        "nome": "Histórico",
-        "url": "/perfis/histórico",
-        "ícone": "history"
-      }
-    ],
-    "render": async (conteudo, params) => {
+    } },{ ...{"nome":"Perfis","url":"/perfis","ícone":"account_circle","ações":[{"nome":"Criar perfil","url":"/perfis/criar","ícone":"person_add"},{"nome":"Histórico","url":"/perfis/histórico","ícone":"history"}]}, render: async (conteudo, params) => {
       const diretorio = await obter_diretorio()
       const hash_lista_atual = params.get("v") || (await (await ler_arquivo(diretorio, "perfis"))?.text())
 
@@ -669,14 +646,7 @@ a.ativo {
         }
       }
 
-    }
-  },
-  {
-    "nome": "Criar Perfil",
-    "url": "/perfis/criar",
-    "ícone": "person_add",
-    "ocultar_no_menu": true,
-    "render": (conteudo) => {
+    } },{ ...{"nome":"Criar Perfil","url":"/perfis/criar","ícone":"person_add","ocultar_no_menu":true}, render: (conteudo) => {
       const form = document.createElement("form")
       form.classList.add("form-perfil")
 
@@ -841,14 +811,7 @@ a.ativo {
       }
 
       conteudo.appendChild(form)
-    }
-  },
-  {
-    "nome": "Histórico de Perfis",
-    "url": "/perfis/histórico",
-    "ícone": "history",
-    "ocultar_no_menu": true,
-    "render": async (conteudo) => {
+    } },{ ...{"nome":"Histórico de Perfis","url":"/perfis/histórico","ícone":"history","ocultar_no_menu":true}, render: async (conteudo) => {
       const diretorio = await obter_diretorio()
       const hash_lista_atual = await (await ler_arquivo(diretorio, "perfis"))?.text()
 
@@ -887,31 +850,16 @@ a.ativo {
       } else {
         conteudo.innerHTML = "<p>Nenhum histórico encontrado.</p>"
       }
-    }
-  },
-  {
-    "nome": "Contatos",
-    "url": "/contatos",
-    "ícone": "contacts",
-    "render": (conteudo) => {
+    } },{ ...{"nome":"Contatos","url":"/contatos","ícone":"contacts"}, render: (conteudo) => {
       const p = document.createElement("p")
       p.textContent = "Sua lista de contatos aparecerá aqui."
       conteudo.appendChild(p)
-    }
-  },
-  {
-    "nome": "Conversas",
-    "url": "/conversas",
-    "ícone": "chat",
-    "render": (conteudo) => {
+    } },{ ...{"nome":"Conversas","url":"/conversas","ícone":"chat"}, render: (conteudo) => {
       const p = document.createElement("p")
       p.textContent = "Suas conversas criptografadas."
       conteudo.appendChild(p)
-    }
-  }
-];
+    } }];
     const páginas = window.páginas;
-
 
 const banco_kapivatar = banco({
   objectStores: [

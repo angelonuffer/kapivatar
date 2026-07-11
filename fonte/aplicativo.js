@@ -20,20 +20,15 @@ export default async function construir(páginas) {
 
   // Remove exports and imports for inlining
   const bancoLimpo = banco.replace(/export\s+default\s+/, 'const banco = ').replace(/export\s+const\s+banco\s+=\s+/, 'const banco = ');
-  const motorLimpo = motor
-    .replace(/import\s+.*\s+from\s+["']\.\/páginas\.js["'];?/g, '')
-    .replace(/import\s+.*\s+from\s+["']\.\/banco\.js["'];?/g, '');
+  const motorLimpo = motor.replace(/^import\s+.*\s+from\s+["']\.\/.*["'];?\s*$/gm, '');
 
-  const páginasJson = JSON.stringify(páginas, (key, value) => {
-    if (typeof value === 'function') {
-      return `__FUNCAO__${value.toString()}__FUNCAO__`;
-    }
-    return value;
-  }, 2);
-
-  const páginasJs = páginasJson.replace(/"__FUNCAO__(.*?)__FUNCAO__"/gs, (match, p1) => {
-    return p1.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\t/g, '\t');
-  });
+  // Safe serialization of pages with functions
+  const páginasJs = `[${páginas.map(p => {
+    const renderStr = p.render ? p.render.toString() : 'null';
+    const rest = { ...p };
+    delete rest.render;
+    return `{ ...${JSON.stringify(rest)}, render: ${renderStr} }`;
+  }).join(',')}]`;
 
   const scriptFull = `
     ${bancoLimpo}
