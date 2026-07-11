@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('Deve exibir o formulário de criação de perfil estilizado', async ({ page }) => {
-  await page.getByRole('link', { name: /Perfis/, exact: true }).click();
+  await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   // Verifica se o formulário está visível e centralizado (via screenshot)

@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 
 test('Deve criar, visualizar, editar e ver histórico de um perfil', async ({ page }) => {
   // 1. Criar perfil
-  await page.getByRole('link', { name: /Perfis/, exact: true }).click();
+  await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   await page.getByLabel('Nome').fill('Capivara Original');

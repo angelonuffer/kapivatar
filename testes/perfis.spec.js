@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('Deve criar um perfil e listar no histórico', async ({ page }) => {
-  await page.getByRole('link', { name: /Perfis/, exact: true }).click();
+  await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   await page.getByLabel('Nome').fill('Capivara de Teste');

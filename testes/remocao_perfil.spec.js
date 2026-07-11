@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 
 test('Deve remover um perfil da lista e aparecer no histórico', async ({ page }) => {
   // Criar um perfil primeiro
-  await page.getByRole('link', { name: /Perfis/, exact: true }).click();
+  await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
   await page.getByLabel('Nome').fill('Perfil para Remover');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
