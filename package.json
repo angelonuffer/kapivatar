@@ -5,7 +5,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "test": "npx playwright test"
+    "build": "node kapivatar.js",
+    "test": "pnpm build && npx playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.45.0",
