@@ -17,6 +17,28 @@ const gerar_hash = async (conteudo) => {
   return Array.from(new Uint8Array(hash_buffer)).map((b) => b.toString(16).padStart(2, "0")).join("")
 }
 
+const gerar_chaves = async () => {
+  return await crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["sign", "verify"]
+  )
+}
+
+const exportar_chave = async (chave) => {
+  return await crypto.subtle.exportKey("jwk", chave)
+}
+
+const gerar_id_perfil = async (chave_publica) => {
+  const spki = await crypto.subtle.exportKey("spki", chave_publica)
+  return await gerar_hash(spki)
+}
+
 const obter_diretorio = async () => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
@@ -106,7 +128,8 @@ const páginas = [
     ],
     render: async (conteudo, params) => {
       const diretorio = await obter_diretorio()
-      const hash_lista_atual = params.get("v") || (await (await ler_arquivo(diretorio, "perfis"))?.text())
+      const hash_lista_visualizada = params.get("v")
+      const hash_lista_atual = hash_lista_visualizada || (await (await ler_arquivo(diretorio, "perfis"))?.text())
 
       const carregar_lista = async (hash) => {
         if (!hash) return null
@@ -124,13 +147,54 @@ const páginas = [
         grid.classList.add("perfis-grid")
         conteudo.appendChild(grid)
 
-        for (const hash_perfil of lista.perfis) {
+        for (const id_ou_hash_perfil of lista.perfis) {
+          let hash_perfil = id_ou_hash_perfil
+          let id_perfil = id_ou_hash_perfil
+
+          // Se estamos visualizando a lista atual, os itens são IDs.
+          // Se estamos visualizando uma lista histórica, os itens podem ser hashes de versão (comportamento antigo) ou IDs (novo).
+          // Para garantir compatibilidade e funcionamento correto:
+          if (!hash_lista_visualizada) {
+            // Tenta ler como ID (ponteiro)
+            const arquivo_id = await ler_arquivo(diretorio, id_perfil)
+            if (arquivo_id) {
+              const texto_id = await arquivo_id.text()
+              // Verifica se o conteúdo do arquivo é um hash SHA-256 (64 hex chars)
+              // Se for o próprio JSON (perfil antigo), texto_id começará com '{'
+              if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) {
+                hash_perfil = texto_id
+              } else {
+                // É um perfil antigo que estava na lista por hash de versão
+                id_perfil = null
+                hash_perfil = id_ou_hash_perfil
+              }
+            }
+          } else {
+             // No histórico, tentamos ver se é um ID
+             const arquivo_id = await ler_arquivo(diretorio, id_perfil)
+             if (arquivo_id) {
+                const texto_id = await arquivo_id.text()
+                if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) {
+                  hash_perfil = texto_id
+                } else {
+                  id_perfil = null
+                  hash_perfil = id_ou_hash_perfil
+                }
+             } else {
+                // É um hash de versão (perfil antigo)
+                id_perfil = null
+             }
+          }
+
           const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
           if (!arquivo_perfil) continue
           const dados = JSON.parse(await arquivo_perfil.text())
 
           const card = document.createElement("div")
           card.classList.add("perfil-card")
+          if (id_perfil) {
+            card.onclick = () => navegar(`/perfil/${id_perfil}`)
+          }
 
           // Menu de Ações
           const menu_container = document.createElement("div")
@@ -157,9 +221,10 @@ const páginas = [
           texto_remover.textContent = "Remover perfil"
           item_remover.appendChild(texto_remover)
 
-          item_remover.onclick = async () => {
+          item_remover.onclick = async (e) => {
+            e.stopPropagation()
             if (confirm(`Tem certeza que deseja remover o perfil de "${dados.nome}"?`)) {
-              await remover_perfil(hash_perfil)
+              await remover_perfil(id_perfil)
             }
           }
 
@@ -335,9 +400,19 @@ const páginas = [
 
         try {
           const diretorio = await obter_diretorio()
+
+          // Gerar chaves para o novo perfil
+          const chaves = await gerar_chaves()
+          const chave_privada_jwk = await exportar_chave(chaves.privateKey)
+          const chave_publica_jwk = await exportar_chave(chaves.publicKey)
+          const id_perfil = await gerar_id_perfil(chaves.publicKey)
+
         const dados = {
           nome: form.nome.value,
-          bio: form.bio.value
+          bio: form.bio.value,
+          id: id_perfil,
+          chave_privada: chave_privada_jwk,
+          chave_publica: chave_publica_jwk,
         }
 
         const salvar_imagem = async (input) => {
@@ -361,12 +436,15 @@ const páginas = [
         const hash_perfil = await gerar_hash(conteudo_perfil)
         await escrever_arquivo(diretorio, hash_perfil, conteudo_perfil)
 
+        // Aponta o ID do perfil para a versão mais recente
+        await escrever_arquivo(diretorio, id_perfil, hash_perfil)
+
         // Atualizar lista de perfis
         const arquivo_perfis = await ler_arquivo(diretorio, "perfis")
         const hash_lista_anterior = arquivo_perfis ? await arquivo_perfis.text() : null
 
         let nova_lista = {
-          perfis: [hash_perfil],
+          perfis: [id_perfil],
           data: new Date().toISOString()
         }
 
@@ -374,7 +452,7 @@ const páginas = [
           const arquivo_lista_anterior = await ler_arquivo(diretorio, hash_lista_anterior)
           if (arquivo_lista_anterior) {
             const lista_anterior = JSON.parse(await arquivo_lista_anterior.text())
-            nova_lista.perfis = [...lista_anterior.perfis, hash_perfil]
+            nova_lista.perfis = [...lista_anterior.perfis, id_perfil]
             nova_lista.anterior = hash_lista_anterior
           }
         }
@@ -429,6 +507,306 @@ const páginas = [
         lista_historico.appendChild(item)
 
         hash_cursor = dados_lista.anterior
+      }
+
+      if (lista_historico.children.length > 0) {
+        secao_historico.appendChild(lista_historico)
+        conteudo.appendChild(secao_historico)
+      } else {
+        conteudo.innerHTML = "<p>Nenhum histórico encontrado.</p>"
+      }
+    }
+  },
+  {
+    nome: "Perfil",
+    url: "/perfil/:id",
+    ícone: "account_circle",
+    ocultar_no_menu: true,
+    ações: [
+      {
+        nome: "Editar",
+        ícone: "edit",
+        url_dinamica: (route_params) => `/perfil/${route_params.id}/editar`,
+      },
+      {
+        nome: "Histórico",
+        ícone: "history",
+        url_dinamica: (route_params) => `/perfil/${route_params.id}/histórico`,
+      },
+    ],
+    render: async (conteudo, params, route_params) => {
+      const id = route_params.id
+      const diretorio = await obter_diretorio()
+
+      let hash_perfil = params.get("v")
+
+      if (!hash_perfil) {
+        const arquivo_id = await ler_arquivo(diretorio, id)
+        if (!arquivo_id) {
+          conteudo.innerHTML = "<p>Perfil não encontrado.</p>"
+          return
+        }
+        hash_perfil = await arquivo_id.text()
+      }
+
+      const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+      if (!arquivo_perfil) {
+        conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
+        return
+      }
+
+      const dados = JSON.parse(await arquivo_perfil.text())
+
+      const detalhe = document.createElement("div")
+      detalhe.classList.add("perfil-detalhe")
+
+      if (dados.capa) {
+        const img_capa = document.createElement("img")
+        const arquivo_capa = await ler_arquivo(diretorio, dados.capa)
+        if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
+        img_capa.classList.add("perfil-capa-detalhe")
+        detalhe.appendChild(img_capa)
+      }
+
+      const info = document.createElement("div")
+      info.classList.add("perfil-info-detalhe")
+
+      if (dados.foto) {
+        const img_foto = document.createElement("img")
+        const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
+        if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
+        img_foto.classList.add("perfil-foto-detalhe")
+        img_foto.style.marginTop = dados.capa ? "-50px" : "0"
+        info.appendChild(img_foto)
+      }
+
+      const nome = document.createElement("h2")
+      nome.textContent = dados.nome
+      info.appendChild(nome)
+
+      const bio = document.createElement("p")
+      bio.textContent = dados.bio
+      info.appendChild(bio)
+
+      detalhe.appendChild(info)
+      conteudo.appendChild(detalhe)
+    }
+  },
+  {
+    nome: "Editar Perfil",
+    url: "/perfil/:id/editar",
+    ícone: "edit",
+    ocultar_no_menu: true,
+    render: async (conteudo, params, route_params) => {
+      const id = route_params.id
+      const diretorio = await obter_diretorio()
+      const arquivo_id = await ler_arquivo(diretorio, id)
+
+      if (!arquivo_id) {
+        conteudo.innerHTML = "<p>Perfil não encontrado.</p>"
+        return
+      }
+
+      const hash_perfil_atual = await arquivo_id.text()
+      const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil_atual)
+      const dados_atuais = JSON.parse(await arquivo_perfil.text())
+
+      const form = document.createElement("form")
+      form.classList.add("form-perfil")
+
+      const criar_campo_arquivo = (label, id_campo, hash_atual) => {
+        const div = document.createElement("div")
+        div.classList.add("form-campo")
+        const l = document.createElement("label")
+        l.textContent = label
+        l.htmlFor = id_campo
+        div.appendChild(l)
+
+        const container = document.createElement("div")
+        container.classList.add("input-arquivo-container")
+
+        const input = document.createElement("input")
+        input.type = "file"
+        input.id = id_campo
+        input.name = id_campo
+        input.accept = "image/*"
+        input.style.display = "none"
+
+        const botao_upload = document.createElement("button")
+        botao_upload.type = "button"
+        const icone = document.createElement("span")
+        icone.classList.add("material-symbols-outlined")
+        icone.textContent = "upload_file"
+        botao_upload.appendChild(icone)
+        const texto = document.createElement("span")
+        texto.textContent = "Escolher imagem"
+        botao_upload.appendChild(texto)
+
+        botao_upload.onclick = () => input.click()
+
+        const preview_container = document.createElement("div")
+        preview_container.classList.add("preview-container")
+
+        const preview_img = document.createElement("img")
+        preview_img.classList.add("preview-imagem")
+        preview_container.appendChild(preview_img)
+
+        const nome_arquivo = document.createElement("span")
+        nome_arquivo.classList.add("nome-arquivo")
+        preview_container.appendChild(nome_arquivo)
+
+        if (hash_atual) {
+          ler_arquivo(diretorio, hash_atual).then(file => {
+            if (file) {
+              preview_img.src = URL.createObjectURL(file)
+              preview_container.style.display = "flex"
+            }
+          })
+        } else {
+          preview_container.style.display = "none"
+        }
+
+        input.onchange = () => {
+          if (input.files.length > 0) {
+            const file = input.files[0]
+            nome_arquivo.textContent = file.name
+            preview_img.src = URL.createObjectURL(file)
+            preview_container.style.display = "flex"
+          }
+        }
+
+        container.appendChild(input)
+        container.appendChild(botao_upload)
+        container.appendChild(preview_container)
+        div.appendChild(container)
+        return div
+      }
+
+      const criar_campo = (label, tipo, id_campo, valor, attributes = {}) => {
+        const div = document.createElement("div")
+        div.classList.add("form-campo")
+        const l = document.createElement("label")
+        l.textContent = label
+        l.htmlFor = id_campo
+        div.appendChild(l)
+        let input
+        if (tipo === "textarea") {
+          input = document.createElement("textarea")
+          input.textContent = valor || ""
+        } else {
+          input = document.createElement("input")
+          input.type = tipo
+          input.value = valor || ""
+        }
+        input.id = id_campo
+        input.name = id_campo
+        Object.assign(input, attributes)
+        div.appendChild(input)
+        return div
+      }
+
+      form.appendChild(criar_campo_arquivo("Capa", "capa", dados_atuais.capa))
+      form.appendChild(criar_campo_arquivo("Foto de Perfil", "foto", dados_atuais.foto))
+      form.appendChild(criar_campo("Nome", "text", "nome", dados_atuais.nome, { required: true }))
+      form.appendChild(criar_campo("Bio", "textarea", "bio", dados_atuais.bio))
+
+      const botao = document.createElement("button")
+      const span_ícone = document.createElement("span")
+      span_ícone.classList.add("material-symbols-outlined")
+      span_ícone.textContent = "save"
+      botao.appendChild(span_ícone)
+      const span_texto = document.createElement("span")
+      span_texto.textContent = "Salvar Alterações"
+      botao.appendChild(span_texto)
+      botao.type = "submit"
+      form.appendChild(botao)
+
+      form.onsubmit = async (e) => {
+        e.preventDefault()
+        botao.disabled = true
+        span_texto.textContent = "Salvando..."
+
+        try {
+          const dados_novos = {
+            ...dados_atuais,
+            nome: form.nome.value,
+            bio: form.bio.value,
+            anterior: hash_perfil_atual,
+            data: new Date().toISOString()
+          }
+
+          const salvar_imagem = async (input, hash_antigo) => {
+            if (input.files.length > 0) {
+              const file = input.files[0]
+              const buffer = await file.arrayBuffer()
+              const hash = await gerar_hash(buffer)
+              await escrever_arquivo(diretorio, hash, buffer)
+              return hash
+            }
+            return hash_antigo
+          }
+
+          dados_novos.capa = await salvar_imagem(form.capa, dados_atuais.capa)
+          dados_novos.foto = await salvar_imagem(form.foto, dados_atuais.foto)
+
+          const conteudo_perfil = JSON.stringify(dados_novos)
+          const hash_perfil_novo = await gerar_hash(conteudo_perfil)
+          await escrever_arquivo(diretorio, hash_perfil_novo, conteudo_perfil)
+
+          // Atualiza o ponteiro do ID do perfil
+          await escrever_arquivo(diretorio, id, hash_perfil_novo)
+
+          navegar(`/perfil/${id}`)
+        } catch (err) {
+          console.error("Erro ao editar perfil:", err)
+          botao.disabled = false
+          span_texto.textContent = "Salvar Alterações"
+        }
+      }
+
+      conteudo.appendChild(form)
+    }
+  },
+  {
+    nome: "Histórico do Perfil",
+    url: "/perfil/:id/histórico",
+    ícone: "history",
+    ocultar_no_menu: true,
+    render: async (conteudo, params, route_params) => {
+      const id = route_params.id
+      const diretorio = await obter_diretorio()
+
+      const carregar_versao = async (hash) => {
+        if (!hash) return null
+        const arquivo = await ler_arquivo(diretorio, hash)
+        if (!arquivo) return null
+        return JSON.parse(await arquivo.text())
+      }
+
+      const secao_historico = document.createElement("div")
+      secao_historico.classList.add("historico")
+      secao_historico.style.marginTop = "0"
+      secao_historico.style.borderTop = "none"
+
+      const lista_historico = document.createElement("ul")
+
+      // Começa da versão atual apontada pelo ID
+      const arquivo_id = await ler_arquivo(diretorio, id)
+      let hash_cursor = arquivo_id ? await arquivo_id.text() : null
+
+      while (hash_cursor) {
+        const dados_versao = await carregar_versao(hash_cursor)
+        if (!dados_versao) break
+
+        const item = document.createElement("li")
+        const link = document.createElement("a")
+        const data = dados_versao.data ? new Date(dados_versao.data).toLocaleString() : `Versão: ${hash_cursor}`
+        link.textContent = data
+        link.href = `/perfil/${id}?v=${hash_cursor}`
+        item.appendChild(link)
+        lista_historico.appendChild(item)
+
+        hash_cursor = dados_versao.anterior
       }
 
       if (lista_historico.children.length > 0) {
@@ -647,7 +1025,7 @@ const carregar_layout = () => {
   }
 }
 
-const renderizar_página = (página, params) => {
+const renderizar_página = (página, params, route_params) => {
   const { menu, titulo, acoes, conteudo } = layout_referencias
 
   // Atualiza Menu
@@ -697,7 +1075,8 @@ const renderizar_página = (página, params) => {
     span_texto.textContent = ação.nome
     botão_ação.appendChild(span_texto)
     botão_ação.onclick = () => {
-      navegar(ação.url)
+      const url = ação.url_dinamica ? ação.url_dinamica(route_params) : ação.url
+      navegar(url)
     }
     acoes.appendChild(botão_ação)
   })
@@ -705,7 +1084,7 @@ const renderizar_página = (página, params) => {
   // Atualiza Conteúdo
   conteudo.innerHTML = ""
   if (página.render) {
-    página.render(conteudo, params)
+    página.render(conteudo, params, route_params)
   }
 }
 
@@ -743,10 +1122,37 @@ const rotear = async () => {
 
   const path = decodeURIComponent(location.pathname)
   const params = new URLSearchParams(location.search)
-  const página = páginas.find(p => p.url === path)
+
+  let página = null
+  let route_params = {}
+
+  for (const p of páginas) {
+    const route_parts = p.url.split("/")
+    const path_parts = path.split("/")
+
+    if (route_parts.length === path_parts.length) {
+      let match = true
+      const temp_params = {}
+
+      for (let i = 0; i < route_parts.length; i++) {
+        if (route_parts[i].startsWith(":")) {
+          temp_params[route_parts[i].substring(1)] = path_parts[i]
+        } else if (route_parts[i] !== path_parts[i]) {
+          match = false
+          break
+        }
+      }
+
+      if (match) {
+        página = p
+        route_params = temp_params
+        break
+      }
+    }
+  }
 
   if (página) {
-    renderizar_página(página, params)
+    renderizar_página(página, params, route_params)
   } else {
     renderizar_404()
   }
@@ -760,7 +1166,7 @@ document.addEventListener("click", (e) => {
     const url = new URL(link.href)
     if (url.hash === "" && !link.onclick) {
       e.preventDefault()
-      navegar(url.pathname)
+      navegar(url.pathname + url.search)
     }
   }
 })
