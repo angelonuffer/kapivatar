@@ -12,8 +12,8 @@ test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
   // 2. Verificar se está na página Início
   await expect(page).toHaveScreenshot('full-inicio-page.png');
 
-  // 3. Navegação: Perfis
-  await page.getByRole('link', { name: /Perfis/, exact: true }).click();
+  // 3. Navegação: Perfis (via link de seleção na sidebar quando nenhum perfil está selecionado)
+  await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();
   await expect(page.locator('.conteudo-pagina')).toHaveScreenshot('perfis-page.png');
 });
 

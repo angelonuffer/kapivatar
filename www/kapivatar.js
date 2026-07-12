@@ -75,6 +75,18 @@ const escrever_arquivo = async (diretorio, nome, conteudo) => {
   await writable.close()
 }
 
+const obter_id_perfil_selecionado = async () => {
+  const diretorio = await obter_diretorio()
+  const arquivo = await ler_arquivo(diretorio, "perfil_selecionado")
+  if (!arquivo) return null
+  return await arquivo.text()
+}
+
+const definir_id_perfil_selecionado = async (id) => {
+  const diretorio = await obter_diretorio()
+  await escrever_arquivo(diretorio, "perfil_selecionado", id)
+}
+
 const remover_perfil = async (hash_remover) => {
   const diretorio = await obter_diretorio()
   const arquivo_perfis = await ler_arquivo(diretorio, "perfis")
@@ -96,6 +108,12 @@ const remover_perfil = async (hash_remover) => {
   await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista)
   await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
 
+  const id_selecionado = await obter_id_perfil_selecionado()
+  if (id_selecionado === hash_remover) {
+    const handle = await diretorio.getFileHandle("perfil_selecionado")
+    await handle.remove()
+  }
+
   rotear()
 }
 
@@ -114,6 +132,7 @@ const páginas = [
     nome: "Perfis",
     url: "/perfis",
     ícone: "account_circle",
+    ocultar_no_menu: true,
     ações: [
       {
         nome: "Criar perfil",
@@ -211,6 +230,22 @@ const páginas = [
           const dropdown = document.createElement("div")
           dropdown.classList.add("perfil-menu-dropdown")
 
+          const item_selecionar = document.createElement("button")
+          item_selecionar.classList.add("perfil-menu-item")
+          const icone_selecionar = document.createElement("span")
+          icone_selecionar.classList.add("material-symbols-outlined")
+          icone_selecionar.textContent = "check_circle"
+          item_selecionar.appendChild(icone_selecionar)
+          const texto_selecionar = document.createElement("span")
+          texto_selecionar.textContent = "Selecionar perfil"
+          item_selecionar.appendChild(texto_selecionar)
+
+          item_selecionar.onclick = async (e) => {
+            e.stopPropagation()
+            await definir_id_perfil_selecionado(id_perfil)
+            navegar("/")
+          }
+
           const item_remover = document.createElement("button")
           item_remover.classList.add("perfil-menu-item", "remover")
           const icone_remover = document.createElement("span")
@@ -228,6 +263,7 @@ const páginas = [
             }
           }
 
+          dropdown.appendChild(item_selecionar)
           dropdown.appendChild(item_remover)
           menu_container.appendChild(botao_menu)
           menu_container.appendChild(dropdown)
@@ -907,6 +943,7 @@ const carregar_tela_login = async () => {
 }
 
 let layout_referencias = null
+let sidebar_objetos_url = []
 
 const carregar_layout = () => {
   document.body.innerHTML = ""
@@ -962,6 +999,11 @@ const carregar_layout = () => {
 
   const coluna_1_2 = document.createElement("div")
   coluna_1_2.classList.add("coluna", "sidebar-rodape")
+
+  const perfil_selecionado_container = document.createElement("div")
+  perfil_selecionado_container.classList.add("perfil-selecionado-sidebar")
+  coluna_1_2.appendChild(perfil_selecionado_container)
+
   const link_sair = document.createElement("a")
   const icone_sair = document.createElement("span")
   icone_sair.classList.add("material-symbols-outlined")
@@ -1019,14 +1061,84 @@ const carregar_layout = () => {
 
   layout_referencias = {
     menu: coluna_1_1,
+    perfil_selecionado: perfil_selecionado_container,
     titulo: h1,
     acoes: ações,
     conteudo: coluna_2_linha_2
   }
 }
 
+const atualizar_sidebar_perfil_selecionado = async () => {
+  const { perfil_selecionado } = layout_referencias
+  if (!perfil_selecionado) return
+
+  sidebar_objetos_url.forEach(url => URL.revokeObjectURL(url))
+  sidebar_objetos_url = []
+
+  const id_selecionado = await obter_id_perfil_selecionado()
+  perfil_selecionado.innerHTML = ""
+
+  if (id_selecionado) {
+    const diretorio = await obter_diretorio()
+    const arquivo_id = await ler_arquivo(diretorio, id_selecionado)
+    if (arquivo_id) {
+      const hash_perfil = await arquivo_id.text()
+      const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+      if (arquivo_perfil) {
+        const dados = JSON.parse(await arquivo_perfil.text())
+
+        const container_info = document.createElement("div")
+        container_info.classList.add("perfil-sidebar-info")
+
+        if (dados.foto) {
+          const img_foto = document.createElement("img")
+          const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
+          if (arquivo_foto) {
+            const url = URL.createObjectURL(arquivo_foto)
+            img_foto.src = url
+            sidebar_objetos_url.push(url)
+          }
+          img_foto.classList.add("perfil-sidebar-foto")
+          img_foto.alt = `Foto de ${dados.nome}`
+          container_info.appendChild(img_foto)
+        }
+
+        const nome = document.createElement("span")
+        nome.textContent = dados.nome
+        nome.classList.add("perfil-sidebar-nome")
+        container_info.appendChild(nome)
+
+        perfil_selecionado.appendChild(container_info)
+
+        const botao_trocar = document.createElement("button")
+        botao_trocar.classList.add("botao-trocar-perfil")
+        botao_trocar.setAttribute("aria-label", "Trocar perfil")
+        const icone_trocar = document.createElement("span")
+        icone_trocar.classList.add("material-symbols-outlined")
+        icone_trocar.textContent = "swap_horiz"
+        botao_trocar.appendChild(icone_trocar)
+        botao_trocar.onclick = () => navegar("/perfis")
+        perfil_selecionado.appendChild(botao_trocar)
+      }
+    }
+  } else {
+    const link_selecionar = document.createElement("a")
+    link_selecionar.href = "/perfis"
+    const icone_add = document.createElement("span")
+    icone_add.classList.add("material-symbols-outlined")
+    icone_add.textContent = "person_add"
+    link_selecionar.appendChild(icone_add)
+    const texto_add = document.createElement("span")
+    texto_add.textContent = "Selecionar perfil"
+    link_selecionar.appendChild(texto_add)
+    perfil_selecionado.appendChild(link_selecionar)
+  }
+}
+
 const renderizar_página = (página, params, route_params) => {
   const { menu, titulo, acoes, conteudo } = layout_referencias
+
+  atualizar_sidebar_perfil_selecionado()
 
   // Atualiza Menu
   menu.innerHTML = ""

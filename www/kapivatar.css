@@ -165,7 +165,53 @@ a.ativo {
 }
 
 .sidebar-rodape {
-  gap: 0;
+  gap: 0.5em;
+  padding: 1em;
+}
+
+.perfil-selecionado-sidebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #222;
+  border-radius: 0.5em;
+  padding: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.perfil-sidebar-info {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  overflow: hidden;
+}
+
+.perfil-sidebar-foto {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.perfil-sidebar-nome {
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #eee;
+}
+
+.botao-trocar-perfil {
+  background: none;
+  padding: 0.2em;
+  border-radius: 0.3em;
+  color: #ccc;
+}
+
+.botao-trocar-perfil:hover {
+  background-color: #333;
+  color: #eee;
 }
 
 .conteudo-principal {
