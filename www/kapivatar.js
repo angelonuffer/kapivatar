@@ -213,6 +213,33 @@ const remover_perfil = async (hash_remover) => {
   rotear()
 }
 
+const verificar_retentativas = async () => {
+  const id_meu_perfil = await obter_id_perfil_selecionado()
+  if (!id_meu_perfil) return
+
+  const lista_contatos = await carregar_lista_contatos()
+  for (const contato of lista_contatos.contatos) {
+    const conversa = await carregar_conversa(id_meu_perfil, contato.id)
+    const agora = new Date().getTime()
+    let houve_reenvio = false
+
+    for (const msg of conversa.mensagens) {
+      if (msg.id_remetente === id_meu_perfil && !msg.recebida) {
+        const data_msg = new Date(msg.data).getTime()
+        const tempo_passado = agora - data_msg
+        // Reenviar se a mensagem tiver mais de 10 segundos e menos de 2 minutos (limite de retentativas)
+        if (tempo_passado > 10000 && tempo_passado < 120000) {
+          console.log("Reenviando mensagem:", msg.id)
+          await enviar_mensagem_chat(contato.id, msg.texto, msg.id)
+          houve_reenvio = true
+        }
+      }
+    }
+  }
+}
+
+setInterval(verificar_retentativas, 15000)
+
 const obter_hash_lista_contatos = async () => {
   const diretorio = await obter_diretorio()
   const arquivo = await ler_arquivo(diretorio, "contatos")
@@ -361,7 +388,34 @@ const aceitar_solicitacao_contato = async (perfil_solicitante) => {
   await salvar_lista_contatos(lista)
 }
 
-const enviar_mensagem_chat = async (id_contato, texto) => {
+const enviar_ack = async (id_contato, id_mensagem) => {
+  const id_meu_perfil = await obter_id_perfil_selecionado()
+  const lista_contatos = await carregar_lista_contatos()
+  const contato = lista_contatos.contatos.find(c => c.id === id_contato)
+
+  if (!contato) {
+    console.error("Contato não encontrado para enviar ACK")
+    return
+  }
+
+  const conteudo_ack = {
+    chat_ack: id_mensagem,
+    id_remetente: id_meu_perfil
+  }
+
+  const chave_publica_contato = await importar_chave_publica(contato.chave_publica)
+  const buffer_criptografado = await criptografar(chave_publica_contato, conteudo_ack)
+  const mensagem_criptografada = buffer_para_base64(buffer_criptografado)
+
+  const mensagem = {
+    id_destino: id_contato,
+    mensagem_criptografada: mensagem_criptografada
+  }
+
+  cliente_mqtt.publish("kapivatar.net", JSON.stringify(mensagem))
+}
+
+const enviar_mensagem_chat = async (id_contato, texto, id_mensagem = null) => {
   const id_meu_perfil = await obter_id_perfil_selecionado()
   const diretorio = await obter_diretorio()
   const arquivo_id = await ler_arquivo(diretorio, id_meu_perfil)
@@ -377,8 +431,11 @@ const enviar_mensagem_chat = async (id_contato, texto) => {
     return
   }
 
+  const id_msg = id_mensagem || crypto.randomUUID()
+
   const conteudo_mensagem = {
     chat_mensagem: texto,
+    id_mensagem: id_msg,
     id_remetente: id_meu_perfil
   }
 
@@ -393,14 +450,18 @@ const enviar_mensagem_chat = async (id_contato, texto) => {
 
   cliente_mqtt.publish("kapivatar.net", JSON.stringify(mensagem))
 
-  const conversa = await carregar_conversa(id_meu_perfil, id_contato)
-  conversa.mensagens.push({
-    id_remetente: id_meu_perfil,
-    texto: texto,
-    data: new Date().toISOString()
-  })
-  await salvar_conversa(id_meu_perfil, id_contato, conversa)
-  rotear()
+  if (!id_mensagem) {
+    const conversa = await carregar_conversa(id_meu_perfil, id_contato)
+    conversa.mensagens.push({
+      id: id_msg,
+      id_remetente: id_meu_perfil,
+      texto: texto,
+      data: new Date().toISOString(),
+      recebida: false
+    })
+    await salvar_conversa(id_meu_perfil, id_contato, conversa)
+    rotear()
+  }
 }
 
 window.processar_mensagem_mqtt = async (dados) => {
@@ -465,13 +526,27 @@ window.processar_mensagem_mqtt = async (dados) => {
 
           if (conteudo.chat_mensagem && conteudo.id_remetente) {
             const conversa = await carregar_conversa(dados.id_destino, conteudo.id_remetente)
-            conversa.mensagens.push({
-              id_remetente: conteudo.id_remetente,
-              texto: conteudo.chat_mensagem,
-              data: new Date().toISOString()
-            })
-            await salvar_conversa(dados.id_destino, conteudo.id_remetente, conversa)
-            rotear()
+            if (!conversa.mensagens.find(m => m.id === conteudo.id_mensagem)) {
+              conversa.mensagens.push({
+                id: conteudo.id_mensagem,
+                id_remetente: conteudo.id_remetente,
+                texto: conteudo.chat_mensagem,
+                data: new Date().toISOString()
+              })
+              await salvar_conversa(dados.id_destino, conteudo.id_remetente, conversa)
+              rotear()
+            }
+            await enviar_ack(conteudo.id_remetente, conteudo.id_mensagem)
+          }
+
+          if (conteudo.chat_ack && conteudo.id_remetente) {
+            const conversa = await carregar_conversa(dados.id_destino, conteudo.id_remetente)
+            const msg = conversa.mensagens.find(m => m.id === conteudo.chat_ack)
+            if (msg && !msg.recebida) {
+              msg.recebida = true
+              await salvar_conversa(dados.id_destino, conteudo.id_remetente, conversa)
+              rotear()
+            }
           }
         } catch (e) {
           // Provavelmente não era para este perfil ou erro na descriptografia
@@ -1544,10 +1619,27 @@ const páginas = [
         texto.textContent = msg.texto
         msg_div.appendChild(texto)
 
+        const rodape_msg = document.createElement("div")
+        rodape_msg.classList.add("chat-mensagem-rodape")
+
         const data = document.createElement("span")
         data.classList.add("chat-mensagem-data")
         data.textContent = new Date(msg.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        msg_div.appendChild(data)
+        rodape_msg.appendChild(data)
+
+        if (msg.id_remetente === id_meu_perfil) {
+          const status = document.createElement("span")
+          status.classList.add("material-symbols-outlined", "chat-mensagem-status")
+          if (msg.recebida) {
+            status.textContent = "done_all"
+            status.classList.add("recebida")
+          } else {
+            status.textContent = "done"
+          }
+          rodape_msg.appendChild(status)
+        }
+
+        msg_div.appendChild(rodape_msg)
 
         mensagens_div.appendChild(msg_div)
       })
