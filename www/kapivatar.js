@@ -34,6 +34,56 @@ const exportar_chave = async (chave) => {
   return await crypto.subtle.exportKey("jwk", chave)
 }
 
+const importar_chave_publica = async (jwk) => {
+  return await crypto.subtle.importKey(
+    "jwk",
+    jwk,
+    {
+      name: "RSA-OAEP",
+      hash: "SHA-256",
+    },
+    true,
+    ["encrypt"]
+  )
+}
+
+const importar_chave_privada = async (jwk) => {
+  return await crypto.subtle.importKey(
+    "jwk",
+    jwk,
+    {
+      name: "RSA-OAEP",
+      hash: "SHA-256",
+    },
+    true,
+    ["decrypt"]
+  )
+}
+
+const criptografar = async (chave_publica, dados) => {
+  const encoder = new TextEncoder()
+  const buffer = encoder.encode(JSON.stringify(dados))
+  return await crypto.subtle.encrypt(
+    {
+      name: "RSA-OAEP",
+    },
+    chave_publica,
+    buffer
+  )
+}
+
+const descriptografar = async (chave_privada, buffer) => {
+  const decriptografado = await crypto.subtle.decrypt(
+    {
+      name: "RSA-OAEP",
+    },
+    chave_privada,
+    buffer
+  )
+  const decoder = new TextDecoder()
+  return JSON.parse(decoder.decode(decriptografado))
+}
+
 const gerar_id_perfil = async (chave_publica) => {
   const spki = await crypto.subtle.exportKey("spki", chave_publica)
   return await gerar_hash(spki)
@@ -116,6 +166,188 @@ const remover_perfil = async (hash_remover) => {
 
   rotear()
 }
+
+const obter_hash_lista_contatos = async () => {
+  const diretorio = await obter_diretorio()
+  const arquivo = await ler_arquivo(diretorio, "contatos")
+  if (!arquivo) return null
+  return await arquivo.text()
+}
+
+const definir_hash_lista_contatos = async (hash) => {
+  const diretorio = await obter_diretorio()
+  await escrever_arquivo(diretorio, "contatos", hash)
+}
+
+const carregar_lista_contatos = async (hash_lista) => {
+  const diretorio = await obter_diretorio()
+  const hash = hash_lista || (await obter_hash_lista_contatos())
+  if (!hash) return { contatos: [], solicitações_enviadas: [], solicitações_recebidas: [], data: new Date().toISOString() }
+  const arquivo = await ler_arquivo(diretorio, hash)
+  if (!arquivo) return { contatos: [], solicitações_enviadas: [], solicitações_recebidas: [], data: new Date().toISOString() }
+  return JSON.parse(await arquivo.text())
+}
+
+const salvar_lista_contatos = async (nova_lista) => {
+  const diretorio = await obter_diretorio()
+  const hash_anterior = await obter_hash_lista_contatos()
+  nova_lista.data = new Date().toISOString()
+  if (hash_anterior) nova_lista.anterior = hash_anterior
+  const conteudo = JSON.stringify(nova_lista)
+  const hash = await gerar_hash(conteudo)
+  await escrever_arquivo(diretorio, hash, conteudo)
+  await definir_hash_lista_contatos(hash)
+}
+
+const enviar_solicitacao_contato = async (id_alvo) => {
+  const id_meu_perfil = await obter_id_perfil_selecionado()
+  const diretorio = await obter_diretorio()
+  const arquivo_id = await ler_arquivo(diretorio, id_meu_perfil)
+  const hash_perfil = await arquivo_id.text()
+  const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+  const meu_perfil = JSON.parse(await arquivo_perfil.text())
+
+  // Remover chave privada antes de enviar
+  const { chave_privada, ...meu_perfil_publico } = meu_perfil
+
+  const mensagem = {
+    adicionar_contato_id: id_alvo,
+    meu_perfil: meu_perfil_publico
+  }
+
+  cliente_mqtt.publish("kapivatar.net", JSON.stringify(mensagem))
+
+  const lista = await carregar_lista_contatos()
+  if (!lista.solicitações_enviadas.includes(id_alvo)) {
+    lista.solicitações_enviadas.push(id_alvo)
+    await salvar_lista_contatos(lista)
+  }
+}
+
+const aceitar_solicitacao_contato = async (perfil_solicitante) => {
+  const id_meu_perfil = await obter_id_perfil_selecionado()
+  const diretorio = await obter_diretorio()
+  const arquivo_id = await ler_arquivo(diretorio, id_meu_perfil)
+  const hash_perfil = await arquivo_id.text()
+  const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+  const meu_perfil = JSON.parse(await arquivo_perfil.text())
+
+  // Remover chave privada antes de enviar
+  const { chave_privada, ...meu_perfil_publico } = meu_perfil
+
+  const conteudo_aceito = {
+    solicitação_aceita: true,
+    meu_perfil: meu_perfil_publico
+  }
+
+  const chave_publica_solicitante = await importar_chave_publica(perfil_solicitante.chave_publica)
+  const buffer_criptografado = await criptografar(chave_publica_solicitante, conteudo_aceito)
+
+  // Converter buffer para string base64 para envio via JSON
+  const mensagem_criptografada = btoa(String.fromCharCode(...new Uint8Array(buffer_criptografado)))
+
+  const mensagem = {
+    id_destino: perfil_solicitante.id,
+    mensagem_criptografada: mensagem_criptografada
+  }
+
+  cliente_mqtt.publish("kapivatar.net", JSON.stringify(mensagem))
+
+  const lista = await carregar_lista_contatos()
+  // Adiciona aos contatos
+  if (!lista.contatos.find(c => c.id === perfil_solicitante.id)) {
+    lista.contatos.push(perfil_solicitante)
+  }
+  // Remove das solicitações recebidas
+  lista.solicitações_recebidas = lista.solicitações_recebidas.filter(p => p.id !== perfil_solicitante.id)
+  await salvar_lista_contatos(lista)
+}
+
+const processar_mensagem_mqtt = async (dados) => {
+  console.log("Mensagem MQTT recebida:", dados)
+
+  const diretorio = await obter_diretorio()
+  if (!diretorio) return
+
+  const arquivo_perfis = await ler_arquivo(diretorio, "perfis")
+  if (!arquivo_perfis) return
+
+  const hash_lista_perfis = await arquivo_perfis.text()
+  const arquivo_lista_perfis = await ler_arquivo(diretorio, hash_lista_perfis)
+  const lista_perfis = JSON.parse(await arquivo_lista_perfis.text())
+
+  // 1. Verificar se é uma solicitação para um dos meus perfis
+  if (dados.adicionar_contato_id && dados.meu_perfil) {
+    if (lista_perfis.perfis.includes(dados.adicionar_contato_id)) {
+      // Verificar se o id corresponde à chave pública
+      const id_verificado = await gerar_id_perfil(await importar_chave_publica(dados.meu_perfil.chave_publica))
+      if (id_verificado === dados.meu_perfil.id) {
+        const lista_contatos = await carregar_lista_contatos()
+        if (!lista_contatos.solicitações_recebidas.find(p => p.id === dados.meu_perfil.id) &&
+            !lista_contatos.contatos.find(p => p.id === dados.meu_perfil.id)) {
+          lista_contatos.solicitações_recebidas.push(dados.meu_perfil)
+          await salvar_lista_contatos(lista_contatos)
+          rotear()
+        }
+      }
+    }
+  }
+
+  // 2. Verificar se é uma resposta para mim
+  if (dados.id_destino && dados.mensagem_criptografada) {
+    if (lista_perfis.perfis.includes(dados.id_destino)) {
+      // Tentar descriptografar com a chave privada de cada um dos meus perfis (ou apenas do id_destino)
+      const arquivo_id = await ler_arquivo(diretorio, dados.id_destino)
+      if (arquivo_id) {
+        const hash_perfil = await arquivo_id.text()
+        const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+        const meu_perfil = JSON.parse(await arquivo_perfil.text())
+
+        try {
+          const chave_privada = await importar_chave_privada(meu_perfil.chave_privada)
+          const buffer = new Uint8Array(atob(dados.mensagem_criptografada).split("").map(c => c.charCodeAt(0)))
+          const conteudo = await descriptografar(chave_privada, buffer)
+
+          if (conteudo.solicitação_aceita && conteudo.meu_perfil) {
+            // Verificar id
+            const id_verificado = await gerar_id_perfil(await importar_chave_publica(conteudo.meu_perfil.chave_publica))
+            if (id_verificado === conteudo.meu_perfil.id) {
+              const lista_contatos = await carregar_lista_contatos()
+              if (!lista_contatos.contatos.find(p => p.id === conteudo.meu_perfil.id)) {
+                lista_contatos.contatos.push(conteudo.meu_perfil)
+                // Remove das enviadas
+                lista_contatos.solicitações_enviadas = lista_contatos.solicitações_enviadas.filter(id => id !== conteudo.meu_perfil.id)
+                await salvar_lista_contatos(lista_contatos)
+                rotear()
+              }
+            }
+          }
+        } catch (e) {
+          // Provavelmente não era para este perfil ou erro na descriptografia
+          console.log("Falha ao descriptografar mensagem para", dados.id_destino, e)
+        }
+      }
+    }
+  }
+}
+
+const cliente_mqtt = mqtt.connect("wss://broker.hivemq.com:8884/mqtt")
+
+cliente_mqtt.on("connect", () => {
+  console.log("Conectado ao MQTT")
+  cliente_mqtt.subscribe("kapivatar.net")
+})
+
+cliente_mqtt.on("message", (topico, mensagem) => {
+  if (topico === "kapivatar.net") {
+    try {
+      const dados = JSON.parse(mensagem.toString())
+      processar_mensagem_mqtt(dados)
+    } catch (e) {
+      console.error("Erro ao processar mensagem MQTT:", e)
+    }
+  }
+})
 
 const páginas = [
   {
@@ -857,10 +1089,199 @@ const páginas = [
     nome: "Contatos",
     url: "/contatos",
     ícone: "contacts",
-    render: (conteudo) => {
-      const p = document.createElement("p")
-      p.textContent = "Sua lista de contatos aparecerá aqui."
-      conteudo.appendChild(p)
+    ações: [
+      {
+        nome: "Adicionar",
+        url: "/contatos/adicionar",
+        ícone: "person_add",
+      },
+      {
+        nome: "Solicitações",
+        url: "/contatos/solicitações",
+        ícone: "group_add",
+      },
+    ],
+    render: async (conteudo) => {
+      const lista = await carregar_lista_contatos()
+      if (lista.contatos.length === 0) {
+        conteudo.innerHTML = "<p>Sua lista de contatos está vazia.</p>"
+      } else {
+        const ul = document.createElement("ul")
+        for (const contato of lista.contatos) {
+          const li = document.createElement("li")
+          li.textContent = contato.nome || contato.id
+          ul.appendChild(li)
+        }
+        conteudo.appendChild(ul)
+      }
+    }
+  },
+  {
+    nome: "Adicionar Contato",
+    url: "/contatos/adicionar",
+    ícone: "person_add",
+    ocultar_no_menu: true,
+    render: async (conteudo) => {
+      const id_meu_perfil = await obter_id_perfil_selecionado()
+      if (!id_meu_perfil) {
+        conteudo.innerHTML = "<p>Selecione um perfil primeiro.</p>"
+        return
+      }
+
+      const div_meu_id = document.createElement("div")
+      div_meu_id.classList.add("form-campo")
+      const label_meu_id = document.createElement("label")
+      label_meu_id.textContent = "Meu ID de Perfil"
+      div_meu_id.appendChild(label_meu_id)
+
+      const container_input = document.createElement("div")
+      container_input.style.display = "flex"
+      container_input.style.gap = "0.5em"
+
+      const input_meu_id = document.createElement("input")
+      input_meu_id.type = "text"
+      input_meu_id.value = id_meu_perfil
+      input_meu_id.readOnly = true
+      input_meu_id.style.flex = "1"
+      container_input.appendChild(input_meu_id)
+
+      const botao_copiar = document.createElement("button")
+      botao_copiar.type = "button"
+      const icone_copiar = document.createElement("span")
+      icone_copiar.classList.add("material-symbols-outlined")
+      icone_copiar.textContent = "content_copy"
+      botao_copiar.appendChild(icone_copiar)
+      botao_copiar.onclick = () => {
+        navigator.clipboard.writeText(id_meu_perfil)
+        alert("ID copiado!")
+      }
+      container_input.appendChild(botao_copiar)
+      div_meu_id.appendChild(container_input)
+      conteudo.appendChild(div_meu_id)
+
+      const form = document.createElement("form")
+      form.classList.add("form-perfil")
+      form.style.marginTop = "2em"
+
+      const div_contato_id = document.createElement("div")
+      div_contato_id.classList.add("form-campo")
+      const label_contato_id = document.createElement("label")
+      label_contato_id.textContent = "ID do Contato para Adicionar"
+      label_contato_id.htmlFor = "contato_id"
+      div_contato_id.appendChild(label_contato_id)
+
+      const input_contato_id = document.createElement("input")
+      input_contato_id.type = "text"
+      input_contato_id.id = "contato_id"
+      input_contato_id.name = "contato_id"
+      input_contato_id.required = true
+      div_contato_id.appendChild(input_contato_id)
+      form.appendChild(div_contato_id)
+
+      const botao_adicionar = document.createElement("button")
+      botao_adicionar.type = "submit"
+      const icone_add = document.createElement("span")
+      icone_add.classList.add("material-symbols-outlined")
+      icone_add.textContent = "person_add"
+      botao_adicionar.appendChild(icone_add)
+      const texto_add = document.createElement("span")
+      texto_add.textContent = "Adicionar Contato"
+      botao_adicionar.appendChild(texto_add)
+      form.appendChild(botao_adicionar)
+
+      form.onsubmit = async (e) => {
+        e.preventDefault()
+        const id_alvo = form.contato_id.value
+        await enviar_solicitacao_contato(id_alvo)
+        navegar("/contatos/solicitações")
+      }
+
+      conteudo.appendChild(form)
+    }
+  },
+  {
+    nome: "Solicitações de Contato",
+    url: "/contatos/solicitações",
+    ícone: "group_add",
+    ocultar_no_menu: true,
+    render: async (conteudo) => {
+      const lista = await carregar_lista_contatos()
+
+      const grid = document.createElement("div")
+      grid.style.display = "grid"
+      grid.style.gridTemplateColumns = "1fr 1fr"
+      grid.style.gap = "2em"
+      conteudo.appendChild(grid)
+
+      const div_enviadas = document.createElement("div")
+      const h3_enviadas = document.createElement("h3")
+      h3_enviadas.textContent = "Solicitações Enviadas"
+      div_enviadas.appendChild(h3_enviadas)
+
+      if (lista.solicitações_enviadas.length === 0) {
+        const p = document.createElement("p")
+        p.textContent = "Nenhuma solicitação enviada."
+        div_enviadas.appendChild(p)
+      } else {
+        const ul = document.createElement("ul")
+        ul.classList.add("lista-solicitacoes")
+        lista.solicitações_enviadas.forEach(id => {
+          const li = document.createElement("li")
+          li.classList.add("item-solicitacao")
+
+          const info = document.createElement("div")
+          info.classList.add("item-solicitacao-info")
+          const span_id = document.createElement("span")
+          span_id.classList.add("item-solicitacao-id")
+          span_id.textContent = id
+          info.appendChild(span_id)
+
+          li.appendChild(info)
+          ul.appendChild(li)
+        })
+        div_enviadas.appendChild(ul)
+      }
+      grid.appendChild(div_enviadas)
+
+      const div_recebidas = document.createElement("div")
+      const h3_recebidas = document.createElement("h3")
+      h3_recebidas.textContent = "Solicitações Recebidas"
+      div_recebidas.appendChild(h3_recebidas)
+
+      if (lista.solicitações_recebidas.length === 0) {
+        const p = document.createElement("p")
+        p.textContent = "Nenhuma solicitação recebida."
+        div_recebidas.appendChild(p)
+      } else {
+        const ul = document.createElement("ul")
+        ul.classList.add("lista-solicitacoes")
+        lista.solicitações_recebidas.forEach(perfil => {
+          const li = document.createElement("li")
+          li.classList.add("item-solicitacao")
+
+          const info = document.createElement("div")
+          info.classList.add("item-solicitacao-info")
+          const nome = document.createElement("span")
+          nome.textContent = perfil.nome || "Sem nome"
+          info.appendChild(nome)
+          const span_id = document.createElement("span")
+          span_id.classList.add("item-solicitacao-id")
+          span_id.textContent = perfil.id
+          info.appendChild(span_id)
+          li.appendChild(info)
+
+          const botao_aceitar = document.createElement("button")
+          botao_aceitar.textContent = "Aceitar"
+          botao_aceitar.onclick = async () => {
+            await aceitar_solicitacao_contato(perfil)
+            rotear()
+          }
+          li.appendChild(botao_aceitar)
+          ul.appendChild(li)
+        })
+        div_recebidas.appendChild(ul)
+      }
+      grid.appendChild(div_recebidas)
     }
   },
   {
