@@ -649,12 +649,27 @@ a.ativo {
   word-wrap: break-word;
 }
 
+.chat-mensagem-rodape {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.3em;
+  margin-top: 0.3em;
+}
+
 .chat-mensagem-data {
   font-size: 0.7em;
   opacity: 0.6;
-  margin-top: 0.3em;
-  display: block;
-  text-align: right;
+}
+
+.chat-mensagem-status {
+  font-size: 1.1em !important;
+  opacity: 0.6;
+}
+
+.chat-mensagem-status.recebida {
+  color: #4fc3f7;
+  opacity: 1;
 }
 
 .chat-mensagem.minha {
