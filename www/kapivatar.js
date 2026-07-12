@@ -62,26 +62,72 @@ const importar_chave_privada = async (jwk) => {
 
 const criptografar = async (chave_publica, dados) => {
   const encoder = new TextEncoder()
-  const buffer = encoder.encode(JSON.stringify(dados))
-  return await crypto.subtle.encrypt(
-    {
-      name: "RSA-OAEP",
-    },
-    chave_publica,
-    buffer
+  const buffer_dados = encoder.encode(JSON.stringify(dados))
+
+  // 1. Gerar chave AES
+  const chave_aes = await crypto.subtle.generateKey(
+    { name: "AES-GCM", length: 256 },
+    true,
+    ["encrypt"]
   )
+
+  // 2. Exportar e criptografar a chave AES com RSA
+  const chave_aes_raw = await crypto.subtle.exportKey("raw", chave_aes)
+  const chave_aes_criptografada = await crypto.subtle.encrypt(
+    { name: "RSA-OAEP" },
+    chave_publica,
+    chave_aes_raw
+  )
+
+  // 3. Criptografar dados com AES
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const dados_criptografados = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    chave_aes,
+    buffer_dados
+  )
+
+  // 4. Combinar: chave_aes_criptografada (256 bytes para RSA 2048) + iv (12 bytes) + dados_criptografados
+  const resultado = new Uint8Array(chave_aes_criptografada.byteLength + iv.byteLength + dados_criptografados.byteLength)
+  resultado.set(new Uint8Array(chave_aes_criptografada), 0)
+  resultado.set(iv, chave_aes_criptografada.byteLength)
+  resultado.set(new Uint8Array(dados_criptografados), chave_aes_criptografada.byteLength + iv.byteLength)
+
+  return resultado.buffer
 }
 
 const descriptografar = async (chave_privada, buffer) => {
-  const decriptografado = await crypto.subtle.decrypt(
-    {
-      name: "RSA-OAEP",
-    },
+  const bytes = new Uint8Array(buffer)
+
+  // 1. Separar as partes (RSA 2048 produz 256 bytes de ciphertext)
+  const chave_aes_criptografada = bytes.slice(0, 256)
+  const iv = bytes.slice(256, 256 + 12)
+  const dados_criptografados = bytes.slice(256 + 12)
+
+  // 2. Descriptografar a chave AES com RSA
+  const chave_aes_raw = await crypto.subtle.decrypt(
+    { name: "RSA-OAEP" },
     chave_privada,
-    buffer
+    chave_aes_criptografada
   )
+
+  const chave_aes = await crypto.subtle.importKey(
+    "raw",
+    chave_aes_raw,
+    "AES-GCM",
+    false,
+    ["decrypt"]
+  )
+
+  // 3. Descriptografar dados com AES
+  const buffer_dados = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    chave_aes,
+    dados_criptografados
+  )
+
   const decoder = new TextDecoder()
-  return JSON.parse(decoder.decode(decriptografado))
+  return JSON.parse(decoder.decode(buffer_dados))
 }
 
 const gerar_id_perfil = async (chave_publica) => {
@@ -125,7 +171,7 @@ const escrever_arquivo = async (diretorio, nome, conteudo) => {
   await writable.close()
 }
 
-const obter_id_perfil_selecionado = async () => {
+window.obter_id_perfil_selecionado = async () => {
   const diretorio = await obter_diretorio()
   const arquivo = await ler_arquivo(diretorio, "perfil_selecionado")
   if (!arquivo) return null
@@ -179,7 +225,7 @@ const definir_hash_lista_contatos = async (hash) => {
   await escrever_arquivo(diretorio, "contatos", hash)
 }
 
-const carregar_lista_contatos = async (hash_lista) => {
+window.carregar_lista_contatos = async (hash_lista) => {
   const diretorio = await obter_diretorio()
   const hash = hash_lista || (await obter_hash_lista_contatos())
   if (!hash) return { contatos: [], solicitações_enviadas: [], solicitações_recebidas: [], data: new Date().toISOString() }
@@ -188,7 +234,7 @@ const carregar_lista_contatos = async (hash_lista) => {
   return JSON.parse(await arquivo.text())
 }
 
-const salvar_lista_contatos = async (nova_lista) => {
+window.salvar_lista_contatos = async (nova_lista) => {
   const diretorio = await obter_diretorio()
   const hash_anterior = await obter_hash_lista_contatos()
   nova_lista.data = new Date().toISOString()
@@ -197,6 +243,24 @@ const salvar_lista_contatos = async (nova_lista) => {
   const hash = await gerar_hash(conteudo)
   await escrever_arquivo(diretorio, hash, conteudo)
   await definir_hash_lista_contatos(hash)
+}
+
+const buffer_para_base64 = (buffer) => {
+  const bytes = new Uint8Array(buffer)
+  let binary = ""
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
+const base64_para_buffer = (base64) => {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return bytes.buffer
 }
 
 const enviar_solicitacao_contato = async (id_alvo) => {
@@ -209,6 +273,7 @@ const enviar_solicitacao_contato = async (id_alvo) => {
 
   // Remover chave privada antes de enviar
   const { chave_privada, ...meu_perfil_publico } = meu_perfil
+  meu_perfil_publico.id = id_meu_perfil
 
   const mensagem = {
     adicionar_contato_id: id_alvo,
@@ -234,6 +299,7 @@ const aceitar_solicitacao_contato = async (perfil_solicitante) => {
 
   // Remover chave privada antes de enviar
   const { chave_privada, ...meu_perfil_publico } = meu_perfil
+  meu_perfil_publico.id = id_meu_perfil
 
   const conteudo_aceito = {
     solicitação_aceita: true,
@@ -244,7 +310,7 @@ const aceitar_solicitacao_contato = async (perfil_solicitante) => {
   const buffer_criptografado = await criptografar(chave_publica_solicitante, conteudo_aceito)
 
   // Converter buffer para string base64 para envio via JSON
-  const mensagem_criptografada = btoa(String.fromCharCode(...new Uint8Array(buffer_criptografado)))
+  const mensagem_criptografada = buffer_para_base64(buffer_criptografado)
 
   const mensagem = {
     id_destino: perfil_solicitante.id,
@@ -263,7 +329,7 @@ const aceitar_solicitacao_contato = async (perfil_solicitante) => {
   await salvar_lista_contatos(lista)
 }
 
-const processar_mensagem_mqtt = async (dados) => {
+window.processar_mensagem_mqtt = async (dados) => {
   console.log("Mensagem MQTT recebida:", dados)
 
   const diretorio = await obter_diretorio()
@@ -305,7 +371,7 @@ const processar_mensagem_mqtt = async (dados) => {
 
         try {
           const chave_privada = await importar_chave_privada(meu_perfil.chave_privada)
-          const buffer = new Uint8Array(atob(dados.mensagem_criptografada).split("").map(c => c.charCodeAt(0)))
+          const buffer = base64_para_buffer(dados.mensagem_criptografada)
           const conteudo = await descriptografar(chave_privada, buffer)
 
           if (conteudo.solicitação_aceita && conteudo.meu_perfil) {
@@ -331,7 +397,8 @@ const processar_mensagem_mqtt = async (dados) => {
   }
 }
 
-const cliente_mqtt = mqtt.connect("wss://broker.hivemq.com:8884/mqtt")
+window.cliente_mqtt = mqtt.connect("wss://broker.hivemq.com:8884/mqtt")
+const cliente_mqtt = window.cliente_mqtt
 
 cliente_mqtt.on("connect", () => {
   console.log("Conectado ao MQTT")
