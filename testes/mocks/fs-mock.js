@@ -12,6 +12,13 @@ export const test = base.extend({
           this.kind = 'directory';
           this.name = 'mock-data';
         }
+        async queryPermission(descriptor) {
+          return sessionStorage.getItem('_permissionState') || 'granted';
+        }
+        async requestPermission(descriptor) {
+          sessionStorage.setItem('_permissionState', 'granted');
+          return 'granted';
+        }
         async getFileHandle(name, options = {}) {
           if (!files.has(name) && !options.create) {
             const error = new Error('File not found');
@@ -29,6 +36,13 @@ export const test = base.extend({
         constructor(name) {
           this.name = name;
           this.kind = 'file';
+        }
+        async queryPermission(descriptor) {
+          return sessionStorage.getItem('_permissionState') || 'granted';
+        }
+        async requestPermission(descriptor) {
+          sessionStorage.setItem('_permissionState', 'granted');
+          return 'granted';
         }
         async getFile() {
           const content = files.get(this.name);

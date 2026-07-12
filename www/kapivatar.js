@@ -1696,7 +1696,78 @@ const fechar_sidebar = () => {
 }
 
 const esta_autenticado = async () => {
-  return await obter_diretorio() !== undefined
+  const diretorio = await obter_diretorio()
+  if (!diretorio) return false
+  try {
+    return await diretorio.queryPermission({ mode: "readwrite" }) === "granted"
+  } catch (e) {
+    return true
+  }
+}
+
+const carregar_tela_permissao = async (diretorio) => {
+  document.body.innerHTML = ""
+  document.body.classList.remove("app-logado")
+  const logo = document.createElement("img")
+  logo.classList.add("login-logo")
+  logo.src = "kapivatar.svg"
+  logo.alt = "Kapivatar Logo"
+  document.body.appendChild(logo)
+  const coluna_1 = document.createElement("div")
+  coluna_1.classList.add("coluna", "login-info")
+  const h1 = document.createElement("h1")
+  h1.textContent = "Permissão Necessária"
+  coluna_1.appendChild(h1)
+  const img = document.createElement("img")
+  img.src = "capivara.jpeg"
+  img.classList.add("login-imagem")
+  img.alt = "Mascote Capivara"
+  coluna_1.appendChild(img)
+  const p_1 = document.createElement("p")
+  p_1.classList.add("login-descricao")
+  p_1.textContent = "O Kapivatar precisa de permissão para ler e escrever na pasta de dados selecionada para que você possa acessar seus perfis e mensagens."
+  coluna_1.appendChild(p_1)
+  document.body.appendChild(coluna_1)
+  const coluna_2 = document.createElement("div")
+  coluna_2.classList.add("coluna", "login-acao")
+  const p_2 = document.createElement("p")
+  p_2.textContent = "Reativar acesso"
+  coluna_2.appendChild(p_2)
+  const botão_permitir = document.createElement("button")
+  const icone_permissao = document.createElement("span")
+  icone_permissao.classList.add("material-symbols-outlined")
+  icone_permissao.textContent = "lock_open"
+  botão_permitir.appendChild(icone_permissao)
+  const texto_permitir = document.createElement("span")
+  texto_permitir.textContent = "Permitir Acesso"
+  botão_permitir.appendChild(texto_permitir)
+  botão_permitir.onclick = async () => {
+    const status = await diretorio.requestPermission({ mode: "readwrite" })
+    if (status === "granted") {
+      rotear()
+    }
+  }
+  coluna_2.appendChild(botão_permitir)
+
+  const botão_sair = document.createElement("button")
+  botão_sair.style.marginTop = "1em"
+  botão_sair.style.backgroundColor = "#444"
+  const icone_sair = document.createElement("span")
+  icone_sair.classList.add("material-symbols-outlined")
+  icone_sair.textContent = "logout"
+  botão_sair.appendChild(icone_sair)
+  const texto_sair = document.createElement("span")
+  texto_sair.textContent = "Sair e trocar pasta"
+  botão_sair.appendChild(texto_sair)
+  botão_sair.onclick = async () => {
+    const db = await banco_kapivatar
+    const remover_diretório = db.transaction("byName", "readwrite").objectStore("byName").delete("diretório")
+    remover_diretório.onsuccess = () => {
+      rotear()
+    }
+  }
+  coluna_2.appendChild(botão_sair)
+  document.body.appendChild(coluna_2)
 }
 
 const carregar_tela_login = async () => {
@@ -2026,12 +2097,22 @@ const renderizar_404 = () => {
 }
 
 const rotear = async () => {
-  const autenticado = await esta_autenticado()
+  const diretorio = await obter_diretorio()
 
-  if (!autenticado) {
+  if (!diretorio) {
     layout_referencias = null
     carregar_tela_login()
     return
+  }
+
+  try {
+    const permissao = await diretorio.queryPermission({ mode: "readwrite" })
+    if (permissao !== "granted") {
+      carregar_tela_permissao(diretorio)
+      return
+    }
+  } catch (e) {
+    console.error("Erro ao verificar permissão:", e)
   }
 
   if (!layout_referencias) {
