@@ -245,6 +245,38 @@ window.salvar_lista_contatos = async (nova_lista) => {
   await definir_hash_lista_contatos(hash)
 }
 
+const obter_hash_conversa = async (meu_id, contato_id) => {
+  const diretorio = await obter_diretorio()
+  const arquivo = await ler_arquivo(diretorio, `chat_${meu_id}_${contato_id}`)
+  if (!arquivo) return null
+  return await arquivo.text()
+}
+
+const definir_hash_conversa = async (meu_id, contato_id, hash) => {
+  const diretorio = await obter_diretorio()
+  await escrever_arquivo(diretorio, `chat_${meu_id}_${contato_id}`, hash)
+}
+
+window.carregar_conversa = async (meu_id, contato_id) => {
+  const diretorio = await obter_diretorio()
+  const hash = await obter_hash_conversa(meu_id, contato_id)
+  if (!hash) return { mensagens: [], data: new Date().toISOString() }
+  const arquivo = await ler_arquivo(diretorio, hash)
+  if (!arquivo) return { mensagens: [], data: new Date().toISOString() }
+  return JSON.parse(await arquivo.text())
+}
+
+window.salvar_conversa = async (meu_id, contato_id, nova_conversa) => {
+  const diretorio = await obter_diretorio()
+  const hash_anterior = await obter_hash_conversa(meu_id, contato_id)
+  nova_conversa.data = new Date().toISOString()
+  if (hash_anterior) nova_conversa.anterior = hash_anterior
+  const conteudo = JSON.stringify(nova_conversa)
+  const hash = await gerar_hash(conteudo)
+  await escrever_arquivo(diretorio, hash, conteudo)
+  await definir_hash_conversa(meu_id, contato_id, hash)
+}
+
 const buffer_para_base64 = (buffer) => {
   const bytes = new Uint8Array(buffer)
   let binary = ""
@@ -329,6 +361,48 @@ const aceitar_solicitacao_contato = async (perfil_solicitante) => {
   await salvar_lista_contatos(lista)
 }
 
+const enviar_mensagem_chat = async (id_contato, texto) => {
+  const id_meu_perfil = await obter_id_perfil_selecionado()
+  const diretorio = await obter_diretorio()
+  const arquivo_id = await ler_arquivo(diretorio, id_meu_perfil)
+  const hash_perfil = await arquivo_id.text()
+  const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+  const meu_perfil = JSON.parse(await arquivo_perfil.text())
+
+  const lista_contatos = await carregar_lista_contatos()
+  const contato = lista_contatos.contatos.find(c => c.id === id_contato)
+
+  if (!contato) {
+    console.error("Contato não encontrado para enviar mensagem")
+    return
+  }
+
+  const conteudo_mensagem = {
+    chat_mensagem: texto,
+    id_remetente: id_meu_perfil
+  }
+
+  const chave_publica_contato = await importar_chave_publica(contato.chave_publica)
+  const buffer_criptografado = await criptografar(chave_publica_contato, conteudo_mensagem)
+  const mensagem_criptografada = buffer_para_base64(buffer_criptografado)
+
+  const mensagem = {
+    id_destino: id_contato,
+    mensagem_criptografada: mensagem_criptografada
+  }
+
+  cliente_mqtt.publish("kapivatar.net", JSON.stringify(mensagem))
+
+  const conversa = await carregar_conversa(id_meu_perfil, id_contato)
+  conversa.mensagens.push({
+    id_remetente: id_meu_perfil,
+    texto: texto,
+    data: new Date().toISOString()
+  })
+  await salvar_conversa(id_meu_perfil, id_contato, conversa)
+  rotear()
+}
+
 window.processar_mensagem_mqtt = async (dados) => {
   console.log("Mensagem MQTT recebida:", dados)
 
@@ -387,6 +461,17 @@ window.processar_mensagem_mqtt = async (dados) => {
                 rotear()
               }
             }
+          }
+
+          if (conteudo.chat_mensagem && conteudo.id_remetente) {
+            const conversa = await carregar_conversa(dados.id_destino, conteudo.id_remetente)
+            conversa.mensagens.push({
+              id_remetente: conteudo.id_remetente,
+              texto: conteudo.chat_mensagem,
+              data: new Date().toISOString()
+            })
+            await salvar_conversa(dados.id_destino, conteudo.id_remetente, conversa)
+            rotear()
           }
         } catch (e) {
           // Provavelmente não era para este perfil ou erro na descriptografia
@@ -1173,13 +1258,52 @@ const páginas = [
       if (lista.contatos.length === 0) {
         conteudo.innerHTML = "<p>Sua lista de contatos está vazia.</p>"
       } else {
-        const ul = document.createElement("ul")
+        const grid = document.createElement("div")
+        grid.classList.add("perfis-grid")
+        conteudo.appendChild(grid)
+
+        const diretorio = await obter_diretorio()
+
         for (const contato of lista.contatos) {
-          const li = document.createElement("li")
-          li.textContent = contato.nome || contato.id
-          ul.appendChild(li)
+          const card = document.createElement("div")
+          card.classList.add("perfil-card")
+          card.onclick = () => navegar(`/contato/${contato.id}`)
+
+          if (contato.capa) {
+            const img_capa = document.createElement("img")
+            const arquivo_capa = await ler_arquivo(diretorio, contato.capa)
+            if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
+            img_capa.classList.add("perfil-capa")
+            img_capa.alt = `Capa de ${contato.nome}`
+            card.appendChild(img_capa)
+          }
+
+          const info = document.createElement("div")
+          info.classList.add("perfil-info")
+
+          if (contato.foto) {
+            const img_foto = document.createElement("img")
+            const arquivo_foto = await ler_arquivo(diretorio, contato.foto)
+            if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
+            img_foto.classList.add("perfil-foto")
+            img_foto.alt = `Foto de ${contato.nome}`
+            img_foto.style.marginTop = contato.capa ? "-35px" : "0"
+            info.appendChild(img_foto)
+          }
+
+          const nome = document.createElement("h3")
+          nome.textContent = contato.nome
+          nome.classList.add("perfil-nome")
+          info.appendChild(nome)
+
+          const bio = document.createElement("p")
+          bio.textContent = contato.bio
+          bio.classList.add("perfil-bio")
+          info.appendChild(bio)
+
+          card.appendChild(info)
+          grid.appendChild(card)
         }
-        conteudo.appendChild(ul)
       }
     }
   },
@@ -1352,13 +1476,115 @@ const páginas = [
     }
   },
   {
-    nome: "Conversas",
-    url: "/conversas",
-    ícone: "chat",
-    render: (conteudo) => {
-      const p = document.createElement("p")
-      p.textContent = "Suas conversas criptografadas."
-      conteudo.appendChild(p)
+    nome: "Contato",
+    url: "/contato/:id",
+    ícone: "person",
+    ocultar_no_menu: true,
+    render: async (conteudo, params, route_params) => {
+      const id_contato = route_params.id
+      const id_meu_perfil = await obter_id_perfil_selecionado()
+      const diretorio = await obter_diretorio()
+
+      const lista_contatos = await carregar_lista_contatos()
+      const dados = lista_contatos.contatos.find(c => c.id === id_contato)
+
+      if (!dados) {
+        conteudo.innerHTML = "<p>Contato não encontrado.</p>"
+        return
+      }
+
+      const detalhe = document.createElement("div")
+      detalhe.classList.add("perfil-detalhe")
+
+      if (dados.capa) {
+        const img_capa = document.createElement("img")
+        const arquivo_capa = await ler_arquivo(diretorio, dados.capa)
+        if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
+        img_capa.classList.add("perfil-capa-detalhe")
+        detalhe.appendChild(img_capa)
+      }
+
+      const info = document.createElement("div")
+      info.classList.add("perfil-info-detalhe")
+
+      if (dados.foto) {
+        const img_foto = document.createElement("img")
+        const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
+        if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
+        img_foto.classList.add("perfil-foto-detalhe")
+        img_foto.style.marginTop = dados.capa ? "-50px" : "0"
+        info.appendChild(img_foto)
+      }
+
+      const nome = document.createElement("h2")
+      nome.textContent = dados.nome
+      info.appendChild(nome)
+
+      const bio = document.createElement("p")
+      bio.textContent = dados.bio
+      info.appendChild(bio)
+
+      detalhe.appendChild(info)
+      conteudo.appendChild(detalhe)
+
+      // Chat
+      const chat_container = document.createElement("div")
+      chat_container.classList.add("chat-container")
+
+      const mensagens_div = document.createElement("div")
+      mensagens_div.classList.add("chat-mensagens")
+
+      const conversa = await carregar_conversa(id_meu_perfil, id_contato)
+      conversa.mensagens.forEach(msg => {
+        const msg_div = document.createElement("div")
+        msg_div.classList.add("chat-mensagem")
+        msg_div.classList.add(msg.id_remetente === id_meu_perfil ? "minha" : "deles")
+
+        const texto = document.createElement("p")
+        texto.textContent = msg.texto
+        msg_div.appendChild(texto)
+
+        const data = document.createElement("span")
+        data.classList.add("chat-mensagem-data")
+        data.textContent = new Date(msg.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        msg_div.appendChild(data)
+
+        mensagens_div.appendChild(msg_div)
+      })
+
+      chat_container.appendChild(mensagens_div)
+
+      // Auto scroll para o final
+      setTimeout(() => {
+        mensagens_div.scrollTop = mensagens_div.scrollHeight
+      }, 0)
+
+      const form = document.createElement("form")
+      form.classList.add("chat-form")
+
+      const input = document.createElement("input")
+      input.type = "text"
+      input.placeholder = "Digite uma mensagem..."
+      input.required = true
+      form.appendChild(input)
+
+      const botao = document.createElement("button")
+      botao.type = "submit"
+      const icone = document.createElement("span")
+      icone.classList.add("material-symbols-outlined")
+      icone.textContent = "send"
+      botao.appendChild(icone)
+      form.appendChild(botao)
+
+      form.onsubmit = async (e) => {
+        e.preventDefault()
+        const texto = input.value
+        input.value = ""
+        await enviar_mensagem_chat(id_contato, texto)
+      }
+
+      chat_container.appendChild(form)
+      conteudo.appendChild(chat_container)
     }
   },
 ]
