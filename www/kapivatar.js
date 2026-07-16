@@ -218,9 +218,25 @@ const verificar_retentativas = async () => {
   if (!id_meu_perfil) return
 
   const lista_contatos = await carregar_lista_contatos()
+  const agora = new Date().getTime()
+
+  // 1. Retentativas de solicitações de contato
+  if (lista_contatos.solicitações_enviadas && lista_contatos.solicitações_enviadas.length > 0) {
+    const datas = lista_contatos.solicitações_enviadas_datas || {}
+    for (const id_alvo of lista_contatos.solicitações_enviadas) {
+      const data_envio_str = datas[id_alvo] || lista_contatos.data || new Date().toISOString()
+      const data_envio = new Date(data_envio_str).getTime()
+      const tempo_passado = agora - data_envio
+      if (tempo_passado > 10000 && tempo_passado < 120000) {
+        console.log("Reenviando solicitação de contato para:", id_alvo)
+        await enviar_solicitacao_contato(id_alvo, true)
+      }
+    }
+  }
+
+  // 2. Retentativas de mensagens do chat
   for (const contato of lista_contatos.contatos) {
     const conversa = await carregar_conversa(id_meu_perfil, contato.id)
-    const agora = new Date().getTime()
     let houve_reenvio = false
 
     for (const msg of conversa.mensagens) {
@@ -238,6 +254,7 @@ const verificar_retentativas = async () => {
   }
 }
 
+window.verificar_retentativas = verificar_retentativas
 setInterval(verificar_retentativas, 15000)
 
 const obter_hash_lista_contatos = async () => {
@@ -322,7 +339,7 @@ const base64_para_buffer = (base64) => {
   return bytes.buffer
 }
 
-const enviar_solicitacao_contato = async (id_alvo) => {
+const enviar_solicitacao_contato = async (id_alvo, eh_retentativa = false) => {
   const id_meu_perfil = await obter_id_perfil_selecionado()
   const diretorio = await obter_diretorio()
   const arquivo_id = await ler_arquivo(diretorio, id_meu_perfil)
@@ -344,12 +361,17 @@ const enviar_solicitacao_contato = async (id_alvo) => {
   const lista = await carregar_lista_contatos()
   if (!lista.solicitações_enviadas.includes(id_alvo)) {
     lista.solicitações_enviadas.push(id_alvo)
-    await salvar_lista_contatos(lista)
   }
+  if (!lista.solicitações_enviadas_datas) {
+    lista.solicitações_enviadas_datas = {}
+  }
+  if (!eh_retentativa || !lista.solicitações_enviadas_datas[id_alvo]) {
+    lista.solicitações_enviadas_datas[id_alvo] = new Date().toISOString()
+  }
+  await salvar_lista_contatos(lista)
 }
 
-const aceitar_solicitacao_contato = async (perfil_solicitante) => {
-  const id_meu_perfil = await obter_id_perfil_selecionado()
+const enviar_confirmacao_aceite = async (id_meu_perfil, perfil_solicitante) => {
   const diretorio = await obter_diretorio()
   const arquivo_id = await ler_arquivo(diretorio, id_meu_perfil)
   const hash_perfil = await arquivo_id.text()
@@ -377,6 +399,11 @@ const aceitar_solicitacao_contato = async (perfil_solicitante) => {
   }
 
   cliente_mqtt.publish("kapivatar.net", JSON.stringify(mensagem))
+}
+
+const aceitar_solicitacao_contato = async (perfil_solicitante) => {
+  const id_meu_perfil = await obter_id_perfil_selecionado()
+  await enviar_confirmacao_aceite(id_meu_perfil, perfil_solicitante)
 
   const lista = await carregar_lista_contatos()
   // Adiciona aos contatos
@@ -489,6 +516,9 @@ window.processar_mensagem_mqtt = async (dados) => {
           lista_contatos.solicitações_recebidas.push(dados.meu_perfil)
           await salvar_lista_contatos(lista_contatos)
           rotear()
+        } else if (lista_contatos.contatos.find(p => p.id === dados.meu_perfil.id)) {
+          // Se já está na lista de contatos, confirmar o aceite para quem solicitou
+          await enviar_confirmacao_aceite(dados.adicionar_contato_id, dados.meu_perfil)
         }
       }
     }
@@ -518,6 +548,9 @@ window.processar_mensagem_mqtt = async (dados) => {
                 lista_contatos.contatos.push(conteudo.meu_perfil)
                 // Remove das enviadas
                 lista_contatos.solicitações_enviadas = lista_contatos.solicitações_enviadas.filter(id => id !== conteudo.meu_perfil.id)
+                if (lista_contatos.solicitações_enviadas_datas) {
+                  delete lista_contatos.solicitações_enviadas_datas[conteudo.meu_perfil.id]
+                }
                 await salvar_lista_contatos(lista_contatos)
                 rotear()
               }
