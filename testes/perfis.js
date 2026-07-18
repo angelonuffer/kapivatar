@@ -1,4 +1,4 @@
-import { test, expect } from './mocks/fs-mock.js';
+import { test, expect } from './simulações/file-system-access-api.js';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
