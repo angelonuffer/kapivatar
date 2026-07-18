@@ -11,6 +11,10 @@ const test = base.extend({
   page: async ({ page }, use) => {
     // Add MQTT Mock to the page
     await mockMqtt(page);
+    // Add flag to indicate it's a screenshot test
+    await page.addInitScript(() => {
+      window.isScreenshotTest = true;
+    });
     await use(page);
   }
 });

@@ -1028,7 +1028,9 @@ const páginas = [
 
         const item = document.createElement("li")
         const link = document.createElement("a")
-        const data = dados_lista.data ? new Date(dados_lista.data).toLocaleString() : `Versão: ${hash_cursor}`
+        const data = window.isScreenshotTest
+          ? "[MOCKED_TIMESTAMP]"
+          : (dados_lista.data ? new Date(dados_lista.data).toLocaleString() : `Versão: ${hash_cursor}`)
         link.textContent = data
         link.href = `/perfis?v=${hash_cursor}`
         item.appendChild(link)
@@ -1328,7 +1330,9 @@ const páginas = [
 
         const item = document.createElement("li")
         const link = document.createElement("a")
-        const data = dados_versao.data ? new Date(dados_versao.data).toLocaleString() : `Versão: ${hash_cursor}`
+        const data = window.isScreenshotTest
+          ? "[MOCKED_TIMESTAMP]"
+          : (dados_versao.data ? new Date(dados_versao.data).toLocaleString() : `Versão: ${hash_cursor}`)
         link.textContent = data
         link.href = `/perfil/${id}?v=${hash_cursor}`
         item.appendChild(link)
@@ -1439,7 +1443,7 @@ const páginas = [
 
       const input_meu_id = document.createElement("input")
       input_meu_id.type = "text"
-      input_meu_id.value = id_meu_perfil
+      input_meu_id.value = window.isScreenshotTest ? "[MOCKED_ID]" : id_meu_perfil
       input_meu_id.readOnly = true
       input_meu_id.style.flex = "1"
       container_input.appendChild(input_meu_id)
@@ -1532,7 +1536,7 @@ const páginas = [
           info.classList.add("item-solicitacao-info")
           const span_id = document.createElement("span")
           span_id.classList.add("item-solicitacao-id")
-          span_id.textContent = id
+          span_id.textContent = window.isScreenshotTest ? "[MOCKED_ID]" : id
           info.appendChild(span_id)
 
           li.appendChild(info)
@@ -1565,7 +1569,7 @@ const páginas = [
           info.appendChild(nome)
           const span_id = document.createElement("span")
           span_id.classList.add("item-solicitacao-id")
-          span_id.textContent = perfil.id
+          span_id.textContent = window.isScreenshotTest ? "[MOCKED_ID]" : perfil.id
           info.appendChild(span_id)
           li.appendChild(info)
 
@@ -1657,7 +1661,9 @@ const páginas = [
 
         const data = document.createElement("span")
         data.classList.add("chat-mensagem-data")
-        data.textContent = new Date(msg.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        data.textContent = window.isScreenshotTest
+          ? "12:34"
+          : new Date(msg.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         rodape_msg.appendChild(data)
 
         if (msg.id_remetente === id_meu_perfil) {
