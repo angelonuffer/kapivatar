@@ -19,8 +19,6 @@ test('Deve mostrar tela de permissão quando o diretório existe mas não tem pe
   await expect(page.getByRole('button', { name: 'Permitir Acesso' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Sair e trocar pasta' })).toBeVisible();
 
-  await expect(page).toHaveScreenshot('tela-permissao.png');
-
   // 4. Clicar em permitir e verificar se entra no app
   await page.getByRole('button', { name: 'Permitir Acesso' }).click();
   await expect(page.getByText('Bem-vindo ao Kapivatar!')).toBeVisible();

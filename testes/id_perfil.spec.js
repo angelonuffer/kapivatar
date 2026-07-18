@@ -17,14 +17,12 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil', async ({ pa
   // 2. Verificar card e clicar para ver detalhes
   const card = page.locator('.perfil-card').first();
   await expect(card).toContainText('Capivara Original');
-  await page.screenshot({ path: 'test-results/lista.png' });
   await card.click();
 
   // 3. Verificar página de detalhes
   await expect(page).toHaveURL(/\/perfil\/[a-f0-9]{64}/);
   await expect(page.locator('h2')).toHaveText('Capivara Original');
   await expect(page.locator('p')).toHaveText('Bio original');
-  await page.screenshot({ path: 'test-results/detalhe.png' });
 
   // 4. Editar perfil
   await page.getByRole('button', { name: 'Editar' }).click();
@@ -38,7 +36,6 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil', async ({ pa
   await expect(page).toHaveURL(/\/perfil\/[a-f0-9]{64}/);
   await expect(page.locator('h2')).toHaveText('Capivara Editada');
   await expect(page.locator('p')).toHaveText('Bio editada');
-  await page.screenshot({ path: 'test-results/detalhe_editado.png' });
 
   // 6. Verificar histórico do perfil
   await page.getByRole('button', { name: 'Histórico' }).click();
@@ -46,7 +43,6 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil', async ({ pa
 
   const itensHistorico = page.locator('.historico ul li');
   await expect(itensHistorico).toHaveCount(2);
-  await page.screenshot({ path: 'test-results/historico_perfil.png' });
 
   // 7. Navegar para versão anterior através do histórico
   await itensHistorico.last().locator('a').click();
@@ -55,5 +51,4 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil', async ({ pa
   await expect(page).toHaveURL(/.*v=[a-f0-9]{64}/);
   await expect(page.locator('h2')).toHaveText('Capivara Original');
   await expect(page.locator('p')).toHaveText('Bio original');
-  await page.screenshot({ path: 'test-results/versao_antiga.png' });
 });
