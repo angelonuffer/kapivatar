@@ -7,7 +7,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
-  testMatch: ['**/*.spec.js', '**/telas.js'],
+  testMatch: ['*.js'],
+  testIgnore: ['simulações/**', 'telas/**'],
   snapshotPathTemplate: '{testDir}/telas/{arg}{ext}',
   use: {
     baseURL: 'http://127.0.0.1:3000',

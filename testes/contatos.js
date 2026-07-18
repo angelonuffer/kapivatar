@@ -1,4 +1,5 @@
-import { test as base, expect } from './mocks/fs-mock.js';
+import { test as base, expect } from './simulações/file-system-access-api.js';
+import { mockMqtt } from './simulações/mqtt.js';
 
 const test = base.extend({
   page: async ({ page }, use) => {
@@ -6,45 +7,7 @@ const test = base.extend({
     page.on('console', msg => console.log('PAGE LOG:', msg.text()));
 
     // Add MQTT Mock to the page
-    await page.addInitScript(() => {
-      window._publishedMessages = [];
-      Object.defineProperty(window, 'mqtt', {
-        get: () => {
-          return {
-            connect: () => {
-              console.log("Mock MQTT connect called");
-              const listeners = {};
-              const client = {
-                on: (event, cb) => {
-                  listeners[event] = cb;
-                  if (event === 'connect') {
-                    setTimeout(() => cb(), 10);
-                  }
-                },
-                subscribe: (topic) => {
-                  console.log("Mock MQTT subscribed to", topic);
-                },
-                publish: (topic, message) => {
-                  console.log("Mock MQTT publish:", topic, message);
-                  window._publishedMessages.push({ topic, message: JSON.parse(message) });
-                },
-                _simulateIncoming: (topic, data) => {
-                  if (listeners['message']) {
-                    listeners['message'](topic, JSON.stringify(data));
-                  }
-                }
-              };
-              window._mqttClient = client;
-              return client;
-            }
-          };
-        },
-        set: (val) => {
-          // Ignore overwrite
-        },
-        configurable: true
-      });
-    });
+    await mockMqtt(page);
     await use(page);
   }
 });
@@ -155,7 +118,7 @@ test('Deve realizar fluxo de solicitação, retentativa e confirmação ao receb
   // Limpar mensagens publicadas
   await page.evaluate(() => { window._publishedMessages = []; });
 
-  // Agora simulamos que recebemos uma nova solicitação de adicionar contato (retentativa) do idAlvo
+  // Now simulamos que recebemos uma nova solicitação de adicionar contato (retentativa) do idAlvo
   await page.evaluate(({ idAlvo, chavePublicaAlvo, meuId }) => {
     const dadosMqtt = {
       adicionar_contato_id: meuId,

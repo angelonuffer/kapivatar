@@ -1,4 +1,4 @@
-import { test, expect } from './mocks/fs-mock.js';
+import { test, expect } from './simulações/file-system-access-api.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
