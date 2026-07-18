@@ -15,14 +15,12 @@ test('Deve remover um perfil da lista e aparecer no histórico', async ({ page }
   // Verificar se o card aparece
   const card = page.locator('.perfil-card', { hasText: 'Perfil para Remover' });
   await expect(card).toBeVisible();
-  await page.screenshot({ path: 'test-results/grid_perfis.png' });
 
   // Abrir o menu de três pontos
   await card.getByRole('button', { name: /Ações para/ }).click();
 
   const menuRemover = page.getByRole('button', { name: 'Remover perfil' });
   await expect(menuRemover).toBeVisible();
-  await page.screenshot({ path: 'test-results/card_com_menu.png' });
 
   // Configurar para aceitar o confirm
   page.once('dialog', dialog => {

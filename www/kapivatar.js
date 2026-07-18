@@ -1719,6 +1719,7 @@ const navegar = (url) => {
   history.pushState({}, "", url)
   rotear()
 }
+window.navegar = navegar
 
 const abrir_sidebar = () => {
   document.body.classList.add("sidebar-aberta")
