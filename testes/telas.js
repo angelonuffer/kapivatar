@@ -188,7 +188,7 @@ test('Gerar todas as screenshots do aplicativo', async ({ page }) => {
     // Add 1 sent request
     lista.solicitações_enviadas.push('outro_id_enviado_12345');
     lista.solicitações_enviadas_datas = {
-      'outro_id_enviado_12345': new Date().toISOString()
+      'outro_id_enviado_12345': '2026-03-30T12:00:00.000Z'
     };
     // Add 1 received request
     lista.solicitações_recebidas.push({
@@ -218,20 +218,20 @@ test('Gerar todas as screenshots do aplicativo', async ({ page }) => {
       id: 'msg1',
       id_remetente: idAlvo,
       texto: 'Olá! Tudo bem?',
-      data: new Date(Date.now() - 60000).toISOString()
+      data: '2026-03-30T11:59:00.000Z'
     });
     conversa.mensagens.push({
       id: 'msg2',
       id_remetente: meuId,
       texto: 'E aí! Tudo ótimo e com você?',
-      data: new Date(Date.now() - 30000).toISOString(),
+      data: '2026-03-30T11:59:30.000Z',
       recebida: true
     });
     conversa.mensagens.push({
       id: 'msg3',
       id_remetente: idAlvo,
       texto: 'Tudo tranquilo. Estilo capivara 🦦',
-      data: new Date().toISOString()
+      data: '2026-03-30T12:00:00.000Z'
     });
     await window.salvar_conversa(meuId, idAlvo, conversa);
   }, { meuId: id_perfil, idAlvo });
