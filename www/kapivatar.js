@@ -2130,7 +2130,217 @@ const renderizar_404 = () => {
   conteudo.innerHTML = "<p>A página que você procura não existe.</p>"
 }
 
+const obter_origem_externa = () => {
+  const params = new URLSearchParams(location.search)
+  if (params.has("origin")) {
+    return params.get("origin")
+  }
+  if (document.referrer) {
+    try {
+      return new URL(document.referrer).origin
+    } catch (e) {}
+  }
+  return location.origin
+}
+
 const rotear = async () => {
+  const path = decodeURIComponent(location.pathname)
+  const params = new URLSearchParams(location.search)
+
+  if (path === "/perfil_autenticado") {
+    document.body.innerHTML = ""
+    document.body.className = "perfil-autenticado-body"
+
+    const container = document.createElement("div")
+    container.className = "perfil-autenticado-container"
+
+    const renderizar_generico = () => {
+      container.innerHTML = ""
+      const icon = document.createElement("span")
+      icon.className = "material-symbols-outlined perfil-autenticado-icon"
+      icon.textContent = "account_circle"
+      container.appendChild(icon)
+    }
+
+    renderizar_generico()
+    document.body.appendChild(container)
+
+    container.onclick = () => {
+      const origem = obter_origem_externa()
+      window.open(`/autenticar?origin=${encodeURIComponent(origem)}`, "kapivatar_autenticar", "width=600,height=600")
+    }
+
+    const diretorio = await obter_diretorio()
+    if (diretorio) {
+      try {
+        const permissao = await diretorio.queryPermission({ mode: "readwrite" })
+        if (permissao === "granted") {
+          const id_selecionado = await obter_id_perfil_selecionado()
+          if (id_selecionado) {
+            const origem = obter_origem_externa()
+            const hash_origem = await gerar_hash(origem)
+
+            let subdiretorio = null
+            try {
+              subdiretorio = await diretorio.getDirectoryHandle(hash_origem, { create: false })
+            } catch (e) {}
+
+            if (subdiretorio) {
+              let foto_exibida = false
+              const arquivo_id = await ler_arquivo(diretorio, id_selecionado)
+              if (arquivo_id) {
+                const hash_perfil = await arquivo_id.text()
+                const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+                if (arquivo_perfil) {
+                  const dados = JSON.parse(await arquivo_perfil.text())
+                  if (dados.foto) {
+                    const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
+                    if (arquivo_foto) {
+                      container.innerHTML = ""
+                      const img = document.createElement("img")
+                      img.src = URL.createObjectURL(arquivo_foto)
+                      img.className = "perfil-autenticado-foto"
+                      img.alt = `Foto de ${dados.nome}`
+                      container.appendChild(img)
+                      foto_exibida = true
+                    }
+                  }
+                }
+              }
+              if (!foto_exibida) {
+                container.innerHTML = ""
+                const icon = document.createElement("span")
+                icon.className = "material-symbols-outlined perfil-autenticado-icon autorizado"
+                icon.textContent = "account_circle"
+                container.appendChild(icon)
+              }
+              window.parent.postMessage(subdiretorio, "*")
+            }
+          }
+        }
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
+    const tratar_mensagem = (event) => {
+      if (event.data && event.data.tipo === "KAPIVATAR_AUTORIZADO") {
+        window.removeEventListener("message", tratar_mensagem)
+        rotear()
+      }
+    }
+    window.addEventListener("message", tratar_mensagem)
+    return
+  }
+
+  if (path === "/autenticar") {
+    const diretorio = await obter_diretorio()
+    if (!diretorio) {
+      layout_referencias = null
+      carregar_tela_login()
+      return
+    }
+
+    try {
+      const permissao = await diretorio.queryPermission({ mode: "readwrite" })
+      if (permissao !== "granted") {
+        carregar_tela_permissao(diretorio)
+        return
+      }
+    } catch (e) {
+      console.error(e)
+    }
+
+    const id_selecionado = await obter_id_perfil_selecionado()
+    if (!id_selecionado) {
+      document.body.innerHTML = ""
+      document.body.className = "autenticar-body"
+
+      const container = document.createElement("div")
+      container.className = "autenticar-container"
+
+      const h1 = document.createElement("h1")
+      h1.textContent = "Perfil não selecionado"
+      container.appendChild(h1)
+
+      const p = document.createElement("p")
+      p.textContent = "Você precisa criar e selecionar um perfil no Kapivatar antes de autorizar aplicativos externos."
+      container.appendChild(p)
+
+      const botao = document.createElement("button")
+      botao.textContent = "Fechar"
+      botao.onclick = () => {
+        window.close()
+      }
+      container.appendChild(botao)
+      document.body.appendChild(container)
+      return
+    }
+
+    const arquivo_id = await ler_arquivo(diretorio, id_selecionado)
+    let nome_perfil = "Perfil Sem Nome"
+    if (arquivo_id) {
+      const hash_perfil = await arquivo_id.text()
+      const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+      if (arquivo_perfil) {
+        const dados = JSON.parse(await arquivo_perfil.text())
+        nome_perfil = dados.nome
+      }
+    }
+
+    const origem = obter_origem_externa()
+
+    document.body.innerHTML = ""
+    document.body.className = "autenticar-body"
+
+    const container = document.createElement("div")
+    container.className = "autenticar-container"
+
+    const logo = document.createElement("img")
+    logo.src = "kapivatar.svg"
+    logo.alt = "Kapivatar Logo"
+    logo.className = "autenticar-logo"
+    container.appendChild(logo)
+
+    const h1 = document.createElement("h1")
+    h1.textContent = "Autorizar Conexão"
+    container.appendChild(h1)
+
+    const p = document.createElement("p")
+    p.innerHTML = `O aplicativo <strong id="app-origin"></strong> deseja se conectar ao seu perfil Kapivatar (<strong id="profile-name"></strong>).`
+    p.querySelector("#app-origin").textContent = origem
+    p.querySelector("#profile-name").textContent = nome_perfil
+    container.appendChild(p)
+
+    const botoes_container = document.createElement("div")
+    botoes_container.className = "autenticar-botoes"
+
+    const botao_autorizar = document.createElement("button")
+    botao_autorizar.textContent = "Autorizar"
+    botao_autorizar.onclick = async () => {
+      const hash_origem = await gerar_hash(origem)
+      const subdiretorio = await diretorio.getDirectoryHandle(hash_origem, { create: true })
+
+      if (window.opener) {
+        window.opener.postMessage({ tipo: "KAPIVATAR_AUTORIZADO" }, "*")
+      }
+      window.close()
+    }
+    botoes_container.appendChild(botao_autorizar)
+
+    const botao_cancelar = document.createElement("button")
+    botao_cancelar.textContent = "Cancelar"
+    botao_cancelar.style.backgroundColor = "#444"
+    botao_cancelar.onclick = () => {
+      window.close()
+    }
+    botoes_container.appendChild(botao_cancelar)
+
+    container.appendChild(botoes_container)
+    document.body.appendChild(container)
+    return
+  }
+
   const diretorio = await obter_diretorio()
 
   if (!diretorio) {
@@ -2152,9 +2362,6 @@ const rotear = async () => {
   if (!layout_referencias) {
     carregar_layout()
   }
-
-  const path = decodeURIComponent(location.pathname)
-  const params = new URLSearchParams(location.search)
 
   let página = null
   let route_params = {}
