@@ -8,9 +8,10 @@ export const test = base.extend({
       window._files = files;
 
       window.MockDirectoryHandle = class MockDirectoryHandle {
-        constructor() {
+        constructor(name = 'mock-data', prefix = '') {
           this.kind = 'directory';
-          this.name = 'mock-data';
+          this.name = name;
+          this.prefix = prefix;
         }
         async queryPermission(descriptor) {
           return sessionStorage.getItem('_permissionState') || 'granted';
@@ -20,15 +21,28 @@ export const test = base.extend({
           return 'granted';
         }
         async getFileHandle(name, options = {}) {
-          if (!files.has(name) && !options.create) {
+          const key = this.prefix + name;
+          if (!files.has(key) && !options.create) {
             const error = new Error('File not found');
             error.name = 'NotFoundError';
             throw error;
           }
-          if (!files.has(name) && options.create) {
-            files.set(name, '');
+          if (!files.has(key) && options.create) {
+            files.set(key, '');
           }
-          return new window.MockFileHandle(name);
+          return new window.MockFileHandle(key);
+        }
+        async getDirectoryHandle(name, options = {}) {
+          const key = 'dir:' + this.prefix + name;
+          if (!files.has(key) && !options.create) {
+            const error = new Error('Directory not found');
+            error.name = 'NotFoundError';
+            throw error;
+          }
+          if (!files.has(key) && options.create) {
+            files.set(key, new window.MockDirectoryHandle(name, this.prefix + name + '/'));
+          }
+          return files.get(key);
         }
       };
 
