@@ -820,183 +820,92 @@ const páginas = [
     ícone: "person_add",
     ocultar_no_menu: true,
     render: (conteudo) => {
-      const form = document.createElement("form")
-      form.classList.add("form-perfil")
+      const div_elm = document.createElement("div");
+      conteudo.appendChild(div_elm);
 
-      const criar_campo_arquivo = (label, id) => {
-        const div = document.createElement("div")
-        div.classList.add("form-campo")
-        const l = document.createElement("label")
-        l.textContent = label
-        l.htmlFor = id
-        div.appendChild(l)
+      const app = Elm.CriarPerfil.init({
+        node: div_elm
+      });
 
-        const container = document.createElement("div")
-        container.classList.add("input-arquivo-container")
-
-        const input = document.createElement("input")
-        input.type = "file"
-        input.id = id
-        input.name = id
-        input.accept = "image/*"
-        input.style.display = "none"
-
-        const botao_upload = document.createElement("button")
-        botao_upload.type = "button"
-        const icone = document.createElement("span")
-        icone.classList.add("material-symbols-outlined")
-        icone.textContent = "upload_file"
-        botao_upload.appendChild(icone)
-        const texto = document.createElement("span")
-        texto.textContent = "Escolher imagem"
-        botao_upload.appendChild(texto)
-
-        botao_upload.onclick = () => input.click()
-
-        const preview_container = document.createElement("div")
-        preview_container.classList.add("preview-container")
-        preview_container.style.display = "none"
-
-        const preview_img = document.createElement("img")
-        preview_img.classList.add("preview-imagem")
-        preview_container.appendChild(preview_img)
-
-        const nome_arquivo = document.createElement("span")
-        nome_arquivo.classList.add("nome-arquivo")
-        preview_container.appendChild(nome_arquivo)
-
-        input.onchange = () => {
-          if (input.files.length > 0) {
-            const file = input.files[0]
-            nome_arquivo.textContent = file.name
-            preview_img.src = URL.createObjectURL(file)
-            preview_container.style.display = "flex"
-          } else {
-            preview_container.style.display = "none"
-          }
-        }
-
-        container.appendChild(input)
-        container.appendChild(botao_upload)
-        container.appendChild(preview_container)
-        div.appendChild(container)
-        return div
+      if (app.ports && app.ports.clickInput) {
+        app.ports.clickInput.subscribe((id) => {
+          const el = document.getElementById(id);
+          if (el) el.click();
+        });
       }
 
-      const criar_campo = (label, tipo, id, attributes = {}) => {
-        const div = document.createElement("div")
-        div.classList.add("form-campo")
-        const l = document.createElement("label")
-        l.textContent = label
-        l.htmlFor = id
-        div.appendChild(l)
-        let input
-        if (tipo === "textarea") {
-          input = document.createElement("textarea")
-        } else {
-          input = document.createElement("input")
-          input.type = tipo
-        }
-        input.id = id
-        input.name = id
-        Object.assign(input, attributes)
-        div.appendChild(input)
-        return div
-      }
+      if (app.ports && app.ports.enviarPerfil) {
+        app.ports.enviarPerfil.subscribe(async (dados) => {
+          try {
+            const { nome, bio, capa, foto } = dados;
+            const diretorio = await obter_diretorio();
 
-      form.appendChild(criar_campo_arquivo("Capa", "capa"))
-      form.appendChild(criar_campo_arquivo("Foto de Perfil", "foto"))
-      form.appendChild(criar_campo("Nome", "text", "nome", { required: true }))
-      form.appendChild(criar_campo("Bio", "textarea", "bio"))
+            // Gerar chaves para o novo perfil
+            const chaves = await gerar_chaves();
+            const chave_privada_jwk = await exportar_chave(chaves.privateKey);
+            const chave_publica_jwk = await exportar_chave(chaves.publicKey);
+            const id_perfil = await gerar_id_perfil(chaves.publicKey);
 
-      const botao = document.createElement("button")
-      const span_ícone = document.createElement("span")
-      span_ícone.classList.add("material-symbols-outlined")
-      span_ícone.textContent = "save"
-      botao.appendChild(span_ícone)
-      const span_texto = document.createElement("span")
-      span_texto.textContent = "Salvar Perfil"
-      botao.appendChild(span_texto)
-      botao.type = "submit"
-      botao.setAttribute("aria-live", "polite")
-      form.appendChild(botao)
+            const dados_perfil = {
+              nome: dados.nome,
+              bio: dados.bio,
+              id: id_perfil,
+              chave_privada: chave_privada_jwk,
+              chave_publica: chave_publica_jwk,
+            };
 
-        form.onsubmit = async (e) => {
-        e.preventDefault()
-        botao.disabled = true
-        span_texto.textContent = "Salvando..."
+            const salvar_imagem = async (file) => {
+              if (file) {
+                const buffer = await file.arrayBuffer();
+                const hash = await gerar_hash(buffer);
+                await escrever_arquivo(diretorio, hash, buffer);
+                return hash;
+              }
+              return null;
+            };
 
-        try {
-          const diretorio = await obter_diretorio()
+            const hash_capa = await salvar_imagem(dados.capa);
+            if (hash_capa) dados_perfil.capa = hash_capa;
 
-          // Gerar chaves para o novo perfil
-          const chaves = await gerar_chaves()
-          const chave_privada_jwk = await exportar_chave(chaves.privateKey)
-          const chave_publica_jwk = await exportar_chave(chaves.publicKey)
-          const id_perfil = await gerar_id_perfil(chaves.publicKey)
+            const hash_foto = await salvar_imagem(dados.foto);
+            if (hash_foto) dados_perfil.foto = hash_foto;
 
-        const dados = {
-          nome: form.nome.value,
-          bio: form.bio.value,
-          id: id_perfil,
-          chave_privada: chave_privada_jwk,
-          chave_publica: chave_publica_jwk,
-        }
+            const conteudo_perfil = JSON.stringify(dados_perfil);
+            const hash_perfil = await gerar_hash(conteudo_perfil);
+            await escrever_arquivo(diretorio, hash_perfil, conteudo_perfil);
 
-        const salvar_imagem = async (input) => {
-          if (input.files.length > 0) {
-            const file = input.files[0]
-            const buffer = await file.arrayBuffer()
-            const hash = await gerar_hash(buffer)
-            await escrever_arquivo(diretorio, hash, buffer)
-            return hash
+            // Aponta o ID do perfil para a versão mais recente
+            await escrever_arquivo(diretorio, id_perfil, hash_perfil);
+
+            // Atualizar lista de perfis
+            const arquivo_perfis = await ler_arquivo(diretorio, "perfis");
+            const hash_lista_anterior = arquivo_perfis ? await arquivo_perfis.text() : null;
+
+            let nova_lista = {
+              perfis: [id_perfil],
+              data: new Date().toISOString()
+            };
+
+            if (hash_lista_anterior) {
+              const arquivo_lista_anterior = await ler_arquivo(diretorio, hash_lista_anterior);
+              if (arquivo_lista_anterior) {
+                const lista_anterior = JSON.parse(await arquivo_lista_anterior.text());
+                nova_lista.perfis = [...lista_anterior.perfis, id_perfil];
+                nova_lista.anterior = hash_lista_anterior;
+              }
+            }
+
+            const conteudo_lista = JSON.stringify(nova_lista);
+            const hash_nova_lista = await gerar_hash(conteudo_lista);
+            await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista);
+            await escrever_arquivo(diretorio, "perfis", hash_nova_lista);
+
+            navegar("/perfis");
+          } catch (err) {
+            console.error("Erro ao salvar perfil:", err);
           }
-          return null
-        }
-
-        const hash_capa = await salvar_imagem(form.capa)
-        if (hash_capa) dados.capa = hash_capa
-
-        const hash_foto = await salvar_imagem(form.foto)
-        if (hash_foto) dados.foto = hash_foto
-
-        const conteudo_perfil = JSON.stringify(dados)
-        const hash_perfil = await gerar_hash(conteudo_perfil)
-        await escrever_arquivo(diretorio, hash_perfil, conteudo_perfil)
-
-        // Aponta o ID do perfil para a versão mais recente
-        await escrever_arquivo(diretorio, id_perfil, hash_perfil)
-
-        // Atualizar lista de perfis
-        const arquivo_perfis = await ler_arquivo(diretorio, "perfis")
-        const hash_lista_anterior = arquivo_perfis ? await arquivo_perfis.text() : null
-
-        let nova_lista = {
-          perfis: [id_perfil],
-          data: new Date().toISOString()
-        }
-
-        if (hash_lista_anterior) {
-          const arquivo_lista_anterior = await ler_arquivo(diretorio, hash_lista_anterior)
-          if (arquivo_lista_anterior) {
-            const lista_anterior = JSON.parse(await arquivo_lista_anterior.text())
-            nova_lista.perfis = [...lista_anterior.perfis, id_perfil]
-            nova_lista.anterior = hash_lista_anterior
-          }
-        }
-
-        const conteudo_lista = JSON.stringify(nova_lista)
-        const hash_nova_lista = await gerar_hash(conteudo_lista)
-        await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista)
-        await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
-
-        navegar("/perfis")
-        } catch (err) {
-          console.error("Erro ao salvar perfil:", err)
-        }
+        });
       }
-
-      conteudo.appendChild(form)
     }
   },
   {

@@ -11,6 +11,7 @@
   "devDependencies": {
     "@playwright/test": "^1.45.0",
     "@types/node": "^20.0.0",
+    "elm": "0.19.2-0",
     "serve": "^14.2.3"
   }
 }

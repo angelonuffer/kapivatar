@@ -14,11 +14,39 @@ importers:
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.43
+      elm:
+        specifier: 0.19.2-0
+        version: 0.19.2-0
       serve:
         specifier: ^14.2.3
         version: 14.2.6
 
 packages:
+
+  '@elm_binaries/darwin_arm64@0.19.2-0':
+    resolution: {integrity: sha512-vhgvWAgc+jkB/oSCqI0BK1w908ivNbV6OBWIGtJgbzAXFh6RYLcGdE04+X6CTLgj+u5ufl81lsnMG6lWEMzbJg==}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@elm_binaries/darwin_x64@0.19.2-0':
+    resolution: {integrity: sha512-CQub4GhTa9nOHkUpi4eVGy34mxhfQOpVteLWkgsFwSHxXathKzNaOR9W7nVHR1iKEMBNcYJpXS2MoQognOUMkA==}
+    cpu: [x64]
+    os: [darwin]
+
+  '@elm_binaries/linux_arm64@0.19.2-0':
+    resolution: {integrity: sha512-50LdOV2ddvgBqcgfVKC3yCKg3/3RQdkfE7Be5k7Zj2xYLALQolk3X2ualXUmXIbP6Zo1xYKymDAfa/M1PTF+dw==}
+    cpu: [arm64]
+    os: [linux]
+
+  '@elm_binaries/linux_x64@0.19.2-0':
+    resolution: {integrity: sha512-03EXHZZBCEFcKKh2kKUGPsFysKXnHANYw2XubBwT3Vj/5uOI/doG0g8kij5ng8n50vma/pNwAWqvVQLSRDmPMA==}
+    cpu: [x64]
+    os: [linux]
+
+  '@elm_binaries/win32_x64@0.19.2-0':
+    resolution: {integrity: sha512-FCzv6KAlo/L2/FZe3rsIH5dgFfljlgKWpMUDxVgNm1mFKep4TeFEnwRlSUh7hFnKCDVyjUL9oNL+x4OwYr3KWg==}
+    cpu: [x64]
+    os: [win32]
 
   '@playwright/test@1.61.1':
     resolution: {integrity: sha512-8nKv6+0RJSL9FE4jYOEGXnPeM/Hg12qZpmqzZjRh3qM0Y7c3z1mrOTfFLids72RDQYVh9WpLEfR5WdpNX4fkig==}
@@ -141,6 +169,11 @@ packages:
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
+
+  elm@0.19.2-0:
+    resolution: {integrity: sha512-a2N4WJ6ge+cXOemAgo6tu8gN17cIzzitYoPcJRpvbiPbay1+BfQAv9wyWtgTyR3YkrduN5oQwzLgSIaUBZwjYQ==}
+    engines: {node: '>=7.0.0'}
+    hasBin: true
 
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
@@ -367,6 +400,21 @@ packages:
 
 snapshots:
 
+  '@elm_binaries/darwin_arm64@0.19.2-0':
+    optional: true
+
+  '@elm_binaries/darwin_x64@0.19.2-0':
+    optional: true
+
+  '@elm_binaries/linux_arm64@0.19.2-0':
+    optional: true
+
+  '@elm_binaries/linux_x64@0.19.2-0':
+    optional: true
+
+  '@elm_binaries/win32_x64@0.19.2-0':
+    optional: true
+
   '@playwright/test@1.61.1':
     dependencies:
       playwright: 1.61.1
@@ -484,6 +532,14 @@ snapshots:
   deep-extend@0.6.0: {}
 
   eastasianwidth@0.2.0: {}
+
+  elm@0.19.2-0:
+    optionalDependencies:
+      '@elm_binaries/darwin_arm64': 0.19.2-0
+      '@elm_binaries/darwin_x64': 0.19.2-0
+      '@elm_binaries/linux_arm64': 0.19.2-0
+      '@elm_binaries/linux_x64': 0.19.2-0
+      '@elm_binaries/win32_x64': 0.19.2-0
 
   emoji-regex@8.0.0: {}
 
