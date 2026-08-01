@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "test": "npx playwright install chromium --with-deps && npx playwright test",
-    "serve": "npx wrangler dev"
+    "serve": "npx wrangler pages dev"
   },
   "devDependencies": {
     "@playwright/test": "^1.45.0",
