@@ -138,7 +138,7 @@ const gerar_id_perfil = async (chave_publica) => {
 const vfs_obter = async (key) => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
-    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
+    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) || (key.length === 36 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)) ? "byContent" : "byName"
     const transaction = db.transaction(storeName, "readonly")
     const request = transaction.objectStore(storeName).get(key)
     request.onsuccess = (event) => resolve(event.target.result)
@@ -149,7 +149,7 @@ const vfs_obter = async (key) => {
 const vfs_salvar = async (key, value) => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
-    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
+    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) || (key.length === 36 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)) ? "byContent" : "byName"
     const transaction = db.transaction(storeName, "readwrite")
     const request = transaction.objectStore(storeName).put(value, key)
     request.onsuccess = () => resolve()
@@ -160,7 +160,7 @@ const vfs_salvar = async (key, value) => {
 const vfs_remover = async (key) => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
-    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
+    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) || (key.length === 36 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)) ? "byContent" : "byName"
     const transaction = db.transaction(storeName, "readwrite")
     const request = transaction.objectStore(storeName).delete(key)
     request.onsuccess = () => resolve()
@@ -171,7 +171,7 @@ const vfs_remover = async (key) => {
 const vfs_existe = async (key) => {
   const db = await banco_kapivatar
   return new Promise((resolve) => {
-    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
+    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) || (key.length === 36 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)) ? "byContent" : "byName"
     const transaction = db.transaction(storeName, "readonly")
     const request = transaction.objectStore(storeName).getKey(key)
     request.onsuccess = (event) => resolve(event.target.result !== undefined)
@@ -317,7 +317,7 @@ const remover_perfil = async (hash_remover) => {
   }
 
   const conteudo_lista = JSON.stringify(nova_lista)
-  const hash_nova_lista = await gerar_hash(conteudo_lista)
+  const hash_nova_lista = crypto.randomUUID()
   await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista)
   await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
 
@@ -401,7 +401,7 @@ window.salvar_lista_contatos = async (nova_lista) => {
   nova_lista.data = new Date().toISOString()
   if (hash_anterior) nova_lista.anterior = hash_anterior
   const conteudo = JSON.stringify(nova_lista)
-  const hash = await gerar_hash(conteudo)
+  const hash = crypto.randomUUID()
   await escrever_arquivo(diretorio, hash, conteudo)
   await definir_hash_lista_contatos(hash)
 }
@@ -433,7 +433,7 @@ window.salvar_conversa = async (meu_id, contato_id, nova_conversa) => {
   nova_conversa.data = new Date().toISOString()
   if (hash_anterior) nova_conversa.anterior = hash_anterior
   const conteudo = JSON.stringify(nova_conversa)
-  const hash = await gerar_hash(conteudo)
+  const hash = crypto.randomUUID()
   await escrever_arquivo(diretorio, hash, conteudo)
   await definir_hash_conversa(meu_id, contato_id, hash)
 }
@@ -789,7 +789,7 @@ const páginas = [
               const texto_id = await arquivo_id.text()
               // Verifica se o conteúdo do arquivo é um hash SHA-256 (64 hex chars)
               // Se for o próprio JSON (perfil antigo), texto_id começará com '{'
-              if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) {
+              if (((texto_id.length === 64 && /^[a-f0-9]{64}$/.test(texto_id)) || (texto_id.length === 36 && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(texto_id)))) {
                 hash_perfil = texto_id
               } else {
                 // É um perfil antigo que estava na lista por hash de versão
@@ -802,7 +802,7 @@ const páginas = [
              const arquivo_id = await ler_arquivo(diretorio, id_perfil)
              if (arquivo_id) {
                 const texto_id = await arquivo_id.text()
-                if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) {
+                if (((texto_id.length === 64 && /^[a-f0-9]{64}$/.test(texto_id)) || (texto_id.length === 36 && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/i.test(texto_id)))) {
                   hash_perfil = texto_id
                 } else {
                   id_perfil = null
@@ -1064,7 +1064,7 @@ const páginas = [
           if (input.files.length > 0) {
             const file = input.files[0]
             const buffer = await file.arrayBuffer()
-            const hash = await gerar_hash(buffer)
+            const hash = crypto.randomUUID()
             await escrever_arquivo(diretorio, hash, buffer)
             return hash
           }
@@ -1078,7 +1078,7 @@ const páginas = [
         if (hash_foto) dados.foto = hash_foto
 
         const conteudo_perfil = JSON.stringify(dados)
-        const hash_perfil = await gerar_hash(conteudo_perfil)
+        const hash_perfil = crypto.randomUUID()
         await escrever_arquivo(diretorio, hash_perfil, conteudo_perfil)
 
         // Aponta o ID do perfil para a versão mais recente
@@ -1103,7 +1103,7 @@ const páginas = [
         }
 
         const conteudo_lista = JSON.stringify(nova_lista)
-        const hash_nova_lista = await gerar_hash(conteudo_lista)
+        const hash_nova_lista = crypto.randomUUID()
         await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista)
         await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
 
@@ -1384,7 +1384,7 @@ const páginas = [
             if (input.files.length > 0) {
               const file = input.files[0]
               const buffer = await file.arrayBuffer()
-              const hash = await gerar_hash(buffer)
+              const hash = crypto.randomUUID()
               await escrever_arquivo(diretorio, hash, buffer)
               return hash
             }
@@ -1395,7 +1395,7 @@ const páginas = [
           dados_novos.foto = await salvar_imagem(form.foto, dados_atuais.foto)
 
           const conteudo_perfil = JSON.stringify(dados_novos)
-          const hash_perfil_novo = await gerar_hash(conteudo_perfil)
+          const hash_perfil_novo = crypto.randomUUID()
           await escrever_arquivo(diretorio, hash_perfil_novo, conteudo_perfil)
 
           // Atualiza o ponteiro do ID do perfil

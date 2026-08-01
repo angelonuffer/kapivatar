@@ -48,7 +48,7 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil', async ({ pa
   await itensHistorico.last().locator('a').click();
 
   // Deve mostrar a versão antiga do perfil (com query parameter v)
-  await expect(page).toHaveURL(/.*v=[a-f0-9]{64}/);
+  await expect(page).toHaveURL(/.*v=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/);
   await expect(page.locator('h2')).toHaveText('Capivara Original');
   await expect(page.locator('p')).toHaveText('Bio original');
 });
