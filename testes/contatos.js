@@ -35,7 +35,7 @@ test('Deve realizar fluxo de solicitação, retentativa e confirmação ao receb
 
   // Obter o ID do nosso perfil
   const meuId = await page.locator('input[readonly]').inputValue();
-  expect(meuId).toHaveLength(64);
+  expect(meuId).toHaveLength(36);
 
   // Gerar chaves e ID válidos para o nosso Contato Alvo
   const { idAlvo, chavePublicaAlvo } = await page.evaluate(async () => {
@@ -50,9 +50,7 @@ test('Deve realizar fluxo de solicitação, retentativa e confirmação ao receb
       ["encrypt", "decrypt"]
     );
     const jwk = await crypto.subtle.exportKey("jwk", chaves.publicKey);
-    const spki = await crypto.subtle.exportKey("spki", chaves.publicKey);
-    const hash_buffer = await crypto.subtle.digest("SHA-256", spki);
-    const id = Array.from(new Uint8Array(hash_buffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const id = crypto.randomUUID();
     return { idAlvo: id, chavePublicaAlvo: jwk };
   });
 

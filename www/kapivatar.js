@@ -131,14 +131,15 @@ const descriptografar = async (chave_privada, buffer) => {
 }
 
 const gerar_id_perfil = async (chave_publica) => {
-  const spki = await crypto.subtle.exportKey("spki", chave_publica)
-  return await gerar_hash(spki)
+  return crypto.randomUUID()
 }
 
 const vfs_obter = async (key) => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
-    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
+    const is_hash = key.length === 64 && /^[a-f0-9]{64}$/.test(key)
+    const is_uuid = key.length === 36 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)
+    const storeName = (is_hash || is_uuid) ? "byContent" : "byName"
     const transaction = db.transaction(storeName, "readonly")
     const request = transaction.objectStore(storeName).get(key)
     request.onsuccess = (event) => resolve(event.target.result)
@@ -149,7 +150,9 @@ const vfs_obter = async (key) => {
 const vfs_salvar = async (key, value) => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
-    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
+    const is_hash = key.length === 64 && /^[a-f0-9]{64}$/.test(key)
+    const is_uuid = key.length === 36 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)
+    const storeName = (is_hash || is_uuid) ? "byContent" : "byName"
     const transaction = db.transaction(storeName, "readwrite")
     const request = transaction.objectStore(storeName).put(value, key)
     request.onsuccess = () => resolve()
@@ -160,7 +163,9 @@ const vfs_salvar = async (key, value) => {
 const vfs_remover = async (key) => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
-    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
+    const is_hash = key.length === 64 && /^[a-f0-9]{64}$/.test(key)
+    const is_uuid = key.length === 36 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)
+    const storeName = (is_hash || is_uuid) ? "byContent" : "byName"
     const transaction = db.transaction(storeName, "readwrite")
     const request = transaction.objectStore(storeName).delete(key)
     request.onsuccess = () => resolve()
@@ -171,7 +176,9 @@ const vfs_remover = async (key) => {
 const vfs_existe = async (key) => {
   const db = await banco_kapivatar
   return new Promise((resolve) => {
-    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
+    const is_hash = key.length === 64 && /^[a-f0-9]{64}$/.test(key)
+    const is_uuid = key.length === 36 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)
+    const storeName = (is_hash || is_uuid) ? "byContent" : "byName"
     const transaction = db.transaction(storeName, "readonly")
     const request = transaction.objectStore(storeName).getKey(key)
     request.onsuccess = (event) => resolve(event.target.result !== undefined)
@@ -317,7 +324,7 @@ const remover_perfil = async (hash_remover) => {
   }
 
   const conteudo_lista = JSON.stringify(nova_lista)
-  const hash_nova_lista = await gerar_hash(conteudo_lista)
+  const hash_nova_lista = crypto.randomUUID()
   await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista)
   await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
 
@@ -401,7 +408,7 @@ window.salvar_lista_contatos = async (nova_lista) => {
   nova_lista.data = new Date().toISOString()
   if (hash_anterior) nova_lista.anterior = hash_anterior
   const conteudo = JSON.stringify(nova_lista)
-  const hash = await gerar_hash(conteudo)
+  const hash = crypto.randomUUID()
   await escrever_arquivo(diretorio, hash, conteudo)
   await definir_hash_lista_contatos(hash)
 }
@@ -433,7 +440,7 @@ window.salvar_conversa = async (meu_id, contato_id, nova_conversa) => {
   nova_conversa.data = new Date().toISOString()
   if (hash_anterior) nova_conversa.anterior = hash_anterior
   const conteudo = JSON.stringify(nova_conversa)
-  const hash = await gerar_hash(conteudo)
+  const hash = crypto.randomUUID()
   await escrever_arquivo(diretorio, hash, conteudo)
   await definir_hash_conversa(meu_id, contato_id, hash)
 }
@@ -624,19 +631,15 @@ window.processar_mensagem_mqtt = async (dados) => {
   // 1. Verificar se é uma solicitação para um dos meus perfis
   if (dados.adicionar_contato_id && dados.meu_perfil) {
     if (lista_perfis.perfis.includes(dados.adicionar_contato_id)) {
-      // Verificar se o id corresponde à chave pública
-      const id_verificado = await gerar_id_perfil(await importar_chave_publica(dados.meu_perfil.chave_publica))
-      if (id_verificado === dados.meu_perfil.id) {
-        const lista_contatos = await carregar_lista_contatos()
-        if (!lista_contatos.solicitações_recebidas.find(p => p.id === dados.meu_perfil.id) &&
-            !lista_contatos.contatos.find(p => p.id === dados.meu_perfil.id)) {
-          lista_contatos.solicitações_recebidas.push(dados.meu_perfil)
-          await salvar_lista_contatos(lista_contatos)
-          rotear()
-        } else if (lista_contatos.contatos.find(p => p.id === dados.meu_perfil.id)) {
-          // Se já está na lista de contatos, confirmar o aceite para quem solicitou
-          await enviar_confirmacao_aceite(dados.adicionar_contato_id, dados.meu_perfil)
-        }
+      const lista_contatos = await carregar_lista_contatos()
+      if (!lista_contatos.solicitações_recebidas.find(p => p.id === dados.meu_perfil.id) &&
+          !lista_contatos.contatos.find(p => p.id === dados.meu_perfil.id)) {
+        lista_contatos.solicitações_recebidas.push(dados.meu_perfil)
+        await salvar_lista_contatos(lista_contatos)
+        rotear()
+      } else if (lista_contatos.contatos.find(p => p.id === dados.meu_perfil.id)) {
+        // Se já está na lista de contatos, confirmar o aceite para quem solicitou
+        await enviar_confirmacao_aceite(dados.adicionar_contato_id, dados.meu_perfil)
       }
     }
   }
@@ -657,20 +660,16 @@ window.processar_mensagem_mqtt = async (dados) => {
           const conteudo = await descriptografar(chave_privada, buffer)
 
           if (conteudo.solicitação_aceita && conteudo.meu_perfil) {
-            // Verificar id
-            const id_verificado = await gerar_id_perfil(await importar_chave_publica(conteudo.meu_perfil.chave_publica))
-            if (id_verificado === conteudo.meu_perfil.id) {
-              const lista_contatos = await carregar_lista_contatos()
-              if (!lista_contatos.contatos.find(p => p.id === conteudo.meu_perfil.id)) {
-                lista_contatos.contatos.push(conteudo.meu_perfil)
-                // Remove das enviadas
-                lista_contatos.solicitações_enviadas = lista_contatos.solicitações_enviadas.filter(id => id !== conteudo.meu_perfil.id)
-                if (lista_contatos.solicitações_enviadas_datas) {
-                  delete lista_contatos.solicitações_enviadas_datas[conteudo.meu_perfil.id]
-                }
-                await salvar_lista_contatos(lista_contatos)
-                rotear()
+            const lista_contatos = await carregar_lista_contatos()
+            if (!lista_contatos.contatos.find(p => p.id === conteudo.meu_perfil.id)) {
+              lista_contatos.contatos.push(conteudo.meu_perfil)
+              // Remove das enviadas
+              lista_contatos.solicitações_enviadas = lista_contatos.solicitações_enviadas.filter(id => id !== conteudo.meu_perfil.id)
+              if (lista_contatos.solicitações_enviadas_datas) {
+                delete lista_contatos.solicitações_enviadas_datas[conteudo.meu_perfil.id]
               }
+              await salvar_lista_contatos(lista_contatos)
+              rotear()
             }
           }
 
@@ -787,9 +786,10 @@ const páginas = [
             const arquivo_id = await ler_arquivo(diretorio, id_perfil)
             if (arquivo_id) {
               const texto_id = await arquivo_id.text()
-              // Verifica se o conteúdo do arquivo é um hash SHA-256 (64 hex chars)
+              // Verifica se o conteúdo do arquivo é um hash SHA-256 (64 hex chars) ou UUID (36 chars)
               // Se for o próprio JSON (perfil antigo), texto_id começará com '{'
-              if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) {
+              const is_valid_pointer = (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) || (texto_id.length === 36 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(texto_id))
+              if (is_valid_pointer) {
                 hash_perfil = texto_id
               } else {
                 // É um perfil antigo que estava na lista por hash de versão
@@ -802,7 +802,8 @@ const páginas = [
              const arquivo_id = await ler_arquivo(diretorio, id_perfil)
              if (arquivo_id) {
                 const texto_id = await arquivo_id.text()
-                if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) {
+                const is_valid_pointer = (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) || (texto_id.length === 36 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(texto_id))
+                if (is_valid_pointer) {
                   hash_perfil = texto_id
                 } else {
                   id_perfil = null
@@ -1064,7 +1065,7 @@ const páginas = [
           if (input.files.length > 0) {
             const file = input.files[0]
             const buffer = await file.arrayBuffer()
-            const hash = await gerar_hash(buffer)
+            const hash = crypto.randomUUID()
             await escrever_arquivo(diretorio, hash, buffer)
             return hash
           }
@@ -1078,7 +1079,7 @@ const páginas = [
         if (hash_foto) dados.foto = hash_foto
 
         const conteudo_perfil = JSON.stringify(dados)
-        const hash_perfil = await gerar_hash(conteudo_perfil)
+        const hash_perfil = crypto.randomUUID()
         await escrever_arquivo(diretorio, hash_perfil, conteudo_perfil)
 
         // Aponta o ID do perfil para a versão mais recente
@@ -1103,7 +1104,7 @@ const páginas = [
         }
 
         const conteudo_lista = JSON.stringify(nova_lista)
-        const hash_nova_lista = await gerar_hash(conteudo_lista)
+        const hash_nova_lista = crypto.randomUUID()
         await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista)
         await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
 
@@ -1384,7 +1385,7 @@ const páginas = [
             if (input.files.length > 0) {
               const file = input.files[0]
               const buffer = await file.arrayBuffer()
-              const hash = await gerar_hash(buffer)
+              const hash = crypto.randomUUID()
               await escrever_arquivo(diretorio, hash, buffer)
               return hash
             }
@@ -1395,7 +1396,7 @@ const páginas = [
           dados_novos.foto = await salvar_imagem(form.foto, dados_atuais.foto)
 
           const conteudo_perfil = JSON.stringify(dados_novos)
-          const hash_perfil_novo = await gerar_hash(conteudo_perfil)
+          const hash_perfil_novo = crypto.randomUUID()
           await escrever_arquivo(diretorio, hash_perfil_novo, conteudo_perfil)
 
           // Atualiza o ponteiro do ID do perfil

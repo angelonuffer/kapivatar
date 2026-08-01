@@ -97,7 +97,7 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage', 
   });
   expect(perfil.nome).toBe('Capivara Autorizada');
   expect(perfil.bio).toBe('Bio autorizada');
-  expect(perfil.id).toHaveLength(64);
+  expect(perfil.id).toHaveLength(36);
   expect(perfil.chave_publica).toBeDefined();
   expect(perfil.chave_privada).toBeUndefined();
 });

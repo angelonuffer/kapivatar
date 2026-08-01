@@ -20,26 +20,26 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil', async ({ pa
   await card.click();
 
   // 3. Verificar página de detalhes
-  await expect(page).toHaveURL(/\/perfil\/[a-f0-9]{64}/);
+  await expect(page).toHaveURL(/\/perfil\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
   await expect(page.locator('h2')).toHaveText('Capivara Original');
   await expect(page.locator('p')).toHaveText('Bio original');
 
   // 4. Editar perfil
   await page.getByRole('button', { name: 'Editar' }).click();
-  await expect(page).toHaveURL(/\/perfil\/[a-f0-9]{64}\/editar/);
+  await expect(page).toHaveURL(/\/perfil\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/editar/i);
 
   await page.getByLabel('Nome').fill('Capivara Editada');
   await page.getByLabel('Bio').fill('Bio editada');
   await page.getByRole('button', { name: 'Salvar Alterações' }).click();
 
   // 5. Verificar atualização nos detalhes
-  await expect(page).toHaveURL(/\/perfil\/[a-f0-9]{64}/);
+  await expect(page).toHaveURL(/\/perfil\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
   await expect(page.locator('h2')).toHaveText('Capivara Editada');
   await expect(page.locator('p')).toHaveText('Bio editada');
 
   // 6. Verificar histórico do perfil
   await page.getByRole('button', { name: 'Histórico' }).click();
-  await expect(page).toHaveURL(/\/perfil\/[a-f0-9]{64}\/hist%C3%B3rico/);
+  await expect(page).toHaveURL(/\/perfil\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/hist%C3%B3rico/i);
 
   const itensHistorico = page.locator('.historico ul li');
   await expect(itensHistorico).toHaveCount(2);
@@ -48,7 +48,7 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil', async ({ pa
   await itensHistorico.last().locator('a').click();
 
   // Deve mostrar a versão antiga do perfil (com query parameter v)
-  await expect(page).toHaveURL(/.*v=[a-f0-9]{64}/);
+  await expect(page).toHaveURL(/.*v=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
   await expect(page.locator('h2')).toHaveText('Capivara Original');
   await expect(page.locator('p')).toHaveText('Bio original');
 });

@@ -172,9 +172,7 @@ test('Gerar todas as screenshots do aplicativo', async ({ page }) => {
       ["encrypt", "decrypt"]
     );
     const jwk = await crypto.subtle.exportKey("jwk", chaves.publicKey);
-    const spki = await crypto.subtle.exportKey("spki", chaves.publicKey);
-    const hash_buffer = await crypto.subtle.digest("SHA-256", spki);
-    const id = Array.from(new Uint8Array(hash_buffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    const id = crypto.randomUUID();
     return { idAlvo: id, chavePublicaAlvo: jwk };
   });
 
