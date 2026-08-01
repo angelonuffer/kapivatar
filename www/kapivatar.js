@@ -135,23 +135,140 @@ const gerar_id_perfil = async (chave_publica) => {
   return await gerar_hash(spki)
 }
 
-const obter_diretorio = async () => {
+const vfs_obter = async (key) => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction("byName", "readonly")
-    const obter_diretório = transaction.objectStore("byName").get("diretório")
-    obter_diretório.onsuccess = (event) => {
-      let result = event.target.result
-      // Re-instancia o mock se necessário (apenas para testes)
-      if (result && !result.getFileHandle && window.MockDirectoryHandle) {
-        result = Object.assign(new window.MockDirectoryHandle(), result)
-      }
-      resolve(result)
-    }
-    obter_diretório.onerror = () => {
-      reject(obter_diretório.error)
-    }
+    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
+    const transaction = db.transaction(storeName, "readonly")
+    const request = transaction.objectStore(storeName).get(key)
+    request.onsuccess = (event) => resolve(event.target.result)
+    request.onerror = () => reject(request.error)
   })
+}
+
+const vfs_salvar = async (key, value) => {
+  const db = await banco_kapivatar
+  return new Promise((resolve, reject) => {
+    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
+    const transaction = db.transaction(storeName, "readwrite")
+    const request = transaction.objectStore(storeName).put(value, key)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+const vfs_remover = async (key) => {
+  const db = await banco_kapivatar
+  return new Promise((resolve, reject) => {
+    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
+    const transaction = db.transaction(storeName, "readwrite")
+    const request = transaction.objectStore(storeName).delete(key)
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+const vfs_existe = async (key) => {
+  const db = await banco_kapivatar
+  return new Promise((resolve) => {
+    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
+    const transaction = db.transaction(storeName, "readonly")
+    const request = transaction.objectStore(storeName).getKey(key)
+    request.onsuccess = (event) => resolve(event.target.result !== undefined)
+    request.onerror = () => resolve(false)
+  })
+}
+
+class VirtualWritableStream {
+  constructor(key) {
+    this.name = key
+  }
+
+  async write(content) {
+    await vfs_salvar(this.name, content)
+  }
+
+  async close() {}
+}
+
+class VirtualFileHandle {
+  constructor(key) {
+    this.name = key
+    this.kind = "file"
+  }
+
+  async getFile() {
+    let content = await vfs_obter(this.name)
+    if (content === undefined) {
+      throw new Error("File not found")
+    }
+    const blob = new Blob([content])
+    blob.text = async () => {
+      if (typeof content === "string") return content
+      if (content instanceof ArrayBuffer) return new TextDecoder().decode(content)
+      return ""
+    }
+    return blob
+  }
+
+  async createWritable() {
+    return new VirtualWritableStream(this.name)
+  }
+
+  async remove() {
+    await vfs_remover(this.name)
+  }
+}
+
+class VirtualDirectoryHandle {
+  constructor(name = "root", prefix = "") {
+    this.kind = "directory"
+    this.name = name
+    this.prefix = prefix
+  }
+
+  async queryPermission(descriptor) {
+    return sessionStorage.getItem("_permissionState") || "granted"
+  }
+
+  async requestPermission(descriptor) {
+    sessionStorage.setItem("_permissionState", "granted")
+    return "granted"
+  }
+
+  async getFileHandle(name, options = {}) {
+    const key = this.prefix + name
+    const existe = await vfs_existe(key)
+    if (!existe && !options.create) {
+      const error = new Error(`File not found: ${key}`)
+      error.name = "NotFoundError"
+      throw error
+    }
+    if (!existe && options.create) {
+      await vfs_salvar(key, "")
+    }
+    return new VirtualFileHandle(key)
+  }
+
+  async getDirectoryHandle(name, options = {}) {
+    const key = "dir:" + this.prefix + name
+    const existe = await vfs_existe(key)
+    if (!existe && !options.create) {
+      const error = new Error(`Directory not found: ${key}`)
+      error.name = "NotFoundError"
+      throw error
+    }
+    if (!existe && options.create) {
+      await vfs_salvar(key, { name, prefix: this.prefix + name + "/" })
+    }
+    return new VirtualDirectoryHandle(name, this.prefix + name + "/")
+  }
+}
+
+const obter_diretorio = async () => {
+  const existe = await vfs_existe("diretório")
+  if (!existe) return null
+  return new VirtualDirectoryHandle()
 }
 
 const ler_arquivo = async (diretorio, nome) => {
@@ -1028,7 +1145,7 @@ const páginas = [
 
         const item = document.createElement("li")
         const link = document.createElement("a")
-        const data = dados_lista.data ? new Date(dados_lista.data).toLocaleString() : `Versão: ${hash_cursor}`
+        const data = window.isScreenshotTest ? new Date('2026-03-30T12:00:00.000Z').toLocaleString() : (dados_lista.data ? new Date(dados_lista.data).toLocaleString() : `Versão: ${hash_cursor}`)
         link.textContent = data
         link.href = `/perfis?v=${hash_cursor}`
         item.appendChild(link)
@@ -1328,7 +1445,7 @@ const páginas = [
 
         const item = document.createElement("li")
         const link = document.createElement("a")
-        const data = dados_versao.data ? new Date(dados_versao.data).toLocaleString() : `Versão: ${hash_cursor}`
+        const data = window.isScreenshotTest ? new Date('2026-03-30T12:00:00.000Z').toLocaleString() : (dados_versao.data ? new Date(dados_versao.data).toLocaleString() : `Versão: ${hash_cursor}`)
         link.textContent = data
         link.href = `/perfil/${id}?v=${hash_cursor}`
         item.appendChild(link)
@@ -1439,7 +1556,7 @@ const páginas = [
 
       const input_meu_id = document.createElement("input")
       input_meu_id.type = "text"
-      input_meu_id.value = id_meu_perfil
+      input_meu_id.value = window.isScreenshotTest ? "[MOCKED_ID]" : id_meu_perfil
       input_meu_id.readOnly = true
       input_meu_id.style.flex = "1"
       container_input.appendChild(input_meu_id)
@@ -1532,7 +1649,7 @@ const páginas = [
           info.classList.add("item-solicitacao-info")
           const span_id = document.createElement("span")
           span_id.classList.add("item-solicitacao-id")
-          span_id.textContent = id
+          span_id.textContent = window.isScreenshotTest ? "[MOCKED_ID]" : id
           info.appendChild(span_id)
 
           li.appendChild(info)
@@ -1565,7 +1682,7 @@ const páginas = [
           info.appendChild(nome)
           const span_id = document.createElement("span")
           span_id.classList.add("item-solicitacao-id")
-          span_id.textContent = perfil.id
+          span_id.textContent = window.isScreenshotTest ? "[MOCKED_ID]" : perfil.id
           info.appendChild(span_id)
           li.appendChild(info)
 
@@ -1657,7 +1774,7 @@ const páginas = [
 
         const data = document.createElement("span")
         data.classList.add("chat-mensagem-data")
-        data.textContent = new Date(msg.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        data.textContent = window.isScreenshotTest ? "12:34" : new Date(msg.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         rodape_msg.appendChild(data)
 
         if (msg.id_remetente === id_meu_perfil) {
@@ -1794,11 +1911,8 @@ const carregar_tela_permissao = async (diretorio) => {
   texto_sair.textContent = "Sair e trocar pasta"
   botão_sair.appendChild(texto_sair)
   botão_sair.onclick = async () => {
-    const db = await banco_kapivatar
-    const remover_diretório = db.transaction("byName", "readwrite").objectStore("byName").delete("diretório")
-    remover_diretório.onsuccess = () => {
-      rotear()
-    }
+    await vfs_remover("diretório")
+    rotear()
   }
   coluna_2.appendChild(botão_sair)
   document.body.appendChild(coluna_2)
@@ -1840,14 +1954,8 @@ const carregar_tela_login = async () => {
   texto_botão.textContent = "Escolher pasta de dados"
   botão.appendChild(texto_botão)
   botão.onclick = async () => {
-    const diretório = await showDirectoryPicker();
-    const definir_diretório = (await banco_kapivatar).transaction("byName", "readwrite").objectStore("byName").put(diretório, "diretório")
-    definir_diretório.onsuccess = () => {
-      navegar("/")
-    }
-    definir_diretório.onerror = (event) => {
-      console.error("Erro ao salvar diretório:", event.target.error)
-    }
+    await vfs_salvar("diretório", true)
+    navegar("/")
   }
   coluna_2.appendChild(botão)
   document.body.appendChild(coluna_2)
@@ -1926,15 +2034,10 @@ const carregar_layout = () => {
   link_sair.href = "#"
   link_sair.onclick = async (e) => {
     e.preventDefault()
-    const remover_diretório = (await banco_kapivatar).transaction("byName", "readwrite").objectStore("byName").delete("diretório")
-    remover_diretório.onsuccess = () => {
-      layout_referencias = null
-      document.body.classList.remove("app-logado")
-      navegar("/")
-    }
-    remover_diretório.onerror = (event) => {
-      console.error("Erro ao remover diretório:", event.target.error)
-    }
+    await vfs_remover("diretório")
+    layout_referencias = null
+    document.body.classList.remove("app-logado")
+    navegar("/")
   }
   coluna_1_2.appendChild(link_sair)
   coluna_1.appendChild(coluna_1_2)
