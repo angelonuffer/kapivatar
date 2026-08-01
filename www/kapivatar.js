@@ -2290,12 +2290,14 @@ const rotear = async () => {
 
             if (subdiretorio) {
               let foto_exibida = false
+              let dados_perfil = null
               const arquivo_id = await ler_arquivo(diretorio, id_selecionado)
               if (arquivo_id) {
                 const hash_perfil = await arquivo_id.text()
                 const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
                 if (arquivo_perfil) {
                   const dados = JSON.parse(await arquivo_perfil.text())
+                  dados_perfil = dados
                   if (dados.foto) {
                     const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
                     if (arquivo_foto) {
@@ -2317,7 +2319,17 @@ const rotear = async () => {
                 icon.textContent = "account_circle"
                 container.appendChild(icon)
               }
-              window.parent.postMessage(subdiretorio, "*")
+              if (dados_perfil) {
+                window.parent.postMessage({
+                  tipo: "KAPIVATAR_CONECTADO",
+                  perfil: {
+                    id: id_selecionado,
+                    nome: dados_perfil.nome,
+                    bio: dados_perfil.bio,
+                    chave_publica: dados_perfil.chave_publica
+                  }
+                }, "*")
+              }
             }
           }
         }
