@@ -1,7 +1,11 @@
 import { test as base, expect } from '@playwright/test';
+import { mockIndexedDB } from './indexeddb.js';
 
 export const test = base.extend({
   page: async ({ page }, use) => {
+    // Mock IndexedDB first to guarantee isolation and in-memory persistence
+    await mockIndexedDB(page);
+
     // Mock File System Access API
     await page.addInitScript(() => {
       const files = new Map();
