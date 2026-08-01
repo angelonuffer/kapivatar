@@ -51,7 +51,7 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage', 
   await page.evaluate(() => {
     window._receivedMessages = [];
     window.addEventListener('message', (event) => {
-      if (event.data && typeof event.data === 'object' && event.data.kind === 'directory') {
+      if (event.data && event.data.tipo === 'KAPIVATAR_CONECTADO') {
         window._receivedMessages.push(event.data);
       }
     });
@@ -86,14 +86,18 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage', 
   // Não deve exibir mais o ícone genérico de perfil
   await expect(page.locator('.perfil-autenticado-icon')).not.toBeVisible();
 
-  // Vamos verificar se o postMessage com o subdiretório foi enviado
+  // Vamos verificar se o postMessage com os dados do perfil foi enviado
   const messagesCount = await page.evaluate(() => {
     return window._receivedMessages.length;
   });
   expect(messagesCount).toBeGreaterThan(0);
 
-  const directoryHandleName = await page.evaluate(() => {
-    return window._receivedMessages[0].name;
+  const perfil = await page.evaluate(() => {
+    return window._receivedMessages[0].perfil;
   });
-  expect(directoryHandleName).toHaveLength(64);
+  expect(perfil.nome).toBe('Capivara Autorizada');
+  expect(perfil.bio).toBe('Bio autorizada');
+  expect(perfil.id).toHaveLength(64);
+  expect(perfil.chave_publica).toBeDefined();
+  expect(perfil.chave_privada).toBeUndefined();
 });
