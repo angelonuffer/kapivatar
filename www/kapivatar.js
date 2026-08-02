@@ -2270,7 +2270,15 @@ const rotear = async () => {
 
     container.onclick = () => {
       const origem = obter_origem_externa()
-      window.open(`/autenticar?origin=${encodeURIComponent(origem)}`, "kapivatar_autenticar", "width=600,height=600")
+      const popup = window.open(`/autenticar`, "kapivatar_autenticar", "width=600,height=600")
+
+      const listener = (event) => {
+        if (event.data && event.data.tipo === "KAPIVATAR_AUTENTICAR_READY") {
+          popup.postMessage({ tipo: "KAPIVATAR_ORIGIN", origem }, "*")
+          window.removeEventListener("message", listener)
+        }
+      }
+      window.addEventListener("message", listener)
     }
 
     const diretorio = await obter_diretorio()
@@ -2349,110 +2357,133 @@ const rotear = async () => {
   }
 
   if (path === "/autenticar") {
-    const diretorio = await obter_diretorio()
-    if (!diretorio) {
-      layout_referencias = null
-      carregar_tela_login()
-      return
-    }
-
-    try {
-      const permissao = await diretorio.queryPermission({ mode: "readwrite" })
-      if (permissao !== "granted") {
-        carregar_tela_permissao(diretorio)
+    const continuarAutenticacao = async (origem) => {
+      const diretorio = await obter_diretorio()
+      if (!diretorio) {
+        layout_referencias = null
+        carregar_tela_login()
         return
       }
-    } catch (e) {
-      console.error(e)
-    }
 
-    const id_selecionado = await obter_id_perfil_selecionado()
-    if (!id_selecionado) {
+      try {
+        const permissao = await diretorio.queryPermission({ mode: "readwrite" })
+        if (permissao !== "granted") {
+          carregar_tela_permissao(diretorio)
+          return
+        }
+      } catch (e) {
+        console.error(e)
+      }
+
+      const id_selecionado = await obter_id_perfil_selecionado()
+      if (!id_selecionado) {
+        document.body.innerHTML = ""
+        document.body.className = "autenticar-body"
+
+        const container = document.createElement("div")
+        container.className = "autenticar-container"
+
+        const h1 = document.createElement("h1")
+        h1.textContent = "Perfil não selecionado"
+        container.appendChild(h1)
+
+        const p = document.createElement("p")
+        p.textContent = "Você precisa criar e selecionar um perfil no Kapivatar antes de autorizar aplicativos externos."
+        container.appendChild(p)
+
+        const botao = document.createElement("button")
+        botao.textContent = "Fechar"
+        botao.onclick = () => {
+          window.close()
+        }
+        container.appendChild(botao)
+        document.body.appendChild(container)
+        return
+      }
+
+      const arquivo_id = await ler_arquivo(diretorio, id_selecionado)
+      let nome_perfil = "Perfil Sem Nome"
+      if (arquivo_id) {
+        const hash_perfil = await arquivo_id.text()
+        const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+        if (arquivo_perfil) {
+          const dados = JSON.parse(await arquivo_perfil.text())
+          nome_perfil = dados.nome
+        }
+      }
+
       document.body.innerHTML = ""
       document.body.className = "autenticar-body"
 
       const container = document.createElement("div")
       container.className = "autenticar-container"
 
+      const logo = document.createElement("img")
+      logo.src = "kapivatar.svg"
+      logo.alt = "Kapivatar Logo"
+      logo.className = "autenticar-logo"
+      container.appendChild(logo)
+
       const h1 = document.createElement("h1")
-      h1.textContent = "Perfil não selecionado"
+      h1.textContent = "Autorizar Conexão"
       container.appendChild(h1)
 
       const p = document.createElement("p")
-      p.textContent = "Você precisa criar e selecionar um perfil no Kapivatar antes de autorizar aplicativos externos."
+      p.innerHTML = `O aplicativo <strong id="app-origin"></strong> deseja se conectar ao seu perfil Kapivatar (<strong id="profile-name"></strong>).`
+      p.querySelector("#app-origin").textContent = origem
+      p.querySelector("#profile-name").textContent = nome_perfil
       container.appendChild(p)
 
-      const botao = document.createElement("button")
-      botao.textContent = "Fechar"
-      botao.onclick = () => {
+      const botoes_container = document.createElement("div")
+      botoes_container.className = "autenticar-botoes"
+
+      const botao_autorizar = document.createElement("button")
+      botao_autorizar.textContent = "Autorizar"
+      botao_autorizar.onclick = async () => {
+        const hash_origem = await gerar_hash(origem)
+        const subdiretorio = await diretorio.getDirectoryHandle(hash_origem, { create: true })
+
+        if (window.opener) {
+          window.opener.postMessage({ tipo: "KAPIVATAR_AUTORIZADO" }, "*")
+        }
         window.close()
       }
-      container.appendChild(botao)
+      botoes_container.appendChild(botao_autorizar)
+
+      const botao_cancelar = document.createElement("button")
+      botao_cancelar.textContent = "Cancelar"
+      botao_cancelar.style.backgroundColor = "#444"
+      botao_cancelar.onclick = () => {
+        window.close()
+      }
+      botoes_container.appendChild(botao_cancelar)
+
+      container.appendChild(botoes_container)
       document.body.appendChild(container)
+    }
+
+    const paramOrigem = obter_origem_externa()
+    if (paramOrigem && location.search.includes("origin=")) {
+      continuarAutenticacao(paramOrigem)
       return
     }
 
-    const arquivo_id = await ler_arquivo(diretorio, id_selecionado)
-    let nome_perfil = "Perfil Sem Nome"
-    if (arquivo_id) {
-      const hash_perfil = await arquivo_id.text()
-      const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
-      if (arquivo_perfil) {
-        const dados = JSON.parse(await arquivo_perfil.text())
-        nome_perfil = dados.nome
+    let resolved = false
+    const listener = (event) => {
+      if (event.data && event.data.tipo === "KAPIVATAR_ORIGIN") {
+        if (!resolved) {
+          resolved = true
+          window.removeEventListener("message", listener)
+          continuarAutenticacao(event.data.origem)
+        }
       }
     }
+    window.addEventListener("message", listener)
 
-    const origem = obter_origem_externa()
-
-    document.body.innerHTML = ""
-    document.body.className = "autenticar-body"
-
-    const container = document.createElement("div")
-    container.className = "autenticar-container"
-
-    const logo = document.createElement("img")
-    logo.src = "kapivatar.svg"
-    logo.alt = "Kapivatar Logo"
-    logo.className = "autenticar-logo"
-    container.appendChild(logo)
-
-    const h1 = document.createElement("h1")
-    h1.textContent = "Autorizar Conexão"
-    container.appendChild(h1)
-
-    const p = document.createElement("p")
-    p.innerHTML = `O aplicativo <strong id="app-origin"></strong> deseja se conectar ao seu perfil Kapivatar (<strong id="profile-name"></strong>).`
-    p.querySelector("#app-origin").textContent = origem
-    p.querySelector("#profile-name").textContent = nome_perfil
-    container.appendChild(p)
-
-    const botoes_container = document.createElement("div")
-    botoes_container.className = "autenticar-botoes"
-
-    const botao_autorizar = document.createElement("button")
-    botao_autorizar.textContent = "Autorizar"
-    botao_autorizar.onclick = async () => {
-      const hash_origem = await gerar_hash(origem)
-      const subdiretorio = await diretorio.getDirectoryHandle(hash_origem, { create: true })
-
-      if (window.opener) {
-        window.opener.postMessage({ tipo: "KAPIVATAR_AUTORIZADO" }, "*")
-      }
-      window.close()
+    if (window.opener) {
+      window.opener.postMessage({ tipo: "KAPIVATAR_AUTENTICAR_READY" }, "*")
     }
-    botoes_container.appendChild(botao_autorizar)
 
-    const botao_cancelar = document.createElement("button")
-    botao_cancelar.textContent = "Cancelar"
-    botao_cancelar.style.backgroundColor = "#444"
-    botao_cancelar.onclick = () => {
-      window.close()
-    }
-    botoes_container.appendChild(botao_cancelar)
-
-    container.appendChild(botoes_container)
-    document.body.appendChild(container)
     return
   }
 

@@ -11,7 +11,8 @@ O Kapivatar fornece um mecanismo local e descentralizado de autenticação para 
    - Se o usuário **está autenticado** e o seu webapp **já foi autorizado**, o iframe exibe a foto do perfil ativo do usuário e envia imediatamente um `postMessage` contendo as informações públicas do perfil conectado.
    - Se o usuário **não tem autorização** ou **não está logado**, o iframe exibe um ícone genérico de perfil.
 3. **Fluxo de Autorização:**
-   - Ao clicar no iframe, uma janela popup (`window.open`) abre o endpoint `/autenticar` do Kapivatar, passando o parâmetro `origin` da sua aplicação.
+   - Ao clicar no iframe, uma janela popup (`window.open`) abre o endpoint `/autenticar` do Kapivatar.
+   - O popup solicita a origem através de um evento `postMessage` (`KAPIVATAR_AUTENTICAR_READY`), e o iframe responde com a `origin` do seu webapp.
    - O usuário visualiza uma tela de consentimento local contendo as informações do perfil ativo e o domínio solicitante.
    - Ao clicar em "Autorizar", o Kapivatar registra a autorização.
    - O popup notifica o iframe e se fecha automaticamente. O iframe do Kapivatar então recarrega seu estado, exibe a foto do perfil e envia as informações do perfil para a sua aplicação via `postMessage`.
