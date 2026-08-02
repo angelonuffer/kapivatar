@@ -41,15 +41,28 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage', 
 
   // 3. Mockar window.open, window.close e window.opener para simular o popup na mesma aba
   await page.evaluate(() => {
+    window._receivedMessages = [];
+    window.opener = {
+      postMessage: (data, targetOrigin) => {
+        if (data && data.tipo === "KAPIVATAR_AUTENTICAR_READY") {
+          window.postMessage({ tipo: "KAPIVATAR_ORIGIN", origem: "http://127.0.0.1:3000" }, "*");
+        }
+        if (data && data.tipo === "KAPIVATAR_AUTORIZADO") {
+          sessionStorage.setItem('_authMessage', JSON.stringify(data));
+        }
+      }
+    };
     window.open = (url) => {
       window.navegar(url);
       return window;
+    };
+    window.close = () => {
+      window.navegar('/perfil-autenticado?origin=http%3A%2F%2F127.0.0.1%3A3000');
     };
   });
 
   // Configurar escuta para postMessage enviados pelo iframe para a página mãe
   await page.evaluate(() => {
-    window._receivedMessages = [];
     window.addEventListener('message', (event) => {
       if (event.data && event.data.tipo === 'KAPIVATAR_CONECTADO') {
         window._receivedMessages.push(event.data);
@@ -61,21 +74,9 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage', 
   await page.locator('.perfil-autenticado-container').click();
 
   // Deve ter navegado para a página de autorização
-  await expect(page).toHaveURL(/\/autenticar\?origin=.*/);
+  await expect(page).toHaveURL(/\/autenticar$/);
   await expect(page.locator('h1')).toHaveText('Autorizar Conexão');
   await expect(page.locator('p')).toContainText('O aplicativo http://127.0.0.1:3000 deseja se conectar ao seu perfil Kapivatar (Capivara Autorizada)');
-
-  // Mockar window.opener e window.close na página de autorização
-  await page.evaluate(() => {
-    window.opener = {
-      postMessage: (data, targetOrigin) => {
-        sessionStorage.setItem('_authMessage', JSON.stringify(data));
-      }
-    };
-    window.close = () => {
-      window.navegar('/perfil-autenticado?origin=http%3A%2F%2F127.0.0.1%3A3000');
-    };
-  });
 
   // Clicar em "Autorizar"
   await page.getByRole('button', { name: 'Autorizar' }).click();
