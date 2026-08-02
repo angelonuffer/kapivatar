@@ -2273,8 +2273,10 @@ const rotear = async () => {
       const popup = window.open(`/autenticar`, "kapivatar_autenticar", "width=600,height=600")
 
       const listener = (event) => {
+        if (event.origin !== location.origin) return
+
         if (event.data && event.data.tipo === "KAPIVATAR_AUTENTICAR_READY") {
-          popup.postMessage({ tipo: "KAPIVATAR_ORIGIN", origem }, "*")
+          popup.postMessage({ tipo: "KAPIVATAR_ORIGIN", origem }, location.origin)
           window.removeEventListener("message", listener)
         }
       }
@@ -2347,6 +2349,8 @@ const rotear = async () => {
     }
 
     const tratar_mensagem = (event) => {
+      if (event.origin !== location.origin) return
+
       if (event.data && event.data.tipo === "KAPIVATAR_AUTORIZADO") {
         window.removeEventListener("message", tratar_mensagem)
         rotear()
@@ -2444,7 +2448,7 @@ const rotear = async () => {
         const subdiretorio = await diretorio.getDirectoryHandle(hash_origem, { create: true })
 
         if (window.opener) {
-          window.opener.postMessage({ tipo: "KAPIVATAR_AUTORIZADO" }, "*")
+          window.opener.postMessage({ tipo: "KAPIVATAR_AUTORIZADO" }, location.origin)
         }
         window.close()
       }
@@ -2470,6 +2474,8 @@ const rotear = async () => {
 
     let resolved = false
     const listener = (event) => {
+      if (event.origin !== location.origin) return
+
       if (event.data && event.data.tipo === "KAPIVATAR_ORIGIN") {
         if (!resolved) {
           resolved = true
@@ -2481,7 +2487,7 @@ const rotear = async () => {
     window.addEventListener("message", listener)
 
     if (window.opener) {
-      window.opener.postMessage({ tipo: "KAPIVATAR_AUTENTICAR_READY" }, "*")
+      window.opener.postMessage({ tipo: "KAPIVATAR_AUTENTICAR_READY" }, location.origin)
     }
 
     return
