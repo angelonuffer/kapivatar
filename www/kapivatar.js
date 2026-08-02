@@ -2250,7 +2250,7 @@ const rotear = async () => {
   const path = decodeURIComponent(location.pathname)
   const params = new URLSearchParams(location.search)
 
-  if (path === "/perfil_autenticado") {
+  if (path === "/perfil-autenticado") {
     document.body.innerHTML = ""
     document.body.className = "perfil-autenticado-body"
 

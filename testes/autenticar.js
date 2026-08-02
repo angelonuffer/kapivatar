@@ -30,9 +30,9 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage', 
   await card.locator('.perfil-menu-botao').click();
   await page.getByRole('button', { name: 'Selecionar perfil' }).click();
 
-  // 2. Navegar para /perfil_autenticado sem autorização prévia usando window.navegar
+  // 2. Navegar para /perfil-autenticado sem autorização prévia usando window.navegar
   await page.evaluate(() => {
-    window.navegar('/perfil_autenticado?origin=http%3A%2F%2F127.0.0.1%3A3000');
+    window.navegar('/perfil-autenticado?origin=http%3A%2F%2F127.0.0.1%3A3000');
   });
 
   // Deve exibir o ícone genérico de perfil
@@ -73,15 +73,15 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage', 
       }
     };
     window.close = () => {
-      window.navegar('/perfil_autenticado?origin=http%3A%2F%2F127.0.0.1%3A3000');
+      window.navegar('/perfil-autenticado?origin=http%3A%2F%2F127.0.0.1%3A3000');
     };
   });
 
   // Clicar em "Autorizar"
   await page.getByRole('button', { name: 'Autorizar' }).click();
 
-  // Agora deve ter voltado para o /perfil_autenticado com autorização concedida
-  await expect(page).toHaveURL(/\/perfil_autenticado\?origin=.*/);
+  // Agora deve ter voltado para o /perfil-autenticado com autorização concedida
+  await expect(page).toHaveURL(/\/perfil-autenticado\?origin=.*/);
 
   // Não deve exibir mais o ícone genérico de perfil
   await expect(page.locator('.perfil-autenticado-icon')).not.toBeVisible();

@@ -6,7 +6,7 @@ O Kapivatar fornece um mecanismo local e descentralizado de autenticação para 
 
 ## Como Funciona
 
-1. **Iframe de Perfil:** O seu webapp incorpora um iframe apontando para o endpoint `/perfil_autenticado` do Kapivatar.
+1. **Iframe de Perfil:** O seu webapp incorpora um iframe apontando para o endpoint `/perfil-autenticado` do Kapivatar.
 2. **Exibição do Estado:**
    - Se o usuário **está autenticado** e o seu webapp **já foi autorizado**, o iframe exibe a foto do perfil ativo do usuário e envia imediatamente um `postMessage` contendo as informações públicas do perfil conectado.
    - Se o usuário **não tem autorização** ou **não está logado**, o iframe exibe um ícone genérico de perfil.
@@ -25,7 +25,7 @@ Adicione o seguinte elemento iframe na interface do seu webapp:
 ```html
 <iframe
   id="kapivatar-iframe"
-  src="http://localhost:3000/perfil_autenticado?origin=http%3A%2F%2Fmeu-webapp.com"
+  src="http://localhost:3000/perfil-autenticado?origin=http%3A%2F%2Fmeu-webapp.com"
   style="width: 54px; height: 54px; border: none; overflow: hidden; background: transparent;"
   scrolling="no">
 </iframe>
