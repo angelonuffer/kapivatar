@@ -76,7 +76,7 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage', 
   // Deve ter navegado para a página de autorização
   await expect(page).toHaveURL(/\/autenticar$/);
   await expect(page.locator('h1')).toHaveText('Autorizar Conexão');
-  await expect(page.locator('p')).toContainText('O aplicativo http://127.0.0.1:3000 deseja se conectar ao seu perfil Kapivatar (Capivara Autorizada)');
+  await expect(page.locator('p').first()).toContainText('O aplicativo http://127.0.0.1:3000 deseja se conectar ao seu perfil Kapivatar (Capivara Autorizada)');
 
   // Clicar em "Autorizar"
   await page.getByRole('button', { name: 'Autorizar' }).click();

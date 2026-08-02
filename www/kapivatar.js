@@ -726,6 +726,125 @@ cliente_mqtt.on("message", (topico, mensagem) => {
   }
 })
 
+const renderizar_formulario_perfil = (conteudo, nomeBotao, onSubmitCallback) => {
+  const form = document.createElement("form")
+  form.classList.add("form-perfil")
+
+  const criar_campo_arquivo = (label, id) => {
+    const div = document.createElement("div")
+    div.classList.add("form-campo")
+    const l = document.createElement("label")
+    l.textContent = label
+    l.htmlFor = id
+    div.appendChild(l)
+
+    const container = document.createElement("div")
+    container.classList.add("input-arquivo-container")
+
+    const input = document.createElement("input")
+    input.type = "file"
+    input.id = id
+    input.name = id
+    input.accept = "image/*"
+    input.style.display = "none"
+
+    const botao_upload = document.createElement("button")
+    botao_upload.type = "button"
+    const icone = document.createElement("span")
+    icone.classList.add("material-symbols-outlined")
+    icone.textContent = "upload_file"
+    botao_upload.appendChild(icone)
+    const texto = document.createElement("span")
+    texto.textContent = "Escolher imagem"
+    botao_upload.appendChild(texto)
+
+    botao_upload.onclick = () => input.click()
+
+    const preview_container = document.createElement("div")
+    preview_container.classList.add("preview-container")
+    preview_container.style.display = "none"
+
+    const preview_img = document.createElement("img")
+    preview_img.classList.add("preview-imagem")
+    preview_container.appendChild(preview_img)
+
+    const nome_arquivo = document.createElement("span")
+    nome_arquivo.classList.add("nome-arquivo")
+    preview_container.appendChild(nome_arquivo)
+
+    input.onchange = () => {
+      if (input.files.length > 0) {
+        const file = input.files[0]
+        nome_arquivo.textContent = file.name
+        preview_img.src = URL.createObjectURL(file)
+        preview_container.style.display = "flex"
+      } else {
+        preview_container.style.display = "none"
+      }
+    }
+
+    container.appendChild(input)
+    container.appendChild(botao_upload)
+    container.appendChild(preview_container)
+    div.appendChild(container)
+    return div
+  }
+
+  const criar_campo = (label, tipo, id, attributes = {}) => {
+    const div = document.createElement("div")
+    div.classList.add("form-campo")
+    const l = document.createElement("label")
+    l.textContent = label
+    l.htmlFor = id
+    div.appendChild(l)
+    let input
+    if (tipo === "textarea") {
+      input = document.createElement("textarea")
+    } else {
+      input = document.createElement("input")
+      input.type = tipo
+    }
+    input.id = id
+    input.name = id
+    Object.assign(input, attributes)
+    div.appendChild(input)
+    return div
+  }
+
+  form.appendChild(criar_campo_arquivo("Capa", "capa"))
+  form.appendChild(criar_campo_arquivo("Foto de Perfil", "foto"))
+  form.appendChild(criar_campo("Nome", "text", "nome", { required: true }))
+  form.appendChild(criar_campo("Bio", "textarea", "bio"))
+
+  const botao = document.createElement("button")
+  const span_ícone = document.createElement("span")
+  span_ícone.classList.add("material-symbols-outlined")
+  span_ícone.textContent = "save"
+  botao.appendChild(span_ícone)
+  const span_texto = document.createElement("span")
+  span_texto.textContent = nomeBotao
+  botao.appendChild(span_texto)
+  botao.type = "submit"
+  botao.setAttribute("aria-live", "polite")
+  form.appendChild(botao)
+
+  form.onsubmit = async (e) => {
+    e.preventDefault()
+    botao.disabled = true
+    const texto_original = span_texto.textContent
+    span_texto.textContent = "Salvando..."
+    try {
+      await onSubmitCallback(form)
+    } catch (err) {
+      console.error("Erro ao salvar perfil:", err)
+      botao.disabled = false
+      span_texto.textContent = texto_original
+    }
+  }
+
+  conteudo.appendChild(form)
+}
+
 const páginas = [
   {
     nome: "Início",
@@ -937,120 +1056,14 @@ const páginas = [
     ícone: "person_add",
     ocultar_no_menu: true,
     render: (conteudo) => {
-      const form = document.createElement("form")
-      form.classList.add("form-perfil")
+      renderizar_formulario_perfil(conteudo, "Salvar Perfil", async (form) => {
+        const diretorio = await obter_diretorio()
 
-      const criar_campo_arquivo = (label, id) => {
-        const div = document.createElement("div")
-        div.classList.add("form-campo")
-        const l = document.createElement("label")
-        l.textContent = label
-        l.htmlFor = id
-        div.appendChild(l)
-
-        const container = document.createElement("div")
-        container.classList.add("input-arquivo-container")
-
-        const input = document.createElement("input")
-        input.type = "file"
-        input.id = id
-        input.name = id
-        input.accept = "image/*"
-        input.style.display = "none"
-
-        const botao_upload = document.createElement("button")
-        botao_upload.type = "button"
-        const icone = document.createElement("span")
-        icone.classList.add("material-symbols-outlined")
-        icone.textContent = "upload_file"
-        botao_upload.appendChild(icone)
-        const texto = document.createElement("span")
-        texto.textContent = "Escolher imagem"
-        botao_upload.appendChild(texto)
-
-        botao_upload.onclick = () => input.click()
-
-        const preview_container = document.createElement("div")
-        preview_container.classList.add("preview-container")
-        preview_container.style.display = "none"
-
-        const preview_img = document.createElement("img")
-        preview_img.classList.add("preview-imagem")
-        preview_container.appendChild(preview_img)
-
-        const nome_arquivo = document.createElement("span")
-        nome_arquivo.classList.add("nome-arquivo")
-        preview_container.appendChild(nome_arquivo)
-
-        input.onchange = () => {
-          if (input.files.length > 0) {
-            const file = input.files[0]
-            nome_arquivo.textContent = file.name
-            preview_img.src = URL.createObjectURL(file)
-            preview_container.style.display = "flex"
-          } else {
-            preview_container.style.display = "none"
-          }
-        }
-
-        container.appendChild(input)
-        container.appendChild(botao_upload)
-        container.appendChild(preview_container)
-        div.appendChild(container)
-        return div
-      }
-
-      const criar_campo = (label, tipo, id, attributes = {}) => {
-        const div = document.createElement("div")
-        div.classList.add("form-campo")
-        const l = document.createElement("label")
-        l.textContent = label
-        l.htmlFor = id
-        div.appendChild(l)
-        let input
-        if (tipo === "textarea") {
-          input = document.createElement("textarea")
-        } else {
-          input = document.createElement("input")
-          input.type = tipo
-        }
-        input.id = id
-        input.name = id
-        Object.assign(input, attributes)
-        div.appendChild(input)
-        return div
-      }
-
-      form.appendChild(criar_campo_arquivo("Capa", "capa"))
-      form.appendChild(criar_campo_arquivo("Foto de Perfil", "foto"))
-      form.appendChild(criar_campo("Nome", "text", "nome", { required: true }))
-      form.appendChild(criar_campo("Bio", "textarea", "bio"))
-
-      const botao = document.createElement("button")
-      const span_ícone = document.createElement("span")
-      span_ícone.classList.add("material-symbols-outlined")
-      span_ícone.textContent = "save"
-      botao.appendChild(span_ícone)
-      const span_texto = document.createElement("span")
-      span_texto.textContent = "Salvar Perfil"
-      botao.appendChild(span_texto)
-      botao.type = "submit"
-      botao.setAttribute("aria-live", "polite")
-      form.appendChild(botao)
-
-        form.onsubmit = async (e) => {
-        e.preventDefault()
-        botao.disabled = true
-        span_texto.textContent = "Salvando..."
-
-        try {
-          const diretorio = await obter_diretorio()
-
-          // Gerar chaves para o novo perfil
-          const chaves = await gerar_chaves()
-          const chave_privada_jwk = await exportar_chave(chaves.privateKey)
-          const chave_publica_jwk = await exportar_chave(chaves.publicKey)
-          const id_perfil = await gerar_id_perfil(chaves.publicKey)
+        // Gerar chaves para o novo perfil
+        const chaves = await gerar_chaves()
+        const chave_privada_jwk = await exportar_chave(chaves.privateKey)
+        const chave_publica_jwk = await exportar_chave(chaves.publicKey)
+        const id_perfil = await gerar_id_perfil(chaves.publicKey)
 
         const dados = {
           nome: form.nome.value,
@@ -1108,12 +1121,7 @@ const páginas = [
         await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
 
         navegar("/perfis")
-        } catch (err) {
-          console.error("Erro ao salvar perfil:", err)
-        }
-      }
-
-      conteudo.appendChild(form)
+      })
     }
   },
   {
@@ -2379,91 +2387,290 @@ const rotear = async () => {
         console.error(e)
       }
 
-      const id_selecionado = await obter_id_perfil_selecionado()
-      if (!id_selecionado) {
+      let id_selecionado = await obter_id_perfil_selecionado()
+      const arquivo_perfis = await ler_arquivo(diretorio, "perfis")
+      let lista_perfis = { perfis: [] }
+
+      if (arquivo_perfis) {
+        const hash_lista_perfis = await arquivo_perfis.text()
+        const arquivo_lista_perfis = await ler_arquivo(diretorio, hash_lista_perfis)
+        if (arquivo_lista_perfis) {
+          lista_perfis = JSON.parse(await arquivo_lista_perfis.text())
+        }
+      }
+
+      const exibir_tela = async (mostrar_criacao = false) => {
         document.body.innerHTML = ""
         document.body.className = "autenticar-body"
 
         const container = document.createElement("div")
         container.className = "autenticar-container"
 
+        const logo = document.createElement("img")
+        logo.src = "kapivatar.svg"
+        logo.alt = "Kapivatar Logo"
+        logo.className = "autenticar-logo"
+        container.appendChild(logo)
+
         const h1 = document.createElement("h1")
-        h1.textContent = "Perfil não selecionado"
+        h1.textContent = "Autorizar Conexão"
         container.appendChild(h1)
 
         const p = document.createElement("p")
-        p.textContent = "Você precisa criar e selecionar um perfil no Kapivatar antes de autorizar aplicativos externos."
+        p.innerHTML = `O aplicativo <strong id="app-origin"></strong> deseja se conectar ao seu perfil Kapivatar.`
+        p.querySelector("#app-origin").textContent = origem
         container.appendChild(p)
 
-        const botao = document.createElement("button")
-        botao.textContent = "Fechar"
-        botao.onclick = () => {
+        const autorizar = async (id) => {
+          const hash_origem = await gerar_hash(origem)
+          await diretorio.getDirectoryHandle(hash_origem, { create: true })
+          if (window.opener) {
+            window.opener.postMessage({ tipo: "KAPIVATAR_AUTORIZADO" }, location.origin)
+          }
           window.close()
         }
-        container.appendChild(botao)
+
+        if (lista_perfis.perfis.length === 0 || mostrar_criacao) {
+          const form_container = document.createElement("div")
+          form_container.style.marginTop = "2em"
+          form_container.style.width = "100%"
+          renderizar_formulario_perfil(form_container, "Criar Perfil e Autorizar", async (form) => {
+            // Gerar chaves para o novo perfil
+            const chaves = await gerar_chaves()
+            const chave_privada_jwk = await exportar_chave(chaves.privateKey)
+            const chave_publica_jwk = await exportar_chave(chaves.publicKey)
+            const id_perfil = await gerar_id_perfil(chaves.publicKey)
+
+            const dados = {
+              nome: form.nome.value,
+              bio: form.bio.value,
+              id: id_perfil,
+              chave_privada: chave_privada_jwk,
+              chave_publica: chave_publica_jwk,
+            }
+
+            const salvar_imagem = async (input) => {
+              if (input.files.length > 0) {
+                const file = input.files[0]
+                const buffer = await file.arrayBuffer()
+                const hash = await gerar_hash(buffer)
+                await escrever_arquivo(diretorio, hash, buffer)
+                return hash
+              }
+              return null
+            }
+
+            const hash_capa = await salvar_imagem(form.capa)
+            if (hash_capa) dados.capa = hash_capa
+
+            const hash_foto = await salvar_imagem(form.foto)
+            if (hash_foto) dados.foto = hash_foto
+
+            const conteudo_perfil = JSON.stringify(dados)
+            const hash_perfil = await gerar_hash(conteudo_perfil)
+            await escrever_arquivo(diretorio, hash_perfil, conteudo_perfil)
+            await escrever_arquivo(diretorio, id_perfil, hash_perfil)
+            await definir_id_perfil_selecionado(id_perfil)
+
+            let nova_lista = {
+              perfis: [...lista_perfis.perfis, id_perfil],
+              data: new Date().toISOString()
+            }
+
+            if (lista_perfis.data) {
+                const hash_lista_anterior = await gerar_hash(JSON.stringify(lista_perfis))
+                nova_lista.anterior = hash_lista_anterior
+            }
+
+            const conteudo_lista = JSON.stringify(nova_lista)
+            const hash_nova_lista = await gerar_hash(conteudo_lista)
+            await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista)
+            await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
+
+            await autorizar(id_perfil)
+          })
+          container.appendChild(form_container)
+
+          if (lista_perfis.perfis.length > 0) {
+            const botao_voltar = document.createElement("button")
+            botao_voltar.textContent = "Voltar"
+            botao_voltar.style.backgroundColor = "#444"
+            botao_voltar.style.marginTop = "1em"
+            botao_voltar.onclick = () => exibir_tela(false)
+            container.appendChild(botao_voltar)
+          }
+
+        } else if (id_selecionado) {
+          const arquivo_id = await ler_arquivo(diretorio, id_selecionado)
+          let nome_perfil = "Perfil Sem Nome"
+          if (arquivo_id) {
+            const hash_perfil = await arquivo_id.text()
+            const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+            if (arquivo_perfil) {
+              const dados = JSON.parse(await arquivo_perfil.text())
+              nome_perfil = dados.nome
+            }
+          }
+          p.innerHTML = `O aplicativo <strong id="app-origin"></strong> deseja se conectar ao seu perfil Kapivatar (<strong id="profile-name"></strong>).`
+          p.querySelector("#app-origin").textContent = origem
+          p.querySelector("#profile-name").textContent = nome_perfil
+
+          const botoes_container = document.createElement("div")
+          botoes_container.className = "autenticar-botoes"
+
+          const botao_autorizar = document.createElement("button")
+          botao_autorizar.textContent = "Autorizar"
+          botao_autorizar.onclick = () => autorizar(id_selecionado)
+          botoes_container.appendChild(botao_autorizar)
+
+          const botao_cancelar = document.createElement("button")
+          botao_cancelar.textContent = "Cancelar"
+          botao_cancelar.style.backgroundColor = "#444"
+          botao_cancelar.onclick = () => window.close()
+          botoes_container.appendChild(botao_cancelar)
+
+          container.appendChild(botoes_container)
+
+          if (lista_perfis.perfis.length > 1) {
+            const p_outro = document.createElement("p")
+            p_outro.style.marginTop = "2em"
+            p_outro.textContent = "Ou selecione outro perfil:"
+            container.appendChild(p_outro)
+          } else {
+            const p_outro = document.createElement("p")
+            p_outro.style.marginTop = "2em"
+            p_outro.textContent = "Você também pode criar outro perfil:"
+            container.appendChild(p_outro)
+          }
+
+          const grid = document.createElement("div")
+          grid.classList.add("perfis-grid")
+          grid.style.padding = "0"
+          grid.style.marginTop = "1em"
+
+          for (const id_perfil of lista_perfis.perfis) {
+            if (id_perfil === id_selecionado) continue
+            let hash_perfil = id_perfil
+            const arquivo_id = await ler_arquivo(diretorio, id_perfil)
+            if (arquivo_id) {
+              const texto_id = await arquivo_id.text()
+              if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) hash_perfil = texto_id
+            }
+
+            const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+            if (!arquivo_perfil) continue
+            const dados = JSON.parse(await arquivo_perfil.text())
+
+            const card = document.createElement("div")
+            card.classList.add("perfil-card")
+            card.onclick = async () => {
+              await definir_id_perfil_selecionado(id_perfil)
+              id_selecionado = id_perfil
+              exibir_tela(false)
+            }
+
+            if (dados.capa) {
+              const img_capa = document.createElement("img")
+              const arquivo_capa = await ler_arquivo(diretorio, dados.capa)
+              if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
+              img_capa.classList.add("perfil-capa")
+              card.appendChild(img_capa)
+            }
+            const info = document.createElement("div")
+            info.classList.add("perfil-info")
+            if (dados.foto) {
+              const img_foto = document.createElement("img")
+              const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
+              if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
+              img_foto.classList.add("perfil-foto")
+              img_foto.style.marginTop = dados.capa ? "-35px" : "0"
+              info.appendChild(img_foto)
+            }
+            const nome = document.createElement("h3")
+            nome.textContent = dados.nome
+            nome.classList.add("perfil-nome")
+            info.appendChild(nome)
+            card.appendChild(info)
+            grid.appendChild(card)
+          }
+          container.appendChild(grid)
+
+          const botao_criar = document.createElement("button")
+          botao_criar.textContent = "Criar novo perfil"
+          botao_criar.style.marginTop = "1em"
+          botao_criar.style.backgroundColor = "#444"
+          botao_criar.onclick = () => exibir_tela(true)
+          container.appendChild(botao_criar)
+
+        } else {
+           // Tem perfis mas nenhum selecionado
+           const p_outro = document.createElement("p")
+           p_outro.textContent = "Selecione o perfil que deseja usar:"
+           container.appendChild(p_outro)
+
+           const grid = document.createElement("div")
+           grid.classList.add("perfis-grid")
+           grid.style.padding = "0"
+           grid.style.marginTop = "1em"
+
+           for (const id_perfil of lista_perfis.perfis) {
+             let hash_perfil = id_perfil
+             const arquivo_id = await ler_arquivo(diretorio, id_perfil)
+             if (arquivo_id) {
+               const texto_id = await arquivo_id.text()
+               if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) hash_perfil = texto_id
+             }
+
+             const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+             if (!arquivo_perfil) continue
+             const dados = JSON.parse(await arquivo_perfil.text())
+
+             const card = document.createElement("div")
+             card.classList.add("perfil-card")
+             card.onclick = async () => {
+               await definir_id_perfil_selecionado(id_perfil)
+               id_selecionado = id_perfil
+               exibir_tela(false)
+             }
+
+             if (dados.capa) {
+               const img_capa = document.createElement("img")
+               const arquivo_capa = await ler_arquivo(diretorio, dados.capa)
+               if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
+               img_capa.classList.add("perfil-capa")
+               card.appendChild(img_capa)
+             }
+             const info = document.createElement("div")
+             info.classList.add("perfil-info")
+             if (dados.foto) {
+               const img_foto = document.createElement("img")
+               const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
+               if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
+               img_foto.classList.add("perfil-foto")
+               img_foto.style.marginTop = dados.capa ? "-35px" : "0"
+               info.appendChild(img_foto)
+             }
+             const nome = document.createElement("h3")
+             nome.textContent = dados.nome
+             nome.classList.add("perfil-nome")
+             info.appendChild(nome)
+             card.appendChild(info)
+             grid.appendChild(card)
+           }
+           container.appendChild(grid)
+
+           const botao_criar = document.createElement("button")
+           botao_criar.textContent = "Criar novo perfil"
+           botao_criar.style.marginTop = "1em"
+           botao_criar.style.backgroundColor = "#444"
+           botao_criar.onclick = () => exibir_tela(true)
+           container.appendChild(botao_criar)
+        }
+
         document.body.appendChild(container)
-        return
       }
 
-      const arquivo_id = await ler_arquivo(diretorio, id_selecionado)
-      let nome_perfil = "Perfil Sem Nome"
-      if (arquivo_id) {
-        const hash_perfil = await arquivo_id.text()
-        const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
-        if (arquivo_perfil) {
-          const dados = JSON.parse(await arquivo_perfil.text())
-          nome_perfil = dados.nome
-        }
-      }
-
-      document.body.innerHTML = ""
-      document.body.className = "autenticar-body"
-
-      const container = document.createElement("div")
-      container.className = "autenticar-container"
-
-      const logo = document.createElement("img")
-      logo.src = "kapivatar.svg"
-      logo.alt = "Kapivatar Logo"
-      logo.className = "autenticar-logo"
-      container.appendChild(logo)
-
-      const h1 = document.createElement("h1")
-      h1.textContent = "Autorizar Conexão"
-      container.appendChild(h1)
-
-      const p = document.createElement("p")
-      p.innerHTML = `O aplicativo <strong id="app-origin"></strong> deseja se conectar ao seu perfil Kapivatar (<strong id="profile-name"></strong>).`
-      p.querySelector("#app-origin").textContent = origem
-      p.querySelector("#profile-name").textContent = nome_perfil
-      container.appendChild(p)
-
-      const botoes_container = document.createElement("div")
-      botoes_container.className = "autenticar-botoes"
-
-      const botao_autorizar = document.createElement("button")
-      botao_autorizar.textContent = "Autorizar"
-      botao_autorizar.onclick = async () => {
-        const hash_origem = await gerar_hash(origem)
-        const subdiretorio = await diretorio.getDirectoryHandle(hash_origem, { create: true })
-
-        if (window.opener) {
-          window.opener.postMessage({ tipo: "KAPIVATAR_AUTORIZADO" }, location.origin)
-        }
-        window.close()
-      }
-      botoes_container.appendChild(botao_autorizar)
-
-      const botao_cancelar = document.createElement("button")
-      botao_cancelar.textContent = "Cancelar"
-      botao_cancelar.style.backgroundColor = "#444"
-      botao_cancelar.onclick = () => {
-        window.close()
-      }
-      botoes_container.appendChild(botao_cancelar)
-
-      container.appendChild(botoes_container)
-      document.body.appendChild(container)
+      await exibir_tela(false)
     }
 
     const paramOrigem = obter_origem_externa()
