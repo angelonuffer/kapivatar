@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
+  await expect(page.getByText('Bem-vindo ao Kapivatar!')).toBeVisible();
 });
 
 test('Deve permitir criar perfil diretamente pela tela de autenticacao caso o usuario nao tenha nenhum perfil registrado', async ({ page }) => {
