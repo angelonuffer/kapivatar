@@ -7,6 +7,7 @@ test.beforeEach(async ({ page }) => {
 test('Deve mostrar tela de permissão quando o diretório existe mas não tem permissão', async ({ page }) => {
   // 1. Simular login inicial para salvar o diretório no IndexedDB
   await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
+  await expect(page.getByText('Bem-vindo ao Kapivatar!')).toBeVisible();
 
   // 2. Recarregar a página simulando que a permissão foi "perdida" (prompt)
   await page.evaluate(() => {
@@ -27,12 +28,15 @@ test('Deve mostrar tela de permissão quando o diretório existe mas não tem pe
 test('Deve permitir sair e limpar o diretório da tela de permissão', async ({ page }) => {
   // 1. Simular login inicial
   await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
+  await expect(page.getByText('Bem-vindo ao Kapivatar!')).toBeVisible();
 
   // 2. Simular perda de permissão e recarregar
   await page.evaluate(() => {
     sessionStorage.setItem('_permissionState', 'prompt');
   });
   await page.reload();
+
+  await expect(page.getByText('Permissão Necessária')).toBeVisible();
 
   // 3. Clicar em Sair
   await page.getByRole('button', { name: 'Sair e trocar pasta' }).click();
