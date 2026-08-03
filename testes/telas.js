@@ -18,26 +18,23 @@ const test = base.extend({
   }
 });
 
-async function tirarScreenshots(page, baseDir) {
+async function toHaveScreenshots(page, baseDir) {
   // Horizontal (1280x720)
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.waitForTimeout(300);
-  const pathHorizontal = baseDir ? `testes/telas/${baseDir}/horizontal.png` : 'testes/telas/horizontal.png';
-  await page.screenshot({ path: pathHorizontal });
+  await expect(page).toHaveScreenshot(baseDir ? [baseDir, 'horizontal.png'] : 'horizontal.png');
 
   // Vertical (375x667)
   await page.setViewportSize({ width: 375, height: 667 });
   await page.waitForTimeout(300);
-  const pathVertical = baseDir ? `testes/telas/${baseDir}/vertical.png` : 'testes/telas/vertical.png';
-  await page.screenshot({ path: pathVertical });
+  await expect(page).toHaveScreenshot(baseDir ? [baseDir, 'vertical.png'] : 'vertical.png');
 
   // Vertical Menu (375x667, with menu open)
   const botaoMenu = page.locator('.botao-menu');
   if (await botaoMenu.isVisible()) {
     await botaoMenu.click();
     await page.waitForTimeout(300);
-    const pathVerticalMenu = baseDir ? `testes/telas/${baseDir}/vertical-menu.png` : 'testes/telas/vertical-menu.png';
-    await page.screenshot({ path: pathVerticalMenu });
+    await expect(page).toHaveScreenshot(baseDir ? [baseDir, 'vertical-menu.png'] : 'vertical-menu.png');
 
     // Close the menu afterwards
     const botaoFechar = page.locator('.botao-fechar-sidebar');
@@ -52,6 +49,8 @@ async function tirarScreenshots(page, baseDir) {
   await page.waitForTimeout(300);
 }
 
+const tirarScreenshots = toHaveScreenshots;
+
 test('Gerar todas as screenshots do aplicativo', async ({ page }) => {
   // 1. Tela de Login (antes de escolher pasta)
   await page.goto('/');
@@ -62,6 +61,7 @@ test('Gerar todas as screenshots do aplicativo', async ({ page }) => {
   // Simular login inicial para salvar o diretório no IndexedDB
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
+  await expect(page.getByText('Bem-vindo ao Kapivatar!')).toBeVisible();
 
   // Agora simular perda de permissão e recarregar
   await page.evaluate(() => {
