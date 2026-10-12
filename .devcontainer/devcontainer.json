@@ -1,0 +1,10 @@
+{
+  "name": "Kapivatar (Ubuntu 26.04)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu26.04",
+  "features": {
+    "ghcr.io/devcontainers/features/node:2.1.1": {
+      "version": "24.21.0"
+    }
+  },
+  "postCreateCommand": "npm ci && npx playwright install chromium --with-deps"
+}

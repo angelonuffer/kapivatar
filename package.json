@@ -9,8 +9,6 @@
     "serve": "npx wrangler pages dev"
   },
   "devDependencies": {
-    "@playwright/test": "^1.45.0",
-    "@types/node": "^20.0.0",
-    "serve": "^14.2.3"
+    "@playwright/test": "1.64.0"
   }
 }

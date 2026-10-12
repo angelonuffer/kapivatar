@@ -12,12 +12,7 @@ export default defineConfig({
   snapshotPathTemplate: '{testDir}/telas/{arg}{ext}',
   use: {
     baseURL: 'http://127.0.0.1:3000',
-    trace: 'on-first-retry',
-  },
-  expect: {
-    toHaveScreenshot: {
-      maxDiffPixelRatio: 0.05,
-    },
+    trace: process.env.CI ? 'retain-on-failure' : 'on',
   },
   projects: [
     {
