@@ -1,0 +1,182 @@
+name: Publish Playwright reports
+on:
+  workflow_run:
+    workflows: ["Playwright Tests"]
+    types: [ completed ]
+jobs:
+  inspect:
+    if: >-
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main') ||
+      (github.event.workflow_run.event == 'pull_request' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: read
+    outputs:
+      publish: ${{ steps.source.outputs.publish }}
+      pr_number: ${{ steps.source.outputs.pr_number }}
+      pr_state: ${{ steps.source.outputs.pr_state }}
+    steps:
+    - name: Inspect source run and report artifact
+      id: source
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const run = context.payload.workflow_run;
+          const { owner, repo } = context.repo;
+          let prNumber = '';
+          let prState = '';
+
+          if (run.event === 'pull_request') {
+            prNumber = String(run.pull_requests?.[0]?.number ?? '');
+            if (!prNumber) {
+              const headOwner = run.head_repository?.owner?.login;
+              if (headOwner) {
+                const pullRequests = await github.paginate(github.rest.pulls.list, {
+                  owner,
+                  repo,
+                  state: 'all',
+                  head: `${headOwner}:${run.head_branch}`,
+                  per_page: 100,
+                });
+                const match = pullRequests.find(pr => pr.head.ref === run.head_branch);
+                prNumber = String(match?.number ?? '');
+              }
+            }
+
+            if (!prNumber) {
+              core.setOutput('publish', 'false');
+              return;
+            }
+
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: Number(prNumber),
+            });
+            if (pr.head.repo?.full_name !== `${owner}/${repo}`) {
+              core.setOutput('publish', 'false');
+              return;
+            }
+            prState = pr.state;
+          }
+
+          const { data: artifactList } = await github.rest.actions.listWorkflowRunArtifacts({
+            owner,
+            repo,
+            run_id: run.id,
+          });
+          const hasReport = artifactList.artifacts.some(
+            artifact => artifact.name === 'playwright-report' && !artifact.expired,
+          );
+          core.setOutput('pr_number', prNumber);
+          core.setOutput('pr_state', prState);
+          core.setOutput('has_report', String(hasReport));
+          core.setOutput('publish', String(prState === 'closed' || hasReport));
+  publish:
+    needs: inspect
+    if: needs.inspect.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      actions: read
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ format('{0}{1}', steps.deployment.outputs.page_url, needs.inspect.outputs.pr_state == 'open' && format('previews/pr-{0}/', needs.inspect.outputs.pr_number) || 'latest/') }}
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Download Playwright report
+      if: needs.inspect.outputs.pr_state != 'closed'
+      uses: actions/download-artifact@v4
+      with:
+        name: playwright-report
+        path: playwright-report/
+        repository: ${{ github.repository }}
+        run-id: ${{ github.event.workflow_run.id }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Prepare Pages content branch
+      run: |
+        if git ls-remote --exit-code --heads origin pr-pages >/dev/null 2>&1; then
+          git fetch origin refs/heads/pr-pages:refs/remotes/origin/pr-pages
+          git worktree add -B pr-pages site origin/pr-pages
+        else
+          git worktree add --orphan -b pr-pages site
+        fi
+    - name: Update report content
+      env:
+        PR_NUMBER: ${{ needs.inspect.outputs.pr_number }}
+        PR_STATE: ${{ needs.inspect.outputs.pr_state }}
+      run: |
+        if [[ -n "$PR_NUMBER" ]]; then
+          preview_dir="site/previews/pr-$PR_NUMBER"
+          if [[ "$PR_STATE" == "closed" ]]; then
+            rm -rf "$preview_dir"
+          else
+            mkdir -p "$preview_dir"
+            cp -R playwright-report/. "$preview_dir/"
+          fi
+        else
+          mkdir -p site/latest
+          cp -R playwright-report/. site/latest/
+        fi
+        {
+          echo '<!doctype html>'
+          echo '<html lang="en"><meta charset="utf-8"><title>Kapivatar Playwright reports</title>'
+          echo '<h1>Kapivatar Playwright reports</h1><ul>'
+          if [[ -f site/latest/index.html ]]; then
+            echo '<li><a href="latest/">Latest main report</a></li>'
+          fi
+          for preview_dir in site/previews/pr-*; do
+            [[ -d "$preview_dir" ]] || continue
+            pr_number="${preview_dir##*/pr-}"
+            printf '<li><a href="previews/pr-%s/">PR #%s</a></li>\n' "$pr_number" "$pr_number"
+          done
+          echo '</ul></html>'
+        } > site/index.html
+    - name: Save Pages content branch
+      run: |
+        git -C site config user.name "github-actions[bot]"
+        git -C site config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git -C site add -A
+        if ! git -C site diff --cached --quiet; then
+          git -C site commit -m "Update Playwright report previews"
+          git -C site push origin pr-pages
+        fi
+        mkdir -p pages-artifact
+        git -C site archive HEAD | tar -x -C pages-artifact
+    - name: Configure GitHub Pages
+      uses: actions/configure-pages@v5
+      with:
+        enablement: true
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: pages-artifact/
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+    - name: Add report URL to job summary
+      if: steps.deployment.outputs.page_url != ''
+      env:
+        PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        PR_NUMBER: ${{ needs.inspect.outputs.pr_number }}
+        PR_STATE: ${{ needs.inspect.outputs.pr_state }}
+      run: |
+        if [[ "$PR_STATE" == "open" ]]; then
+          echo "[View PR #$PR_NUMBER Playwright report](${PAGE_URL}previews/pr-$PR_NUMBER/)" >> "$GITHUB_STEP_SUMMARY"
+        elif [[ "$PR_STATE" == "closed" ]]; then
+          echo "Removed the Playwright report preview for PR #$PR_NUMBER." >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "[View latest Playwright report](${PAGE_URL}latest/)" >> "$GITHUB_STEP_SUMMARY"
+        fi
