@@ -66,6 +66,8 @@ Os testes são realizados utilizando o Playwright. Para executá-los, use:
 npm test
 ```
 
+No GitHub Actions, cada execução disponibiliza o relatório Playwright como artefato quando gerado. PRs do próprio repositório também publicam um preview público em `https://angelonuffer.github.io/kapivatar/previews/pr-<número>/`; o preview é removido quando o PR é fechado. PRs de forks continuam executando os testes e disponibilizando o artefato, mas não publicam no Pages.
+
 ## 📄 Licença
 
 Este projeto está licenciado sob a licença **CC0 (Creative Commons Zero)**. Você pode copiar, modificar, distribuir e executar o trabalho, mesmo para fins comerciais, tudo sem pedir permissão.

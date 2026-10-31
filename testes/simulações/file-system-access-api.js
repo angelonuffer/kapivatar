@@ -1,5 +1,6 @@
 import { test as base, expect } from '@playwright/test';
 import { mockIndexedDB } from './indexeddb.js';
+import { mockMqtt } from './mqtt.js';
 
 export const test = base.extend({
   page: async ({ page }, use) => {
@@ -89,6 +90,7 @@ export const test = base.extend({
       window.showDirectoryPicker = async () => new window.MockDirectoryHandle();
     });
 
+    await mockMqtt(page);
     await use(page);
   },
 });

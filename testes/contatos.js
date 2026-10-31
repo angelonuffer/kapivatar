@@ -1,13 +1,10 @@
 import { test as base, expect } from './simulações/file-system-access-api.js';
-import { mockMqtt } from './simulações/mqtt.js';
 
 const test = base.extend({
   page: async ({ page }, use) => {
     // Listen to console logs
     page.on('console', msg => console.log('PAGE LOG:', msg.text()));
 
-    // Add MQTT Mock to the page
-    await mockMqtt(page);
     await use(page);
   }
 });
