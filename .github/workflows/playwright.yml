@@ -8,6 +8,16 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
@@ -19,9 +29,31 @@ jobs:
       run: npx playwright install chromium --with-deps
     - name: Run Playwright tests
       run: npx playwright test
-    - uses: actions/upload-artifact@v4
+    - name: Check Playwright report
+      id: report
       if: always()
+      run: |
+        if [[ -f playwright-report/index.html ]]; then
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "ready=false" >> "$GITHUB_OUTPUT"
+        fi
+    - name: Configure GitHub Pages
+      id: pages
+      uses: actions/configure-pages@v5
+      if: always() && steps.report.outputs.ready == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
       with:
-        name: playwright-report
+        enablement: true
+    - name: Upload Pages artifact
+      id: pages_artifact
+      uses: actions/upload-pages-artifact@v3
+      if: always() && steps.report.outputs.ready == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && steps.pages.conclusion == 'success'
+      with:
         path: playwright-report/
-        retention-days: 30
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
+      if: always() && steps.report.outputs.ready == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && steps.pages_artifact.conclusion == 'success'
+    - name: Add report URL to job summary
+      if: always() && steps.deployment.outputs.page_url != ''
+      run: echo "[View Playwright report](${{ steps.deployment.outputs.page_url }})" >> "$GITHUB_STEP_SUMMARY"
