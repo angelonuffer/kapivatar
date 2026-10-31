@@ -42,3 +42,13 @@ test('Deve criar um perfil e listar no histórico', async ({ page }) => {
   // Verificar se contém links de versão
   await expect(page.locator('.historico ul li')).toHaveCount(2);
 });
+
+test('Início deve listar perfis registrados e avisar que a pasta é recomendada', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText(/Recomendamos escolher uma pasta/)).toBeVisible();
+  await page.getByLabel('Nome').fill('Perfil Inicial');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
+  await expect(page).toHaveURL(/\/perfis$/);
+  await page.goto('/');
+  await expect(page.getByText('Perfil Inicial')).toBeVisible();
+});

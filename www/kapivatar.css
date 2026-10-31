@@ -793,3 +793,14 @@ a.ativo {
   flex: 1;
   justify-content: center;
 }
+
+.aviso-diretorio {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  align-items: flex-start;
+  margin-bottom: 1em;
+  padding: 1em;
+  border: 1px solid #d9a400;
+  border-radius: 8px;
+}

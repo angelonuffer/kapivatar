@@ -266,8 +266,6 @@ class VirtualDirectoryHandle {
 }
 
 const obter_diretorio = async () => {
-  const existe = await vfs_existe("diretório")
-  if (!existe) return null
   return new VirtualDirectoryHandle()
 }
 
@@ -731,10 +729,13 @@ const páginas = [
     nome: "Início",
     url: "/",
     ícone: "home",
-    render: (conteudo) => {
-      const p = document.createElement("p")
-      p.textContent = "Bem-vindo ao Kapivatar! Escolha uma opção no menu lateral."
-      conteudo.appendChild(p)
+    render: async (conteudo, params) => {
+      const diretorio = await obter_diretorio()
+      const hash_lista = await (await ler_arquivo(diretorio, "perfis"))?.text()
+      const arquivo_lista = hash_lista ? await ler_arquivo(diretorio, hash_lista) : null
+      const lista = arquivo_lista ? JSON.parse(await arquivo_lista.text()) : null
+      const nome_pagina = lista && lista.perfis.length > 0 ? "/perfis" : "/perfis/criar"
+      await páginas.find((p) => p.url === nome_pagina).render(conteudo, params)
     }
   },
   {
@@ -937,6 +938,28 @@ const páginas = [
     ícone: "person_add",
     ocultar_no_menu: true,
     render: (conteudo) => {
+      const aviso = document.createElement("div")
+      aviso.classList.add("aviso-diretorio")
+      const aviso_texto = document.createElement("p")
+      aviso_texto.textContent = "Recomendamos escolher uma pasta para armazenar seus dados localmente. Sem ela, os dados ficam apenas no armazenamento do navegador e podem ser perdidos."
+      aviso.appendChild(aviso_texto)
+      const botao_pasta = document.createElement("button")
+      botao_pasta.type = "button"
+      const icone_pasta = document.createElement("span")
+      icone_pasta.classList.add("material-symbols-outlined")
+      icone_pasta.textContent = "folder_open"
+      botao_pasta.appendChild(icone_pasta)
+      const texto_pasta = document.createElement("span")
+      texto_pasta.textContent = "Escolher pasta de dados"
+      botao_pasta.appendChild(texto_pasta)
+      botao_pasta.onclick = async () => {
+        await vfs_salvar("diretório", true)
+        botao_pasta.disabled = true
+        texto_pasta.textContent = "Pasta de dados escolhida"
+      }
+      aviso.appendChild(botao_pasta)
+      conteudo.appendChild(aviso)
+
       const form = document.createElement("form")
       form.classList.add("form-perfil")
 
@@ -2494,12 +2517,6 @@ const rotear = async () => {
   }
 
   const diretorio = await obter_diretorio()
-
-  if (!diretorio) {
-    layout_referencias = null
-    carregar_tela_login()
-    return
-  }
 
   try {
     const permissao = await diretorio.queryPermission({ mode: "readwrite" })

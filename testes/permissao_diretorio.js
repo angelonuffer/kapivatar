@@ -21,7 +21,7 @@ test('Deve mostrar tela de permissão quando o diretório existe mas não tem pe
 
   // 4. Clicar em permitir e verificar se entra no app
   await page.getByRole('button', { name: 'Permitir Acesso' }).click();
-  await expect(page.getByText('Bem-vindo ao Kapivatar!')).toBeVisible();
+  await expect(page.getByLabel('Nome')).toBeVisible();
 });
 
 test('Deve permitir sair e limpar o diretório da tela de permissão', async ({ page }) => {
@@ -37,7 +37,9 @@ test('Deve permitir sair e limpar o diretório da tela de permissão', async ({ 
   // 3. Clicar em Sair
   await page.getByRole('button', { name: 'Sair e trocar pasta' }).click();
 
-  // 4. Verificar se voltou para a tela de login (escolher pasta)
-  await expect(page.getByText('Entrar no Kapivatar')).toBeVisible();
+  await page.getByRole('button', { name: 'Permitir Acesso' }).click();
+
+  // 4. Verificar se voltou para a tela inicial (criar perfil, com opção de escolher pasta)
+  await expect(page.getByText(/Recomendamos escolher uma pasta/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Escolher pasta de dados' })).toBeVisible();
 });
