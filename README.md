@@ -1,14 +1,14 @@
 # Kapivatar
 
 <h3>
-  <img src="www/kapivatar.svg" width="42" align="center">
+  <img src="src/kapivatar.svg" width="42" align="center">
   &nbsp;
   <span>Sua identidade pertence a você!</span>
 </h3>
 
 O Kapivatar é uma rede social descentralizada que coloca o usuário no controle total de seus dados. Acreditamos que a internet deve ser descentralizada por padrão, e por isso o Kapivatar não armazena suas senhas, fotos ou conversas em servidores centrais. Tudo é processado e armazenado localmente no seu navegador e no seu sistema de arquivos.
 
-![Capivara](www/capivara.jpeg)
+![Capivara](src/capivara.jpeg)
 
 ## 🌟 Filosofia
 
@@ -19,7 +19,7 @@ O projeto baseia-se na premissa de que a soberania digital é um direito. Ao uti
 
 ## 🛠 Tecnologias
 
-- **Frontend:** HTML5, CSS3 e JavaScript (Vanilla).
+- **Frontend:** HTML5, CSS3 e JavaScript, com [Vite](https://vite.dev/) para desenvolvimento e build.
 - **Persistência de Dados:** [IndexedDB](https://developer.mozilla.org/pt-BR/docs/Web/API/IndexedDB_API) para estados da aplicação.
 - **Acesso ao Sistema de Arquivos:** [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API) para armazenamento de dados do usuário.
 - **Infraestrutura:** [Cloudflare Workers](https://workers.cloudflare.com/) para entrega de assets.
@@ -29,7 +29,7 @@ O projeto baseia-se na premissa de que a soberania digital é um direito. Ao uti
 
 ### Pré-requisitos
 
-- [Node.js](https://nodejs.org/) instalado.
+- [Node.js](https://nodejs.org/) em uma versão suportada pelo Vite.
 - [npm](https://www.npmjs.com/) instalado.
 
 ### Instalação
@@ -52,11 +52,27 @@ O projeto baseia-se na premissa de que a soberania digital é um direito. Ao uti
 
 ### Execução Local
 
-Para rodar o projeto localmente, utilize o comando:
+Inicie o servidor de desenvolvimento do Vite:
+
 ```bash
-npx serve -s www
+npm run dev
 ```
-O projeto estará disponível em `http://localhost:3000` (ou na porta indicada pelo `serve`).
+
+O Vite informa no terminal o endereço local, normalmente `http://localhost:5173`.
+
+Para gerar os arquivos de produção em `dist/`, execute:
+
+```bash
+npm run build
+```
+
+Para testar localmente o build gerado, execute:
+
+```bash
+npm run preview
+```
+
+O servidor de preview é destinado à verificação local do build, não à hospedagem em produção.
 
 ## 🧪 Testes
 
@@ -64,6 +80,12 @@ Os testes são realizados utilizando o Playwright. Para executá-los, use:
 
 ```bash
 npm test
+```
+
+Para verificar os tipos e diagnósticos do projeto, use:
+
+```bash
+npm run check
 ```
 
 No GitHub Actions, cada execução disponibiliza o relatório Playwright como artefato quando gerado. PRs do próprio repositório também publicam um preview público em `https://angelonuffer.github.io/kapivatar/previews/pr-<número>/`; o preview é removido quando o PR é fechado. PRs de forks continuam executando os testes e disponibilizando o artefato, mas não publicam no Pages.

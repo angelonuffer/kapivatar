@@ -1,5 +1,8 @@
 import banco from "./banco.js"
 
+const url_logo = new URL("./kapivatar.svg", import.meta.url).href
+const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
+
 const banco_kapivatar = banco({
   objectStores: [
     {
@@ -1861,7 +1864,7 @@ const carregar_tela_permissao = async (diretorio) => {
   document.body.classList.remove("app-logado")
   const logo = document.createElement("img")
   logo.classList.add("login-logo")
-  logo.src = "kapivatar.svg"
+  logo.src = url_logo
   logo.alt = "Kapivatar Logo"
   document.body.appendChild(logo)
   const coluna_1 = document.createElement("div")
@@ -1870,7 +1873,7 @@ const carregar_tela_permissao = async (diretorio) => {
   h1.textContent = "Permissão Necessária"
   coluna_1.appendChild(h1)
   const img = document.createElement("img")
-  img.src = "capivara.jpeg"
+  img.src = url_capivara
   img.classList.add("login-imagem")
   img.alt = "Mascote Capivara"
   coluna_1.appendChild(img)
@@ -1922,7 +1925,7 @@ const carregar_tela_login = async () => {
   document.body.innerHTML = ""
   const logo = document.createElement("img")
   logo.classList.add("login-logo")
-  logo.src = "kapivatar.svg"
+  logo.src = url_logo
   logo.alt = "Kapivatar Logo"
   document.body.appendChild(logo)
   const coluna_1 = document.createElement("div")
@@ -1931,7 +1934,7 @@ const carregar_tela_login = async () => {
   h1.textContent = "Sua identidade pertence a você!"
   coluna_1.appendChild(h1)
   const img = document.createElement("img")
-  img.src = "capivara.jpeg"
+  img.src = url_capivara
   img.classList.add("login-imagem")
   img.alt = "Mascote Capivara"
   coluna_1.appendChild(img)
@@ -1988,7 +1991,7 @@ const carregar_layout = () => {
   }
 
   const logo = document.createElement("img")
-  logo.src = "kapivatar.svg"
+  logo.src = url_logo
   logo.alt = "Kapivatar Logo"
   logo.classList.add("sidebar-logo")
   link_home.appendChild(logo)
@@ -2423,7 +2426,7 @@ const rotear = async () => {
       container.className = "autenticar-container"
 
       const logo = document.createElement("img")
-      logo.src = "kapivatar.svg"
+      logo.src = url_logo
       logo.alt = "Kapivatar Logo"
       logo.className = "autenticar-logo"
       container.appendChild(logo)

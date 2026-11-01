@@ -20,7 +20,7 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage', 
 
   // Adicionar uma foto para testar a renderização da imagem
   const fotoInput = page.locator('input#foto');
-  const filePath = path.join(__dirname, '../www/kapivatar.svg');
+  const filePath = path.join(__dirname, '../src/kapivatar.svg');
   await fotoInput.setInputFiles(filePath);
 
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();

@@ -23,7 +23,7 @@ test('Deve exibir o formulário de criação de perfil estilizado', async ({ pag
   const capaButton = page.getByRole('button', { name: 'Escolher imagem' }).first();
 
   // Simula seleção de arquivo
-  const filePath = path.join(__dirname, '../www/kapivatar.svg');
+  const filePath = path.join(__dirname, '../src/kapivatar.svg');
   await capaInput.setInputFiles(filePath);
 
   // Verifica se a prévia apareceu
