@@ -738,6 +738,16 @@ const páginas = [
     }
   },
   {
+    nome: "Postagens",
+    url: "/postagens",
+    ícone: "dynamic_feed",
+    render: (conteudo) => {
+      const p = document.createElement("p")
+      p.textContent = "Nenhuma postagem por enquanto."
+      conteudo.appendChild(p)
+    }
+  },
+  {
     nome: "Perfis",
     url: "/perfis",
     ícone: "account_circle",
