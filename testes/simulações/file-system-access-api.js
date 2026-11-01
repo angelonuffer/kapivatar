@@ -1,15 +1,8 @@
 import { test as base, expect } from '@playwright/test';
-import { mockIndexedDB } from './indexeddb.js';
 import { mockMqtt } from './mqtt.js';
 
 export const test = base.extend({
-  useMockIndexedDB: [true, { option: true }],
-  page: async ({ page, useMockIndexedDB }, use) => {
-    // Mock IndexedDB first to guarantee isolation and in-memory persistence
-    if (useMockIndexedDB) {
-      await mockIndexedDB(page);
-    }
-
+  page: async ({ page }, use) => {
     await page.route(/^https?:\/\//, async (route) => {
       if (new URL(route.request().url()).origin === 'http://127.0.0.1:3000') {
         await route.continue();
