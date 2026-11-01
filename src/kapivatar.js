@@ -1,8 +1,29 @@
 import banco from "./banco.js"
-import página_inicial, { renderizar_tela_inicial } from "./início.js"
+import { mount, unmount } from "svelte"
+import TelaInicial from "./início.svelte"
 
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
 const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
+
+const página_inicial = {
+  nome: "Início",
+  url: "/",
+  ícone: "home",
+  render: (conteudo) => {
+    const p = document.createElement("p")
+    p.textContent = "Bem-vindo ao Kapivatar! Escolha uma opção no menu lateral."
+    conteudo.appendChild(p)
+  }
+}
+
+let tela_inicial_montada
+const renderizar_tela_inicial = (props) => {
+  if (tela_inicial_montada) {
+    unmount(tela_inicial_montada)
+  }
+  document.body.replaceChildren()
+  tela_inicial_montada = mount(TelaInicial, { target: document.body, props })
+}
 
 const banco_kapivatar = banco({
   objectStores: [
@@ -2199,6 +2220,11 @@ const obter_origem_externa = () => {
 }
 
 const rotear = async () => {
+  if (tela_inicial_montada) {
+    unmount(tela_inicial_montada)
+    tela_inicial_montada = null
+  }
+
   const path = decodeURIComponent(location.pathname)
   const params = new URLSearchParams(location.search)
 
