@@ -20,8 +20,8 @@ O projeto baseia-se na premissa de que a soberania digital é um direito. Ao uti
 ## 🛠 Tecnologias
 
 - **Frontend:** HTML5, CSS3 e JavaScript, com [Vite](https://vite.dev/) para desenvolvimento e build.
-- **Persistência de Dados:** [IndexedDB](https://developer.mozilla.org/pt-BR/docs/Web/API/IndexedDB_API) para estados da aplicação.
-- **Acesso ao Sistema de Arquivos:** [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API) para armazenamento de dados do usuário.
+- **Persistência de Dados:** A pasta escolhida guarda os arquivos endereçados por conteúdo e o `kapivatar.json` com os metadados; o [IndexedDB](https://developer.mozilla.org/pt-BR/docs/Web/API/IndexedDB_API) persiste o acesso à pasta.
+- **Acesso ao Sistema de Arquivos:** [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API) para seleção e armazenamento dos dados do usuário.
 - **Infraestrutura:** [Cloudflare Workers](https://workers.cloudflare.com/) para entrega de assets.
 - **Testes:** [Playwright](https://playwright.dev/) para testes de ponta a ponta (E2E).
 

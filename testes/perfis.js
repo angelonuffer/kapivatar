@@ -17,6 +17,12 @@ test('Deve criar um perfil e listar no histórico', async ({ page }) => {
 
   // Aguardar o redirecionamento e verificar o perfil criado
   await expect(page.locator('.perfil-card').first()).toBeVisible();
+  const arquivos = await page.evaluate(() => ({
+    metadados: window._files.get('kapivatar.json'),
+    arquivos_por_conteudo: [...window._files.keys()].filter(nome => /^[a-f0-9]{64}$/.test(nome)),
+  }));
+  expect(JSON.parse(arquivos.metadados)).toHaveProperty('perfis');
+  expect(arquivos.arquivos_por_conteudo.length).toBeGreaterThan(0);
 
   // Criar segundo perfil para testar histórico
   await page.getByRole('button', { name: /Criar perfil/ }).click();

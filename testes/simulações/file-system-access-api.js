@@ -5,12 +5,15 @@ export const test = base.extend({
     await page.addInitScript(() => {
       const files = new Map();
       window._files = files;
+      window._directoryPickerCalls = 0;
+      window._directoryPickerOptions = null;
 
       window.MockDirectoryHandle = class MockDirectoryHandle {
         constructor(name = 'mock-data', prefix = '') {
           this.kind = 'directory';
           this.name = name;
           this.prefix = prefix;
+          this.__mockDirectoryHandle = true;
         }
         async queryPermission(descriptor) {
           return sessionStorage.getItem('_permissionState') || 'granted';
@@ -42,6 +45,13 @@ export const test = base.extend({
             files.set(key, new window.MockDirectoryHandle(name, this.prefix + name + '/'));
           }
           return files.get(key);
+        }
+        async removeEntry(name) {
+          if (!files.delete(this.prefix + name)) {
+            const error = new Error('File not found');
+            error.name = 'NotFoundError';
+            throw error;
+          }
         }
       };
 
@@ -81,7 +91,34 @@ export const test = base.extend({
         async close() {}
       };
 
-      window.showDirectoryPicker = async () => new window.MockDirectoryHandle();
+      const put = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function(value, key) {
+        if (value?.__mockDirectoryHandle) {
+          value = { __mockDirectoryHandle: true, name: value.name, prefix: value.prefix };
+        }
+        return put.call(this, value, key);
+      };
+
+      const get = IDBObjectStore.prototype.get;
+      IDBObjectStore.prototype.get = function(...args) {
+        const request = get.apply(this, args);
+        request.addEventListener('success', () => {
+          const value = request.result;
+          if (value?.__mockDirectoryHandle) {
+            Object.defineProperty(request, 'result', {
+              configurable: true,
+              value: new window.MockDirectoryHandle(value.name, value.prefix),
+            });
+          }
+        });
+        return request;
+      };
+
+      window.showDirectoryPicker = async (options) => {
+        window._directoryPickerCalls++;
+        window._directoryPickerOptions = options;
+        return new window.MockDirectoryHandle();
+      };
     });
     await use();
   }, { auto: true }],

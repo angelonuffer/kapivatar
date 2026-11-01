@@ -36,6 +36,10 @@ const banco_kapivatar = banco({
   ],
 })
 
+const nome_arquivo_metadados = "kapivatar.json"
+let diretorio_selecionado = null
+let fila_metadados = Promise.resolve()
+
 const gerar_hash = async (conteudo) => {
   const buffer = typeof conteudo === "string" ? new TextEncoder().encode(conteudo) : conteudo
   const hash_buffer = await crypto.subtle.digest("SHA-256", buffer)
@@ -160,48 +164,145 @@ const gerar_id_perfil = async (chave_publica) => {
   return await gerar_hash(spki)
 }
 
-const vfs_obter = async (key) => {
+const chave_por_conteudo = (key) => typeof key === "string" && /^[a-f0-9]{64}$/.test(key)
+
+const obter_handle_salvo = async () => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
-    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
-    const transaction = db.transaction(storeName, "readonly")
-    const request = transaction.objectStore(storeName).get(key)
-    request.onsuccess = (event) => resolve(event.target.result)
+    const request = db.transaction("byName", "readonly").objectStore("byName").get("diretório")
+    request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
   })
 }
 
-const vfs_salvar = async (key, value) => {
+const gravar_handle_salvo = async (handle) => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
-    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
-    const transaction = db.transaction(storeName, "readwrite")
-    const request = transaction.objectStore(storeName).put(value, key)
+    const request = db.transaction("byName", "readwrite").objectStore("byName").put(handle, "diretório")
     request.onsuccess = () => resolve()
     request.onerror = () => reject(request.error)
+  })
+}
+
+const remover_handle_salvo = async () => {
+  const db = await banco_kapivatar
+  return new Promise((resolve, reject) => {
+    const request = db.transaction("byName", "readwrite").objectStore("byName").delete("diretório")
+    request.onsuccess = () => resolve()
+    request.onerror = () => reject(request.error)
+  })
+}
+
+const obter_diretorio_selecionado = async () => {
+  if (diretorio_selecionado) return diretorio_selecionado
+  const handle = await obter_handle_salvo()
+  if (handle && handle.kind === "directory" && typeof handle.getFileHandle === "function") {
+    diretorio_selecionado = handle
+    return handle
+  }
+  return null
+}
+
+const ler_metadados = async (diretorio) => {
+  try {
+    const handle = await diretorio.getFileHandle(nome_arquivo_metadados)
+    const conteudo = await (await handle.getFile()).text()
+    const metadados = JSON.parse(conteudo)
+    if (!metadados || typeof metadados !== "object" || Array.isArray(metadados)) {
+      throw new Error("O arquivo kapivatar.json contém metadados inválidos.")
+    }
+    return metadados
+  } catch (error) {
+    if (error.name === "NotFoundError") return {}
+    throw error
+  }
+}
+
+const gravar_metadados = async (diretorio, metadados) => {
+  const handle = await diretorio.getFileHandle(nome_arquivo_metadados, { create: true })
+  const writable = await handle.createWritable()
+  await writable.write(JSON.stringify(metadados))
+  await writable.close()
+}
+
+const com_metadados = async (operacao) => {
+  const atual = fila_metadados.then(async () => {
+    const diretorio = await obter_diretorio_selecionado()
+    if (!diretorio) throw new Error("Nenhuma pasta de dados foi selecionada.")
+    return operacao(diretorio, await ler_metadados(diretorio))
+  })
+  fila_metadados = atual.catch(() => {})
+  return atual
+}
+
+const ler_arquivo_por_hash = async (key) => {
+  const diretorio = await obter_diretorio_selecionado()
+  if (!diretorio) return undefined
+  try {
+    const handle = await diretorio.getFileHandle(key)
+    return await handle.getFile()
+  } catch (error) {
+    if (error.name === "NotFoundError") return undefined
+    throw error
+  }
+}
+
+const vfs_obter = async (key) => {
+  if (key === "diretório") return await obter_handle_salvo()
+  if (chave_por_conteudo(key)) return await ler_arquivo_por_hash(key)
+  return await com_metadados((diretorio, metadados) => metadados[key])
+}
+
+const vfs_salvar = async (key, value) => {
+  if (key === "diretório") {
+    if (!value || value.kind !== "directory" || typeof value.getFileHandle !== "function") {
+      throw new TypeError("O valor salvo como diretório precisa ser um handle de pasta.")
+    }
+    await gravar_handle_salvo(value)
+    diretorio_selecionado = value
+    return
+  }
+  if (chave_por_conteudo(key)) {
+    const diretorio = await obter_diretorio_selecionado()
+    if (!diretorio) throw new Error("Nenhuma pasta de dados foi selecionada.")
+    const handle = await diretorio.getFileHandle(key, { create: true })
+    const writable = await handle.createWritable()
+    await writable.write(value)
+    await writable.close()
+    return
+  }
+  await com_metadados(async (diretorio, metadados) => {
+    metadados[key] = value
+    await gravar_metadados(diretorio, metadados)
   })
 }
 
 const vfs_remover = async (key) => {
-  const db = await banco_kapivatar
-  return new Promise((resolve, reject) => {
-    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
-    const transaction = db.transaction(storeName, "readwrite")
-    const request = transaction.objectStore(storeName).delete(key)
-    request.onsuccess = () => resolve()
-    request.onerror = () => reject(request.error)
+  if (key === "diretório") {
+    await remover_handle_salvo()
+    diretorio_selecionado = null
+    return
+  }
+  if (chave_por_conteudo(key)) {
+    const diretorio = await obter_diretorio_selecionado()
+    if (!diretorio) return
+    try {
+      await diretorio.removeEntry(key)
+    } catch (error) {
+      if (error.name !== "NotFoundError") throw error
+    }
+    return
+  }
+  await com_metadados(async (diretorio, metadados) => {
+    delete metadados[key]
+    await gravar_metadados(diretorio, metadados)
   })
 }
 
 const vfs_existe = async (key) => {
-  const db = await banco_kapivatar
-  return new Promise((resolve) => {
-    const storeName = (key.length === 64 && /^[a-f0-9]{64}$/.test(key)) ? "byContent" : "byName"
-    const transaction = db.transaction(storeName, "readonly")
-    const request = transaction.objectStore(storeName).getKey(key)
-    request.onsuccess = (event) => resolve(event.target.result !== undefined)
-    request.onerror = () => resolve(false)
-  })
+  if (key === "diretório") return Boolean(await obter_diretorio_selecionado())
+  if (chave_por_conteudo(key)) return (await ler_arquivo_por_hash(key)) !== undefined
+  return await com_metadados((diretorio, metadados) => Object.hasOwn(metadados, key))
 }
 
 class VirtualWritableStream {
@@ -227,6 +328,7 @@ class VirtualFileHandle {
     if (content === undefined) {
       throw new Error("File not found")
     }
+    if (content instanceof Blob) return content
     const blob = new Blob([content])
     blob.text = async () => {
       if (typeof content === "string") return content
@@ -246,17 +348,20 @@ class VirtualFileHandle {
 }
 
 class VirtualDirectoryHandle {
-  constructor(name = "root", prefix = "") {
+  constructor(name = "root", prefix = "", nativeHandle = null) {
     this.kind = "directory"
     this.name = name
     this.prefix = prefix
+    this.nativeHandle = nativeHandle
   }
 
   async queryPermission(descriptor) {
+    if (this.nativeHandle) return await this.nativeHandle.queryPermission(descriptor)
     return sessionStorage.getItem("_permissionState") || "granted"
   }
 
   async requestPermission(descriptor) {
+    if (this.nativeHandle) return await this.nativeHandle.requestPermission(descriptor)
     sessionStorage.setItem("_permissionState", "granted")
     return "granted"
   }
@@ -286,14 +391,22 @@ class VirtualDirectoryHandle {
     if (!existe && options.create) {
       await vfs_salvar(key, { name, prefix: this.prefix + name + "/" })
     }
-    return new VirtualDirectoryHandle(name, this.prefix + name + "/")
+    return new VirtualDirectoryHandle(name, this.prefix + name + "/", this.nativeHandle)
   }
 }
 
 const obter_diretorio = async () => {
-  const existe = await vfs_existe("diretório")
-  if (!existe) return null
-  return new VirtualDirectoryHandle()
+  const handle = await obter_diretorio_selecionado()
+  if (!handle) return null
+  return new VirtualDirectoryHandle(handle.name, "", handle)
+}
+
+const selecionar_diretorio = async () => {
+  if (typeof window.showDirectoryPicker !== "function") {
+    throw new Error("Este navegador não oferece suporte à seleção de pastas.")
+  }
+  const handle = await window.showDirectoryPicker({ mode: "readwrite" })
+  await vfs_salvar("diretório", handle)
 }
 
 const ler_arquivo = async (diretorio, nome) => {
@@ -2343,7 +2456,7 @@ const rotear = async () => {
       const diretorio = await obter_diretorio()
       if (!diretorio) {
         layout_referencias = null
-        renderizar_tela_inicial({ url_logo, url_capivara, vfs_salvar, navegar })
+        renderizar_tela_inicial({ url_logo, url_capivara, selecionar_diretorio, navegar })
         return
       }
 
@@ -2475,7 +2588,7 @@ const rotear = async () => {
 
   if (!diretorio) {
     layout_referencias = null
-    renderizar_tela_inicial({ url_logo, url_capivara, vfs_salvar, navegar })
+    renderizar_tela_inicial({ url_logo, url_capivara, selecionar_diretorio, navegar })
     return
   }
 

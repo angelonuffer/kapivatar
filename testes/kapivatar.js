@@ -7,6 +7,8 @@ test.beforeEach(async ({ page }) => {
 test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
   // 1. Login
   await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
+  await expect.poll(() => page.evaluate(() => window._directoryPickerCalls)).toBe(1);
+  expect(await page.evaluate(() => window._directoryPickerOptions)).toEqual({ mode: 'readwrite' });
 
   // 2. Verificar se está na página Início
   await expect(page.locator('.conteudo-principal')).toBeVisible();
