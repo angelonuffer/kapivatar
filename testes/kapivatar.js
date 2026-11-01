@@ -31,8 +31,6 @@ test('Deve mostrar o menu lateral como overlay em mobile', async ({ page }) => {
 
   // Fechar sidebar pelo botão X
   await page.locator('.botao-fechar-sidebar').click();
-  // Aguarda animação
-  await page.waitForTimeout(500);
   await expect(page.locator('.overlay')).not.toBeVisible();
 });
 

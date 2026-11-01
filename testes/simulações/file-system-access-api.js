@@ -3,9 +3,25 @@ import { mockIndexedDB } from './indexeddb.js';
 import { mockMqtt } from './mqtt.js';
 
 export const test = base.extend({
-  page: async ({ page }, use) => {
+  useMockIndexedDB: [true, { option: true }],
+  page: async ({ page, useMockIndexedDB }, use) => {
     // Mock IndexedDB first to guarantee isolation and in-memory persistence
-    await mockIndexedDB(page);
+    if (useMockIndexedDB) {
+      await mockIndexedDB(page);
+    }
+
+    await page.route(/^https?:\/\//, async (route) => {
+      if (new URL(route.request().url()).origin === 'http://127.0.0.1:3000') {
+        await route.continue();
+      } else {
+        const contentType = route.request().resourceType() === 'stylesheet'
+          ? 'text/css'
+          : route.request().resourceType() === 'script'
+            ? 'application/javascript'
+            : 'application/octet-stream';
+        await route.fulfill({ status: 200, contentType, body: '' });
+      }
+    });
 
     // Mock File System Access API
     await page.addInitScript(() => {

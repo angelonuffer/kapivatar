@@ -10,6 +10,13 @@ const test = base.extend({
 });
 
 test('Deve realizar fluxo de solicitação, retentativa e confirmação ao receber retentativa de contato já aceito', async ({ page }) => {
+  await page.addInitScript(() => {
+    const nativeSetInterval = window.setInterval.bind(window);
+    window.setInterval = (callback, delay, ...args) => (
+      delay === 15000 ? 0 : nativeSetInterval(callback, delay, ...args)
+    );
+  });
+  await page.clock.setFixedTime(new Date('2026-01-15T12:00:00.000Z'));
   await page.goto('/');
   await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
 
@@ -129,15 +136,12 @@ test('Deve realizar fluxo de solicitação, retentativa e confirmação ao receb
     window._mqttClient._simulateIncoming('kapivatar.net', dadosMqtt);
   }, { idAlvo, chavePublicaAlvo, meuId });
 
-  // Aguardar o processamento assíncrono
-  await page.waitForTimeout(500);
+  await expect.poll(async () => page.evaluate((idAlvo) => (
+    window._publishedMessages.some(p => p.message.id_destino === idAlvo)
+  ), idAlvo)).toBe(true);
 
-  // Verificar se o sistema respondeu confirmando o aceite (publicando a confirmação de aceite)
-  published = await page.evaluate(() => window._publishedMessages);
-  expect(published.length).toBeGreaterThan(0);
-
-  // A confirmação deve ser enviada criptografada via MQTT, com id_destino sendo idAlvo
-  const confirmMsg = published.find(p => p.message.id_destino === idAlvo);
-  expect(confirmMsg).toBeDefined();
+  const confirmMsg = await page.evaluate((idAlvo) => (
+    window._publishedMessages.find(p => p.message.id_destino === idAlvo)
+  ), idAlvo);
   expect(confirmMsg.message.mensagem_criptografada).toBeDefined();
 });
