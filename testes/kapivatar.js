@@ -47,3 +47,13 @@ test('Deve realizar o logout', async ({ page }) => {
   // Verificar se voltou para a tela de login
   await expect(page.getByRole('button', { name: /Escolher pasta de dados/ })).toBeVisible();
 });
+
+test('Deve navegar para a seção Postagens', async ({ page }) => {
+  await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
+
+  await page.getByRole('link', { name: 'Postagens', exact: true }).click();
+
+  await expect(page).toHaveURL(/\/postagens$/);
+  await expect(page.getByRole('heading', { name: 'Postagens' })).toBeVisible();
+  await expect(page.getByText('Nenhuma postagem por enquanto.')).toBeVisible();
+});
