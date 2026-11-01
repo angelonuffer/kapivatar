@@ -1,4 +1,4 @@
-import { test, expect } from './simulações/file-system-access-api.js';
+import { test, expect } from './simulações/fixtures.js';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');

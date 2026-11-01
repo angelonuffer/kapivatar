@@ -1,4 +1,4 @@
-import { test as base, expect } from './simulações/file-system-access-api.js';
+import { test as base, expect } from './simulações/fixtures.js';
 
 const test = base.extend({
   page: async ({ page }, use) => {

@@ -1,22 +1,7 @@
 import { test as base, expect } from '@playwright/test';
-import { mockMqtt } from './mqtt.js';
 
 export const test = base.extend({
-  page: async ({ page }, use) => {
-    await page.route(/^https?:\/\//, async (route) => {
-      if (new URL(route.request().url()).origin === 'http://127.0.0.1:3000') {
-        await route.continue();
-      } else {
-        const contentType = route.request().resourceType() === 'stylesheet'
-          ? 'text/css'
-          : route.request().resourceType() === 'script'
-            ? 'application/javascript'
-            : 'application/octet-stream';
-        await route.fulfill({ status: 200, contentType, body: '' });
-      }
-    });
-
-    // Mock File System Access API
+  fileSystemAccessApi: [async ({ page }, use) => {
     await page.addInitScript(() => {
       const files = new Map();
       window._files = files;
@@ -98,10 +83,8 @@ export const test = base.extend({
 
       window.showDirectoryPicker = async () => new window.MockDirectoryHandle();
     });
-
-    await mockMqtt(page);
-    await use(page);
-  },
+    await use();
+  }, { auto: true }],
 });
 
 export { expect };

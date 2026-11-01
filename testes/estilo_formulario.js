@@ -1,4 +1,4 @@
-import { test, expect } from './simulações/file-system-access-api.js';
+import { test, expect } from './simulações/fixtures.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
