@@ -286,39 +286,57 @@ a.ativo {
   z-index: 90;
 }
 
+.navegacao-inferior {
+  display: none;
+}
+
 @media (max-width: 767px) {
   body {
     flex-direction: column;
   }
 
   .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    width: 280px;
-    transform: translateX(-100%);
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
-  }
-
-  .sidebar-aberta .sidebar {
-    transform: translateX(0);
-  }
-
-  .sidebar-aberta .overlay {
-    display: block;
-  }
-
-  .botao-fechar-sidebar {
-    display: flex;
+    display: none;
   }
 
   .conteudo-principal {
     margin: 0;
+    padding-bottom: 5.5em;
   }
 
   .botao-menu {
-    display: flex;
+    display: none;
+  }
+
+  .navegacao-inferior {
+    position: fixed;
+    z-index: 100;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 0.4em 0 calc(0.4em + env(safe-area-inset-bottom));
+    border-top: 1px solid #333;
+    background-color: #111;
+  }
+
+  .navegacao-inferior-item {
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15em;
+    padding: 0.35em 0.1em;
+    background: transparent;
+    font-size: 0.75em;
+  }
+
+  .navegacao-inferior-item .material-symbols-outlined {
+    font-size: 1.7em;
+  }
+
+  .navegacao-inferior-item.ativo {
+    background-color: var(--cor-primaria);
   }
 
   .login-logo {

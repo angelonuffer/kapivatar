@@ -1975,6 +1975,13 @@ const fechar_sidebar = () => {
   document.body.classList.remove("sidebar-aberta")
 }
 
+const sair = async () => {
+  await vfs_remover("diretório")
+  layout_referencias = null
+  document.body.classList.remove("app-logado")
+  navegar("/")
+}
+
 const esta_autenticado = async () => {
   const diretorio = await obter_diretorio()
   if (!diretorio) return false
@@ -2120,14 +2127,56 @@ const carregar_layout = () => {
   link_sair.href = "#"
   link_sair.onclick = async (e) => {
     e.preventDefault()
-    await vfs_remover("diretório")
-    layout_referencias = null
-    document.body.classList.remove("app-logado")
-    navegar("/")
+    await sair()
   }
   coluna_1_2.appendChild(link_sair)
   coluna_1.appendChild(coluna_1_2)
   document.body.appendChild(coluna_1)
+
+  const navegacao_inferior = document.createElement("nav")
+  navegacao_inferior.classList.add("navegacao-inferior")
+  navegacao_inferior.setAttribute("aria-label", "Navegação principal")
+  const itens_navegacao = [
+    { nome: "Início", url: "/", ícone: "home" },
+    { nome: "Perfis", url: "/perfis", ícone: "account_circle" },
+    { nome: "Contatos", url: "/contatos", ícone: "contacts" },
+  ]
+  const botoes_navegacao = itens_navegacao.map((item) => {
+    const botão = document.createElement("button")
+    botão.type = "button"
+    botão.classList.add("navegacao-inferior-item")
+    botão.setAttribute("aria-label", item.nome)
+    botão.dataset.url = item.url
+    botão.onclick = () => navegar(item.url)
+
+    const ícone = document.createElement("span")
+    ícone.classList.add("material-symbols-outlined")
+    ícone.setAttribute("aria-hidden", "true")
+    ícone.textContent = item.ícone
+    botão.appendChild(ícone)
+
+    const texto = document.createElement("span")
+    texto.textContent = item.nome
+    botão.appendChild(texto)
+    navegacao_inferior.appendChild(botão)
+    return botão
+  })
+
+  const botão_sair_mobile = document.createElement("button")
+  botão_sair_mobile.type = "button"
+  botão_sair_mobile.classList.add("navegacao-inferior-item")
+  botão_sair_mobile.setAttribute("aria-label", "Sair")
+  botão_sair_mobile.onclick = sair
+  const ícone_sair_mobile = document.createElement("span")
+  ícone_sair_mobile.classList.add("material-symbols-outlined")
+  ícone_sair_mobile.setAttribute("aria-hidden", "true")
+  ícone_sair_mobile.textContent = "logout"
+  botão_sair_mobile.appendChild(ícone_sair_mobile)
+  const texto_sair_mobile = document.createElement("span")
+  texto_sair_mobile.textContent = "Sair"
+  botão_sair_mobile.appendChild(texto_sair_mobile)
+  navegacao_inferior.appendChild(botão_sair_mobile)
+  document.body.appendChild(navegacao_inferior)
 
   const coluna_2 = document.createElement("div")
   coluna_2.classList.add("coluna", "conteudo-principal")
@@ -2164,7 +2213,8 @@ const carregar_layout = () => {
     perfil_selecionado: perfil_selecionado_container,
     titulo: h1,
     acoes: ações,
-    conteudo: coluna_2_linha_2
+    conteudo: coluna_2_linha_2,
+    botoes_navegacao
   }
 }
 
@@ -2236,7 +2286,7 @@ const atualizar_sidebar_perfil_selecionado = async () => {
 }
 
 const renderizar_página = (página, params, route_params) => {
-  const { menu, titulo, acoes, conteudo } = layout_referencias
+  const { menu, titulo, acoes, conteudo, botoes_navegacao } = layout_referencias
 
   atualizar_sidebar_perfil_selecionado()
 
@@ -2259,6 +2309,23 @@ const renderizar_página = (página, params, route_params) => {
       link.classList.add("ativo")
     }
     menu.appendChild(link)
+  })
+
+  const url_navegacao_ativa = página.url === "/"
+    ? "/"
+    : página.url.startsWith("/perfi")
+      ? "/perfis"
+      : página.url.startsWith("/contato")
+        ? "/contatos"
+        : null
+  botoes_navegacao.forEach((botão) => {
+    const ativo = botão.dataset.url === url_navegacao_ativa
+    botão.classList.toggle("ativo", ativo)
+    if (ativo) {
+      botão.setAttribute("aria-current", "page")
+    } else {
+      botão.removeAttribute("aria-current")
+    }
   })
 
   // Atualiza Título
