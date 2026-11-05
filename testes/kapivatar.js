@@ -18,22 +18,23 @@ test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
   await expect(page.locator('.conteudo-pagina')).toBeVisible();
 });
 
-test('Deve mostrar o menu lateral como overlay em mobile', async ({ page }) => {
+test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
   await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
 
-  // Sidebar deve estar escondida (fora da tela)
-  // O botão de menu deve estar visível
-  const botaoMenu = page.locator('.botao-menu');
-  await expect(botaoMenu).toBeVisible();
+  const navegacao = page.getByRole('navigation', { name: 'Navegação principal' });
+  await expect(navegacao).toBeVisible();
+  expect(await navegacao.getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label'))))
+    .toEqual(['Início', 'Perfis', 'Contatos', 'Sair']);
+  await expect(navegacao.locator('.navegacao-inferior-item > span:nth-child(2)')).toHaveText(['Início', 'Perfis', 'Contatos', 'Sair']);
+  await expect(page.locator('.sidebar')).not.toBeVisible();
+  await expect(page.locator('.botao-menu')).not.toBeVisible();
 
-  // Abrir sidebar
-  await botaoMenu.click();
-  await expect(page.locator('.sidebar')).toBeVisible(); // No mobile ela entra na tela
+  await navegacao.getByRole('button', { name: 'Perfis' }).click();
+  await expect(page).toHaveURL(/\/perfis$/);
 
-  // Fechar sidebar pelo botão X
-  await page.locator('.botao-fechar-sidebar').click();
-  await expect(page.locator('.overlay')).not.toBeVisible();
+  await navegacao.getByRole('button', { name: 'Sair' }).click();
+  await expect(page.getByRole('button', { name: /Escolher pasta de dados/ })).toBeVisible();
 });
 
 test('Deve realizar o logout', async ({ page }) => {
@@ -42,7 +43,7 @@ test('Deve realizar o logout', async ({ page }) => {
   await expect(page.locator('.conteudo-pagina')).toBeVisible();
 
   // Logout
-  await page.getByText('Sair').click();
+  await page.locator('.sidebar-rodape').getByText('Sair').click();
 
   // Verificar se voltou para a tela de login
   await expect(page.getByRole('button', { name: /Escolher pasta de dados/ })).toBeVisible();
