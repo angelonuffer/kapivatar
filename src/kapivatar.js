@@ -1,7 +1,7 @@
 import banco from "./banco.js"
 import { mount, unmount } from "svelte"
 import TelaInicial from "./início.svelte"
-import { criar_base_vertical } from "./base-vertical.js"
+import BaseVertical from "./base-vertical.svelte"
 
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
 const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
@@ -18,9 +18,14 @@ const página_inicial = {
 }
 
 let tela_inicial_montada
+let base_vertical_montada
 const renderizar_tela_inicial = (props) => {
   if (tela_inicial_montada) {
     unmount(tela_inicial_montada)
+  }
+  if (base_vertical_montada) {
+    unmount(base_vertical_montada)
+    base_vertical_montada = null
   }
   document.body.replaceChildren()
   tela_inicial_montada = mount(TelaInicial, { target: document.body, props })
@@ -2134,16 +2139,21 @@ const carregar_layout = () => {
   coluna_1.appendChild(coluna_1_2)
   document.body.appendChild(coluna_1)
 
-  const base_vertical = criar_base_vertical({ navegar, sair, abrir_sidebar })
-  document.body.appendChild(base_vertical.container)
+  base_vertical_montada = mount(BaseVertical, {
+    target: document.body,
+    props: { navegar, sair, abrir_sidebar }
+  })
+  const base_vertical = document.body.querySelector(".conteudo-principal")
 
   layout_referencias = {
     menu: coluna_1_1,
     perfil_selecionado: perfil_selecionado_container,
-    titulo: base_vertical.titulo,
-    acoes: base_vertical.acoes,
-    conteudo: base_vertical.conteudo,
-    botoes_navegacao: base_vertical.botoes_navegacao
+    titulo: base_vertical.querySelector(".titulo-pagina"),
+    acoes: base_vertical.querySelector(".acoes"),
+    conteudo: base_vertical.querySelector(".conteudo-pagina"),
+    botoes_navegacao: Array.from(
+      base_vertical.querySelectorAll(".navegacao-inferior-item[data-url]")
+    )
   }
 }
 
