@@ -1,6 +1,7 @@
 import banco from "./banco.js"
 import { mount, unmount } from "svelte"
 import TelaInicial from "./início.svelte"
+import { criar_base_vertical } from "./base-vertical.js"
 
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
 const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
@@ -2133,88 +2134,16 @@ const carregar_layout = () => {
   coluna_1.appendChild(coluna_1_2)
   document.body.appendChild(coluna_1)
 
-  const navegacao_inferior = document.createElement("nav")
-  navegacao_inferior.classList.add("navegacao-inferior")
-  navegacao_inferior.setAttribute("aria-label", "Navegação principal")
-  const itens_navegacao = [
-    { nome: "Início", url: "/", ícone: "home" },
-    { nome: "Perfis", url: "/perfis", ícone: "account_circle" },
-    { nome: "Contatos", url: "/contatos", ícone: "contacts" },
-  ]
-  const botoes_navegacao = itens_navegacao.map((item) => {
-    const botão = document.createElement("button")
-    botão.type = "button"
-    botão.classList.add("navegacao-inferior-item")
-    botão.setAttribute("aria-label", item.nome)
-    botão.dataset.url = item.url
-    botão.onclick = () => navegar(item.url)
-
-    const ícone = document.createElement("span")
-    ícone.classList.add("material-symbols-outlined")
-    ícone.setAttribute("aria-hidden", "true")
-    ícone.textContent = item.ícone
-    botão.appendChild(ícone)
-
-    const texto = document.createElement("span")
-    texto.textContent = item.nome
-    botão.appendChild(texto)
-    navegacao_inferior.appendChild(botão)
-    return botão
-  })
-
-  const botão_sair_mobile = document.createElement("button")
-  botão_sair_mobile.type = "button"
-  botão_sair_mobile.classList.add("navegacao-inferior-item")
-  botão_sair_mobile.setAttribute("aria-label", "Sair")
-  botão_sair_mobile.onclick = sair
-  const ícone_sair_mobile = document.createElement("span")
-  ícone_sair_mobile.classList.add("material-symbols-outlined")
-  ícone_sair_mobile.setAttribute("aria-hidden", "true")
-  ícone_sair_mobile.textContent = "logout"
-  botão_sair_mobile.appendChild(ícone_sair_mobile)
-  const texto_sair_mobile = document.createElement("span")
-  texto_sair_mobile.textContent = "Sair"
-  botão_sair_mobile.appendChild(texto_sair_mobile)
-  navegacao_inferior.appendChild(botão_sair_mobile)
-  document.body.appendChild(navegacao_inferior)
-
-  const coluna_2 = document.createElement("div")
-  coluna_2.classList.add("coluna", "conteudo-principal")
-
-  const coluna_2_linha_1 = document.createElement("div")
-  coluna_2_linha_1.classList.add("linha", "cabecalho")
-
-  const botao_menu = document.createElement("button")
-  botao_menu.classList.add("botao-menu")
-  botao_menu.setAttribute("aria-label", "Abrir menu")
-  const icone_menu = document.createElement("span")
-  icone_menu.classList.add("material-symbols-outlined")
-  icone_menu.textContent = "menu"
-  botao_menu.appendChild(icone_menu)
-  botao_menu.onclick = abrir_sidebar
-  coluna_2_linha_1.appendChild(botao_menu)
-
-  const h1 = document.createElement("h1")
-  h1.classList.add("titulo-pagina")
-  coluna_2_linha_1.appendChild(h1)
-
-  const ações = document.createElement("div")
-  ações.classList.add("linha", "acoes")
-  coluna_2_linha_1.appendChild(ações)
-  coluna_2.appendChild(coluna_2_linha_1)
-
-  const coluna_2_linha_2 = document.createElement("div")
-  coluna_2_linha_2.classList.add("linha", "conteudo-pagina")
-  coluna_2.appendChild(coluna_2_linha_2)
-  document.body.appendChild(coluna_2)
+  const base_vertical = criar_base_vertical({ navegar, sair, abrir_sidebar })
+  document.body.appendChild(base_vertical.container)
 
   layout_referencias = {
     menu: coluna_1_1,
     perfil_selecionado: perfil_selecionado_container,
-    titulo: h1,
-    acoes: ações,
-    conteudo: coluna_2_linha_2,
-    botoes_navegacao
+    titulo: base_vertical.titulo,
+    acoes: base_vertical.acoes,
+    conteudo: base_vertical.conteudo,
+    botoes_navegacao: base_vertical.botoes_navegacao
   }
 }
 

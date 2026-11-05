@@ -295,13 +295,47 @@ a.ativo {
     flex-direction: column;
   }
 
+  body.app-logado {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
   .sidebar {
     display: none;
   }
 
   .conteudo-principal {
+    box-sizing: border-box;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
     margin: 0;
-    padding-bottom: 5.5em;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .cabecalho {
+    box-sizing: border-box;
+    flex: 0 0 4rem;
+    width: 100%;
+    min-height: 4rem;
+    padding: 0.5em 1em;
+  }
+
+  .conteudo-pagina {
+    box-sizing: border-box;
+    flex: 1 1 0;
+    width: 100%;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 1em;
   }
 
   .botao-menu {
@@ -309,13 +343,15 @@ a.ativo {
   }
 
   .navegacao-inferior {
-    position: fixed;
+    position: static;
     z-index: 100;
-    right: 0;
-    bottom: 0;
-    left: 0;
+    box-sizing: border-box;
+    flex: 0 0 4.5rem;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+    height: 4.5rem;
+    min-height: 4.5rem;
     padding: 0.4em 0 calc(0.4em + env(safe-area-inset-bottom));
     border-top: 1px solid #333;
     background-color: #111;
