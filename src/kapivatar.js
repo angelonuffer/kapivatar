@@ -17,6 +17,31 @@ const página_inicial = {
   }
 }
 
+const aguardar_rota = (promessa, sinal) => {
+  if (!sinal) return Promise.resolve(promessa)
+  if (sinal.aborted) return Promise.reject(sinal.reason)
+
+  return new Promise((resolve, reject) => {
+    const limpar = () => sinal.removeEventListener("abort", cancelar)
+    const cancelar = () => {
+      limpar()
+      reject(sinal.reason)
+    }
+
+    sinal.addEventListener("abort", cancelar, { once: true })
+    Promise.resolve(promessa).then(
+      valor => {
+        limpar()
+        resolve(valor)
+      },
+      erro => {
+        limpar()
+        reject(erro)
+      },
+    )
+  })
+}
+
 let tela_inicial_montada
 let base_vertical_montada
 const renderizar_tela_inicial = (props) => {
@@ -401,8 +426,8 @@ class VirtualDirectoryHandle {
   }
 }
 
-const obter_diretorio = async () => {
-  const handle = await obter_diretorio_selecionado()
+const obter_diretorio = async (sinal_rota) => {
+  const handle = await aguardar_rota(obter_diretorio_selecionado(), sinal_rota)
   if (!handle) return null
   return new VirtualDirectoryHandle(handle.name, "", handle)
 }
@@ -432,11 +457,11 @@ const escrever_arquivo = async (diretorio, nome, conteudo) => {
   await writable.close()
 }
 
-window.obter_id_perfil_selecionado = async () => {
-  const diretorio = await obter_diretorio()
-  const arquivo = await ler_arquivo(diretorio, "perfil_selecionado")
+window.obter_id_perfil_selecionado = async (sinal_rota) => {
+  const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+  const arquivo = await aguardar_rota(ler_arquivo(diretorio, "perfil_selecionado"), sinal_rota)
   if (!arquivo) return null
-  return await arquivo.text()
+  return await aguardar_rota(arquivo.text(), sinal_rota)
 }
 
 const definir_id_perfil_selecionado = async (id) => {
@@ -518,11 +543,11 @@ const verificar_retentativas = async () => {
 window.verificar_retentativas = verificar_retentativas
 setInterval(verificar_retentativas, 15000)
 
-const obter_hash_lista_contatos = async () => {
-  const diretorio = await obter_diretorio()
-  const arquivo = await ler_arquivo(diretorio, "contatos")
+const obter_hash_lista_contatos = async (sinal_rota) => {
+  const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+  const arquivo = await aguardar_rota(ler_arquivo(diretorio, "contatos"), sinal_rota)
   if (!arquivo) return null
-  return await arquivo.text()
+  return await aguardar_rota(arquivo.text(), sinal_rota)
 }
 
 const definir_hash_lista_contatos = async (hash) => {
@@ -530,13 +555,13 @@ const definir_hash_lista_contatos = async (hash) => {
   await escrever_arquivo(diretorio, "contatos", hash)
 }
 
-window.carregar_lista_contatos = async (hash_lista) => {
-  const diretorio = await obter_diretorio()
-  const hash = hash_lista || (await obter_hash_lista_contatos())
+window.carregar_lista_contatos = async (hash_lista, sinal_rota) => {
+  const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+  const hash = hash_lista || (await aguardar_rota(obter_hash_lista_contatos(sinal_rota), sinal_rota))
   if (!hash) return { contatos: [], solicitações_enviadas: [], solicitações_recebidas: [], data: new Date().toISOString() }
-  const arquivo = await ler_arquivo(diretorio, hash)
+  const arquivo = await aguardar_rota(ler_arquivo(diretorio, hash), sinal_rota)
   if (!arquivo) return { contatos: [], solicitações_enviadas: [], solicitações_recebidas: [], data: new Date().toISOString() }
-  return JSON.parse(await arquivo.text())
+  return JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
 }
 
 window.salvar_lista_contatos = async (nova_lista) => {
@@ -550,11 +575,11 @@ window.salvar_lista_contatos = async (nova_lista) => {
   await definir_hash_lista_contatos(hash)
 }
 
-const obter_hash_conversa = async (meu_id, contato_id) => {
-  const diretorio = await obter_diretorio()
-  const arquivo = await ler_arquivo(diretorio, `chat_${meu_id}_${contato_id}`)
+const obter_hash_conversa = async (meu_id, contato_id, sinal_rota) => {
+  const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+  const arquivo = await aguardar_rota(ler_arquivo(diretorio, `chat_${meu_id}_${contato_id}`), sinal_rota)
   if (!arquivo) return null
-  return await arquivo.text()
+  return await aguardar_rota(arquivo.text(), sinal_rota)
 }
 
 const definir_hash_conversa = async (meu_id, contato_id, hash) => {
@@ -562,13 +587,13 @@ const definir_hash_conversa = async (meu_id, contato_id, hash) => {
   await escrever_arquivo(diretorio, `chat_${meu_id}_${contato_id}`, hash)
 }
 
-window.carregar_conversa = async (meu_id, contato_id) => {
-  const diretorio = await obter_diretorio()
-  const hash = await obter_hash_conversa(meu_id, contato_id)
+window.carregar_conversa = async (meu_id, contato_id, sinal_rota) => {
+  const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+  const hash = await aguardar_rota(obter_hash_conversa(meu_id, contato_id, sinal_rota), sinal_rota)
   if (!hash) return { mensagens: [], data: new Date().toISOString() }
-  const arquivo = await ler_arquivo(diretorio, hash)
+  const arquivo = await aguardar_rota(ler_arquivo(diretorio, hash), sinal_rota)
   if (!arquivo) return { mensagens: [], data: new Date().toISOString() }
-  return JSON.parse(await arquivo.text())
+  return JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
 }
 
 window.salvar_conversa = async (meu_id, contato_id, nova_conversa) => {
@@ -889,19 +914,20 @@ const páginas = [
         ícone: "history",
       },
     ],
-    render: async (conteudo, params) => {
-      const diretorio = await obter_diretorio()
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
       const hash_lista_visualizada = params.get("v")
-      const hash_lista_atual = hash_lista_visualizada || (await (await ler_arquivo(diretorio, "perfis"))?.text())
+      const arquivo_lista = hash_lista_visualizada ? null : await aguardar_rota(ler_arquivo(diretorio, "perfis"), sinal_rota)
+      const hash_lista_atual = hash_lista_visualizada || (await aguardar_rota(arquivo_lista?.text(), sinal_rota))
 
       const carregar_lista = async (hash) => {
         if (!hash) return null
-        const arquivo = await ler_arquivo(diretorio, hash)
+        const arquivo = await aguardar_rota(ler_arquivo(diretorio, hash), sinal_rota)
         if (!arquivo) return null
-        return JSON.parse(await arquivo.text())
+        return JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
       }
 
-      const lista = await carregar_lista(hash_lista_atual)
+      const lista = await aguardar_rota(carregar_lista(hash_lista_atual), sinal_rota)
 
       if (!lista || lista.perfis.length === 0) {
         conteudo.innerHTML = "<p>Nenhum perfil encontrado.</p>"
@@ -919,9 +945,9 @@ const páginas = [
           // Para garantir compatibilidade e funcionamento correto:
           if (!hash_lista_visualizada) {
             // Tenta ler como ID (ponteiro)
-            const arquivo_id = await ler_arquivo(diretorio, id_perfil)
+            const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id_perfil), sinal_rota)
             if (arquivo_id) {
-              const texto_id = await arquivo_id.text()
+              const texto_id = await aguardar_rota(arquivo_id.text(), sinal_rota)
               // Verifica se o conteúdo do arquivo é um hash SHA-256 (64 hex chars)
               // Se for o próprio JSON (perfil antigo), texto_id começará com '{'
               if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) {
@@ -934,9 +960,9 @@ const páginas = [
             }
           } else {
              // No histórico, tentamos ver se é um ID
-             const arquivo_id = await ler_arquivo(diretorio, id_perfil)
+             const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id_perfil), sinal_rota)
              if (arquivo_id) {
-                const texto_id = await arquivo_id.text()
+                const texto_id = await aguardar_rota(arquivo_id.text(), sinal_rota)
                 if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) {
                   hash_perfil = texto_id
                 } else {
@@ -949,9 +975,9 @@ const páginas = [
              }
           }
 
-          const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+          const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, hash_perfil), sinal_rota)
           if (!arquivo_perfil) continue
-          const dados = JSON.parse(await arquivo_perfil.text())
+          const dados = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
 
           const card = document.createElement("div")
           card.classList.add("perfil-card")
@@ -1029,7 +1055,7 @@ const páginas = [
 
           if (dados.capa) {
             const img_capa = document.createElement("img")
-            const arquivo_capa = await ler_arquivo(diretorio, dados.capa)
+            const arquivo_capa = await aguardar_rota(ler_arquivo(diretorio, dados.capa), sinal_rota)
             if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
             img_capa.classList.add("perfil-capa")
             img_capa.alt = `Capa de ${dados.nome}`
@@ -1041,7 +1067,7 @@ const páginas = [
 
           if (dados.foto) {
             const img_foto = document.createElement("img")
-            const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
+            const arquivo_foto = await aguardar_rota(ler_arquivo(diretorio, dados.foto), sinal_rota)
             if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
             img_foto.classList.add("perfil-foto")
             img_foto.alt = `Foto de ${dados.nome}`
@@ -1256,15 +1282,16 @@ const páginas = [
     url: "/perfis/histórico",
     ícone: "history",
     ocultar_no_menu: true,
-    render: async (conteudo) => {
-      const diretorio = await obter_diretorio()
-      const hash_lista_atual = await (await ler_arquivo(diretorio, "perfis"))?.text()
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+      const arquivo_lista = await aguardar_rota(ler_arquivo(diretorio, "perfis"), sinal_rota)
+      const hash_lista_atual = await aguardar_rota(arquivo_lista?.text(), sinal_rota)
 
       const carregar_lista = async (hash) => {
         if (!hash) return null
-        const arquivo = await ler_arquivo(diretorio, hash)
+        const arquivo = await aguardar_rota(ler_arquivo(diretorio, hash), sinal_rota)
         if (!arquivo) return null
-        return JSON.parse(await arquivo.text())
+        return JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
       }
 
       const secao_historico = document.createElement("div")
@@ -1275,7 +1302,7 @@ const páginas = [
       const lista_historico = document.createElement("ul")
       let hash_cursor = hash_lista_atual
       while (hash_cursor) {
-        const dados_lista = await carregar_lista(hash_cursor)
+        const dados_lista = await aguardar_rota(carregar_lista(hash_cursor), sinal_rota)
         if (!dados_lista) break
 
         const item = document.createElement("li")
@@ -1314,35 +1341,35 @@ const páginas = [
         url_dinamica: (route_params) => `/perfil/${route_params.id}/histórico`,
       },
     ],
-    render: async (conteudo, params, route_params) => {
+    render: async (conteudo, params, route_params, sinal_rota) => {
       const id = route_params.id
-      const diretorio = await obter_diretorio()
+      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
 
       let hash_perfil = params.get("v")
 
       if (!hash_perfil) {
-        const arquivo_id = await ler_arquivo(diretorio, id)
+        const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
         if (!arquivo_id) {
           conteudo.innerHTML = "<p>Perfil não encontrado.</p>"
           return
         }
-        hash_perfil = await arquivo_id.text()
+        hash_perfil = await aguardar_rota(arquivo_id.text(), sinal_rota)
       }
 
-      const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
+      const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, hash_perfil), sinal_rota)
       if (!arquivo_perfil) {
         conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
         return
       }
 
-      const dados = JSON.parse(await arquivo_perfil.text())
+      const dados = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
 
       const detalhe = document.createElement("div")
       detalhe.classList.add("perfil-detalhe")
 
       if (dados.capa) {
         const img_capa = document.createElement("img")
-        const arquivo_capa = await ler_arquivo(diretorio, dados.capa)
+        const arquivo_capa = await aguardar_rota(ler_arquivo(diretorio, dados.capa), sinal_rota)
         if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
         img_capa.classList.add("perfil-capa-detalhe")
         detalhe.appendChild(img_capa)
@@ -1353,7 +1380,7 @@ const páginas = [
 
       if (dados.foto) {
         const img_foto = document.createElement("img")
-        const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
+        const arquivo_foto = await aguardar_rota(ler_arquivo(diretorio, dados.foto), sinal_rota)
         if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
         img_foto.classList.add("perfil-foto-detalhe")
         img_foto.style.marginTop = dados.capa ? "-50px" : "0"
@@ -1377,19 +1404,19 @@ const páginas = [
     url: "/perfil/:id/editar",
     ícone: "edit",
     ocultar_no_menu: true,
-    render: async (conteudo, params, route_params) => {
+    render: async (conteudo, params, route_params, sinal_rota) => {
       const id = route_params.id
-      const diretorio = await obter_diretorio()
-      const arquivo_id = await ler_arquivo(diretorio, id)
+      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+      const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
 
       if (!arquivo_id) {
         conteudo.innerHTML = "<p>Perfil não encontrado.</p>"
         return
       }
 
-      const hash_perfil_atual = await arquivo_id.text()
-      const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil_atual)
-      const dados_atuais = JSON.parse(await arquivo_perfil.text())
+      const hash_perfil_atual = await aguardar_rota(arquivo_id.text(), sinal_rota)
+      const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, hash_perfil_atual), sinal_rota)
+      const dados_atuais = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
 
       const form = document.createElement("form")
       form.classList.add("form-perfil")
@@ -1552,15 +1579,15 @@ const páginas = [
     url: "/perfil/:id/histórico",
     ícone: "history",
     ocultar_no_menu: true,
-    render: async (conteudo, params, route_params) => {
+    render: async (conteudo, params, route_params, sinal_rota) => {
       const id = route_params.id
-      const diretorio = await obter_diretorio()
+      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
 
       const carregar_versao = async (hash) => {
         if (!hash) return null
-        const arquivo = await ler_arquivo(diretorio, hash)
+        const arquivo = await aguardar_rota(ler_arquivo(diretorio, hash), sinal_rota)
         if (!arquivo) return null
-        return JSON.parse(await arquivo.text())
+        return JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
       }
 
       const secao_historico = document.createElement("div")
@@ -1571,11 +1598,11 @@ const páginas = [
       const lista_historico = document.createElement("ul")
 
       // Começa da versão atual apontada pelo ID
-      const arquivo_id = await ler_arquivo(diretorio, id)
-      let hash_cursor = arquivo_id ? await arquivo_id.text() : null
+      const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
+      let hash_cursor = arquivo_id ? await aguardar_rota(arquivo_id.text(), sinal_rota) : null
 
       while (hash_cursor) {
-        const dados_versao = await carregar_versao(hash_cursor)
+        const dados_versao = await aguardar_rota(carregar_versao(hash_cursor), sinal_rota)
         if (!dados_versao) break
 
         const item = document.createElement("li")
@@ -1613,8 +1640,8 @@ const páginas = [
         ícone: "group_add",
       },
     ],
-    render: async (conteudo) => {
-      const lista = await carregar_lista_contatos()
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      const lista = await aguardar_rota(carregar_lista_contatos(undefined, sinal_rota), sinal_rota)
       if (lista.contatos.length === 0) {
         conteudo.innerHTML = "<p>Sua lista de contatos está vazia.</p>"
       } else {
@@ -1622,7 +1649,7 @@ const páginas = [
         grid.classList.add("perfis-grid")
         conteudo.appendChild(grid)
 
-        const diretorio = await obter_diretorio()
+        const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
 
         for (const contato of lista.contatos) {
           const card = document.createElement("div")
@@ -1631,7 +1658,7 @@ const páginas = [
 
           if (contato.capa) {
             const img_capa = document.createElement("img")
-            const arquivo_capa = await ler_arquivo(diretorio, contato.capa)
+            const arquivo_capa = await aguardar_rota(ler_arquivo(diretorio, contato.capa), sinal_rota)
             if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
             img_capa.classList.add("perfil-capa")
             img_capa.alt = `Capa de ${contato.nome}`
@@ -1643,7 +1670,7 @@ const páginas = [
 
           if (contato.foto) {
             const img_foto = document.createElement("img")
-            const arquivo_foto = await ler_arquivo(diretorio, contato.foto)
+            const arquivo_foto = await aguardar_rota(ler_arquivo(diretorio, contato.foto), sinal_rota)
             if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
             img_foto.classList.add("perfil-foto")
             img_foto.alt = `Foto de ${contato.nome}`
@@ -1672,8 +1699,8 @@ const páginas = [
     url: "/contatos/adicionar",
     ícone: "person_add",
     ocultar_no_menu: true,
-    render: async (conteudo) => {
-      const id_meu_perfil = await obter_id_perfil_selecionado()
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      const id_meu_perfil = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
       if (!id_meu_perfil) {
         conteudo.innerHTML = "<p>Selecione um perfil primeiro.</p>"
         return
@@ -1755,8 +1782,8 @@ const páginas = [
     url: "/contatos/solicitações",
     ícone: "group_add",
     ocultar_no_menu: true,
-    render: async (conteudo) => {
-      const lista = await carregar_lista_contatos()
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      const lista = await aguardar_rota(carregar_lista_contatos(undefined, sinal_rota), sinal_rota)
 
       const grid = document.createElement("div")
       grid.style.display = "grid"
@@ -1840,12 +1867,12 @@ const páginas = [
     url: "/contato/:id",
     ícone: "person",
     ocultar_no_menu: true,
-    render: async (conteudo, params, route_params) => {
+    render: async (conteudo, params, route_params, sinal_rota) => {
       const id_contato = route_params.id
-      const id_meu_perfil = await obter_id_perfil_selecionado()
-      const diretorio = await obter_diretorio()
+      const id_meu_perfil = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
+      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
 
-      const lista_contatos = await carregar_lista_contatos()
+      const lista_contatos = await aguardar_rota(carregar_lista_contatos(undefined, sinal_rota), sinal_rota)
       const dados = lista_contatos.contatos.find(c => c.id === id_contato)
 
       if (!dados) {
@@ -1858,7 +1885,7 @@ const páginas = [
 
       if (dados.capa) {
         const img_capa = document.createElement("img")
-        const arquivo_capa = await ler_arquivo(diretorio, dados.capa)
+        const arquivo_capa = await aguardar_rota(ler_arquivo(diretorio, dados.capa), sinal_rota)
         if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
         img_capa.classList.add("perfil-capa-detalhe")
         detalhe.appendChild(img_capa)
@@ -1869,7 +1896,7 @@ const páginas = [
 
       if (dados.foto) {
         const img_foto = document.createElement("img")
-        const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
+        const arquivo_foto = await aguardar_rota(ler_arquivo(diretorio, dados.foto), sinal_rota)
         if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
         img_foto.classList.add("perfil-foto-detalhe")
         img_foto.style.marginTop = dados.capa ? "-50px" : "0"
@@ -1894,7 +1921,7 @@ const páginas = [
       const mensagens_div = document.createElement("div")
       mensagens_div.classList.add("chat-mensagens")
 
-      const conversa = await carregar_conversa(id_meu_perfil, id_contato)
+      const conversa = await aguardar_rota(carregar_conversa(id_meu_perfil, id_contato, sinal_rota), sinal_rota)
       conversa.mensagens.forEach(msg => {
         const msg_div = document.createElement("div")
         msg_div.classList.add("chat-mensagem")
@@ -1965,6 +1992,9 @@ const páginas = [
     }
   },
 ]
+
+let id_rota_atual = 0
+let controlador_rota_atual = null
 
 const navegar = (url) => {
   fechar_sidebar()
@@ -2224,7 +2254,7 @@ const atualizar_sidebar_perfil_selecionado = async () => {
   }
 }
 
-const renderizar_página = (página, params, route_params) => {
+const renderizar_página = async (página, params, route_params, id_rota, sinal_rota) => {
   const { menu, titulo, acoes, conteudo, botoes_navegacao } = layout_referencias
 
   atualizar_sidebar_perfil_selecionado()
@@ -2302,7 +2332,16 @@ const renderizar_página = (página, params, route_params) => {
   // Atualiza Conteúdo
   conteudo.innerHTML = ""
   if (página.render) {
-    página.render(conteudo, params, route_params)
+    const conteudo_renderizado = document.createElement("div")
+    try {
+      await página.render(conteudo_renderizado, params, route_params, sinal_rota)
+    } catch (erro) {
+      if (sinal_rota.aborted) return
+      throw erro
+    }
+    if (sinal_rota.aborted) return
+    if (id_rota !== id_rota_atual) return
+    conteudo.replaceChildren(...conteudo_renderizado.childNodes)
   }
 }
 
@@ -2339,6 +2378,11 @@ const obter_origem_externa = () => {
 }
 
 const rotear = async () => {
+  controlador_rota_atual?.abort()
+  controlador_rota_atual = new AbortController()
+  const sinal_rota = controlador_rota_atual.signal
+  const id_rota = ++id_rota_atual
+
   if (tela_inicial_montada) {
     unmount(tela_inicial_montada)
     tela_inicial_montada = null
@@ -2383,7 +2427,7 @@ const rotear = async () => {
     const diretorio = await obter_diretorio()
     if (diretorio) {
       try {
-        const permissao = await diretorio.queryPermission({ mode: "readwrite" })
+        const permissao = await aguardar_rota(diretorio.queryPermission({ mode: "readwrite" }), sinal_rota)
         if (permissao === "granted") {
           const id_selecionado = await obter_id_perfil_selecionado()
           if (id_selecionado) {
@@ -2468,6 +2512,7 @@ const rotear = async () => {
 
       try {
         const permissao = await diretorio.queryPermission({ mode: "readwrite" })
+        if (id_rota !== id_rota_atual) return
         if (permissao !== "granted") {
           carregar_tela_permissao(diretorio)
           return
@@ -2590,7 +2635,14 @@ const rotear = async () => {
     return
   }
 
-  const diretorio = await obter_diretorio()
+  let diretorio
+  try {
+    diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+  } catch (erro) {
+    if (sinal_rota.aborted) return
+    throw erro
+  }
+  if (id_rota !== id_rota_atual) return
 
   if (!diretorio) {
     layout_referencias = null
@@ -2605,8 +2657,10 @@ const rotear = async () => {
       return
     }
   } catch (e) {
+    if (sinal_rota.aborted) return
     console.error("Erro ao verificar permissão:", e)
   }
+  if (id_rota !== id_rota_atual) return
 
   if (!layout_referencias) {
     carregar_layout()
@@ -2641,7 +2695,7 @@ const rotear = async () => {
   }
 
   if (página) {
-    renderizar_página(página, params, route_params)
+    await renderizar_página(página, params, route_params, id_rota, sinal_rota)
   } else {
     renderizar_404()
   }
