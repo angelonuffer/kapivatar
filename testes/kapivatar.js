@@ -29,9 +29,18 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await expect(navegacao.locator('.navegacao-inferior-item > span:nth-child(2)')).toHaveText(['Início', 'Perfis', 'Contatos', 'Sair']);
   await expect(page.locator('.sidebar')).not.toBeVisible();
   await expect(page.locator('.botao-menu')).not.toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mais opções' })).not.toBeVisible();
 
   await navegacao.getByRole('button', { name: 'Perfis' }).click();
   await expect(page).toHaveURL(/\/perfis$/);
+
+  const menu_acoes = page.getByRole('button', { name: 'Mais opções' });
+  await expect(menu_acoes).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Criar perfil' })).not.toBeVisible();
+  await menu_acoes.click();
+  await expect(page.getByRole('button', { name: 'Criar perfil' })).toBeVisible();
+  await page.getByRole('button', { name: 'Criar perfil' }).click();
+  await expect(page).toHaveURL(/\/perfis\/criar$/);
 
   await navegacao.getByRole('button', { name: 'Sair' }).click();
   await expect(page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ })).toBeVisible();

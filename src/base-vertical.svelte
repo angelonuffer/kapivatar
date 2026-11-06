@@ -1,5 +1,12 @@
 <script>
   let { navegar, sair, abrir_sidebar } = $props()
+  let botao_menu_acoes
+  let menu_acoes
+
+  const alternar_menu_acoes = () => {
+    const aberto = menu_acoes.classList.toggle("aberto")
+    botao_menu_acoes.setAttribute("aria-expanded", String(aberto))
+  }
 
   const itens_navegacao = [
     { nome: "Início", url: "/", icone: "home" },
@@ -14,7 +21,20 @@
       <span class="material-symbols-outlined">menu</span>
     </button>
     <h1 class="titulo-pagina">Início</h1>
-    <div class="linha acoes"></div>
+    <div class="linha acoes">
+      <button
+        bind:this={botao_menu_acoes}
+        type="button"
+        class="botao-mais-acoes"
+        aria-label="Mais opções"
+        aria-expanded="false"
+        hidden
+        onclick={alternar_menu_acoes}
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
+      </button>
+      <div bind:this={menu_acoes} class="menu-acoes"></div>
+    </div>
   </div>
 
   <div class="linha conteudo-pagina"></div>
