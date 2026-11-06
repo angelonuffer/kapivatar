@@ -1,4 +1,12 @@
 import banco from "./banco.js"
+import {
+  abrir_banco_sqlite,
+  fechar_banco_sqlite,
+  ler_dado_sqlite,
+  gravar_dado_sqlite,
+  remover_dado_sqlite,
+  existe_dado_sqlite,
+} from "./sqlite.js"
 import { mount, unmount } from "svelte"
 import TelaInicial from "./início.svelte"
 import BaseVertical from "./base-vertical.svelte"
@@ -61,15 +69,10 @@ const banco_kapivatar = banco({
     {
       name: "byName",
     },
-    {
-      name: "byContent",
-    },
   ],
 })
 
-const nome_arquivo_metadados = "kapivatar.json"
 let diretorio_selecionado = null
-let fila_metadados = Promise.resolve()
 
 const gerar_hash = async (conteudo) => {
   const buffer = typeof conteudo === "string" ? new TextEncoder().encode(conteudo) : conteudo
@@ -195,12 +198,10 @@ const gerar_id_perfil = async (chave_publica) => {
   return await gerar_hash(spki)
 }
 
-const chave_por_conteudo = (key) => typeof key === "string" && /^[a-f0-9]{64}$/.test(key)
-
 const obter_handle_salvo = async () => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
-    const request = db.transaction("byName", "readonly").objectStore("byName").get("diretório")
+    const request = db.transaction("byName", "readonly").objectStore("byName").get("arquivo_sqlite")
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error)
   })
@@ -209,7 +210,7 @@ const obter_handle_salvo = async () => {
 const gravar_handle_salvo = async (handle) => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
-    const request = db.transaction("byName", "readwrite").objectStore("byName").put(handle, "diretório")
+    const request = db.transaction("byName", "readwrite").objectStore("byName").put(handle, "arquivo_sqlite")
     request.onsuccess = () => resolve()
     request.onerror = () => reject(request.error)
   })
@@ -218,7 +219,7 @@ const gravar_handle_salvo = async (handle) => {
 const remover_handle_salvo = async () => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
-    const request = db.transaction("byName", "readwrite").objectStore("byName").delete("diretório")
+    const request = db.transaction("byName", "readwrite").objectStore("byName").delete("arquivo_sqlite")
     request.onsuccess = () => resolve()
     request.onerror = () => reject(request.error)
   })
@@ -227,113 +228,31 @@ const remover_handle_salvo = async () => {
 const obter_diretorio_selecionado = async () => {
   if (diretorio_selecionado) return diretorio_selecionado
   const handle = await obter_handle_salvo()
-  if (handle && handle.kind === "directory" && typeof handle.getFileHandle === "function") {
+  if (handle && handle.kind === "file" && typeof handle.getFile === "function") {
     diretorio_selecionado = handle
     return handle
   }
   return null
 }
 
-const ler_metadados = async (diretorio) => {
-  try {
-    const handle = await diretorio.getFileHandle(nome_arquivo_metadados)
-    const conteudo = await (await handle.getFile()).text()
-    const metadados = JSON.parse(conteudo)
-    if (!metadados || typeof metadados !== "object" || Array.isArray(metadados)) {
-      throw new Error("O arquivo kapivatar.json contém metadados inválidos.")
-    }
-    return metadados
-  } catch (error) {
-    if (error.name === "NotFoundError") return {}
-    throw error
-  }
-}
-
-const gravar_metadados = async (diretorio, metadados) => {
-  const handle = await diretorio.getFileHandle(nome_arquivo_metadados, { create: true })
-  const writable = await handle.createWritable()
-  await writable.write(JSON.stringify(metadados))
-  await writable.close()
-}
-
-const com_metadados = async (operacao) => {
-  const atual = fila_metadados.then(async () => {
-    const diretorio = await obter_diretorio_selecionado()
-    if (!diretorio) throw new Error("Nenhuma pasta de dados foi selecionada.")
-    return operacao(diretorio, await ler_metadados(diretorio))
-  })
-  fila_metadados = atual.catch(() => {})
-  return atual
-}
-
-const ler_arquivo_por_hash = async (key) => {
-  const diretorio = await obter_diretorio_selecionado()
-  if (!diretorio) return undefined
-  try {
-    const handle = await diretorio.getFileHandle(key)
-    return await handle.getFile()
-  } catch (error) {
-    if (error.name === "NotFoundError") return undefined
-    throw error
-  }
-}
-
-const vfs_obter = async (key) => {
-  if (key === "diretório") return await obter_handle_salvo()
-  if (chave_por_conteudo(key)) return await ler_arquivo_por_hash(key)
-  return await com_metadados((diretorio, metadados) => metadados[key])
-}
+const vfs_obter = async (key) => await ler_dado_sqlite(key)
 
 const vfs_salvar = async (key, value) => {
-  if (key === "diretório") {
-    if (!value || value.kind !== "directory" || typeof value.getFileHandle !== "function") {
-      throw new TypeError("O valor salvo como diretório precisa ser um handle de pasta.")
-    }
-    await gravar_handle_salvo(value)
-    diretorio_selecionado = value
-    return
-  }
-  if (chave_por_conteudo(key)) {
-    const diretorio = await obter_diretorio_selecionado()
-    if (!diretorio) throw new Error("Nenhuma pasta de dados foi selecionada.")
-    const handle = await diretorio.getFileHandle(key, { create: true })
-    const writable = await handle.createWritable()
-    await writable.write(value)
-    await writable.close()
-    return
-  }
-  await com_metadados(async (diretorio, metadados) => {
-    metadados[key] = value
-    await gravar_metadados(diretorio, metadados)
-  })
+  await gravar_dado_sqlite(key, value)
 }
 
 const vfs_remover = async (key) => {
-  if (key === "diretório") {
+  if (key === "arquivo_sqlite") {
     await remover_handle_salvo()
     diretorio_selecionado = null
+    fechar_banco_sqlite()
     return
   }
-  if (chave_por_conteudo(key)) {
-    const diretorio = await obter_diretorio_selecionado()
-    if (!diretorio) return
-    try {
-      await diretorio.removeEntry(key)
-    } catch (error) {
-      if (error.name !== "NotFoundError") throw error
-    }
-    return
-  }
-  await com_metadados(async (diretorio, metadados) => {
-    delete metadados[key]
-    await gravar_metadados(diretorio, metadados)
-  })
+  await remover_dado_sqlite(key)
 }
 
 const vfs_existe = async (key) => {
-  if (key === "diretório") return Boolean(await obter_diretorio_selecionado())
-  if (chave_por_conteudo(key)) return (await ler_arquivo_por_hash(key)) !== undefined
-  return await com_metadados((diretorio, metadados) => Object.hasOwn(metadados, key))
+  return existe_dado_sqlite(key)
 }
 
 class VirtualWritableStream {
@@ -357,13 +276,16 @@ class VirtualFileHandle {
   async getFile() {
     let content = await vfs_obter(this.name)
     if (content === undefined) {
-      throw new Error("File not found")
+      const error = new Error("File not found")
+      error.name = "NotFoundError"
+      throw error
     }
     if (content instanceof Blob) return content
     const blob = new Blob([content])
     blob.text = async () => {
       if (typeof content === "string") return content
       if (content instanceof ArrayBuffer) return new TextDecoder().decode(content)
+      if (ArrayBuffer.isView(content)) return new TextDecoder().decode(content)
       return ""
     }
     return blob
@@ -429,24 +351,37 @@ class VirtualDirectoryHandle {
 const obter_diretorio = async (sinal_rota) => {
   const handle = await aguardar_rota(obter_diretorio_selecionado(), sinal_rota)
   if (!handle) return null
+  if (await handle.queryPermission({ mode: "readwrite" }) === "granted") {
+    await abrir_banco_sqlite(handle)
+  }
   return new VirtualDirectoryHandle(handle.name, "", handle)
 }
 
-const selecionar_diretorio = async () => {
-  if (typeof window.showDirectoryPicker !== "function") {
-    throw new Error("Este navegador não oferece suporte à seleção de pastas.")
+const selecionar_arquivo_sqlite = async () => {
+  if (typeof window.showSaveFilePicker !== "function") {
+    throw new Error("Este navegador não oferece suporte à seleção de arquivos.")
   }
-  const handle = await window.showDirectoryPicker({ mode: "readwrite" })
-  await vfs_salvar("diretório", handle)
+  const handle = await window.showSaveFilePicker({
+    suggestedName: "kapivatar.sqlite",
+    types: [{ description: "Banco de dados SQLite", accept: { "application/vnd.sqlite3": [".sqlite"] } }],
+  })
+  if (handle.name !== "kapivatar.sqlite") {
+    throw new Error("O arquivo do banco de dados precisa se chamar kapivatar.sqlite.")
+  }
+  await abrir_banco_sqlite(handle)
+  await gravar_handle_salvo(handle)
+  diretorio_selecionado = handle
 }
 
 const ler_arquivo = async (diretorio, nome) => {
+  if (!diretorio) return null
   try {
     const handle = await diretorio.getFileHandle(nome)
     const file = await handle.getFile()
     return file
-  } catch (e) {
-    return null
+  } catch (erro) {
+    if (erro.name === "NotFoundError") return null
+    throw erro
   }
 }
 
@@ -2012,7 +1947,7 @@ const fechar_sidebar = () => {
 }
 
 const sair = async () => {
-  await vfs_remover("diretório")
+  await vfs_remover("arquivo_sqlite")
   layout_referencias = null
   document.body.classList.remove("app-logado")
   navegar("/")
@@ -2048,7 +1983,7 @@ const carregar_tela_permissao = async (diretorio) => {
   coluna_1.appendChild(img)
   const p_1 = document.createElement("p")
   p_1.classList.add("login-descricao")
-  p_1.textContent = "O Kapivatar precisa de permissão para ler e escrever na pasta de dados selecionada para que você possa acessar seus perfis e mensagens."
+  p_1.textContent = "O Kapivatar precisa de permissão para ler e escrever no arquivo de dados selecionado para que você possa acessar seus perfis e mensagens."
   coluna_1.appendChild(p_1)
   document.body.appendChild(coluna_1)
   const coluna_2 = document.createElement("div")
@@ -2080,10 +2015,10 @@ const carregar_tela_permissao = async (diretorio) => {
   icone_sair.textContent = "logout"
   botão_sair.appendChild(icone_sair)
   const texto_sair = document.createElement("span")
-  texto_sair.textContent = "Sair e trocar pasta"
+  texto_sair.textContent = "Sair e trocar arquivo"
   botão_sair.appendChild(texto_sair)
   botão_sair.onclick = async () => {
-    await vfs_remover("diretório")
+    await vfs_remover("arquivo_sqlite")
     rotear()
   }
   coluna_2.appendChild(botão_sair)
@@ -2506,7 +2441,7 @@ const rotear = async () => {
       const diretorio = await obter_diretorio()
       if (!diretorio) {
         layout_referencias = null
-        renderizar_tela_inicial({ url_logo, url_capivara, selecionar_diretorio, navegar })
+        renderizar_tela_inicial({ url_logo, url_capivara, selecionar_arquivo_sqlite, navegar })
         return
       }
 
@@ -2646,7 +2581,7 @@ const rotear = async () => {
 
   if (!diretorio) {
     layout_referencias = null
-    renderizar_tela_inicial({ url_logo, url_capivara, selecionar_diretorio, navegar })
+    renderizar_tela_inicial({ url_logo, url_capivara, selecionar_arquivo_sqlite, navegar })
     return
   }
 

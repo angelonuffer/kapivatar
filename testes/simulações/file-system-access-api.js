@@ -5,60 +5,28 @@ export const test = base.extend({
     await page.addInitScript(() => {
       const files = new Map();
       window._files = files;
-      window._directoryPickerCalls = 0;
-      window._directoryPickerOptions = null;
-
-      window.MockDirectoryHandle = class MockDirectoryHandle {
-        constructor(name = 'mock-data', prefix = '') {
-          this.kind = 'directory';
-          this.name = name;
-          this.prefix = prefix;
-          this.__mockDirectoryHandle = true;
-        }
-        async queryPermission(descriptor) {
-          return sessionStorage.getItem('_permissionState') || 'granted';
-        }
-        async requestPermission(descriptor) {
-          sessionStorage.setItem('_permissionState', 'granted');
-          return 'granted';
-        }
-        async getFileHandle(name, options = {}) {
-          const key = this.prefix + name;
-          if (!files.has(key) && !options.create) {
-            const error = new Error('File not found');
-            error.name = 'NotFoundError';
-            throw error;
-          }
-          if (!files.has(key) && options.create) {
-            files.set(key, '');
-          }
-          return new window.MockFileHandle(key);
-        }
-        async getDirectoryHandle(name, options = {}) {
-          const key = 'dir:' + this.prefix + name;
-          if (!files.has(key) && !options.create) {
-            const error = new Error('Directory not found');
-            error.name = 'NotFoundError';
-            throw error;
-          }
-          if (!files.has(key) && options.create) {
-            files.set(key, new window.MockDirectoryHandle(name, this.prefix + name + '/'));
-          }
-          return files.get(key);
-        }
-        async removeEntry(name) {
-          if (!files.delete(this.prefix + name)) {
-            const error = new Error('File not found');
-            error.name = 'NotFoundError';
-            throw error;
-          }
-        }
+      window._databasePickerCalls = 0;
+      window._databasePickerOptions = null;
+      const databaseStorageKey = '_kapivatarDatabase';
+      const databaseBytes = () => {
+        const encoded = sessionStorage.getItem(databaseStorageKey);
+        if (!encoded) return undefined;
+        const binary = atob(encoded);
+        return Uint8Array.from(binary, char => char.charCodeAt(0));
       };
+      const persistDatabase = (bytes) => {
+        const binary = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
+        sessionStorage.setItem(databaseStorageKey, btoa(binary));
+        files.set('kapivatar.sqlite', bytes);
+      };
+      const existingDatabase = databaseBytes();
+      if (existingDatabase) files.set('kapivatar.sqlite', existingDatabase);
 
       window.MockFileHandle = class MockFileHandle {
-        constructor(name) {
-          this.name = name;
+        constructor(name = 'kapivatar.sqlite') {
           this.kind = 'file';
+          this.name = name;
+          this.__mockFileHandle = true;
         }
         async queryPermission(descriptor) {
           return sessionStorage.getItem('_permissionState') || 'granted';
@@ -68,33 +36,24 @@ export const test = base.extend({
           return 'granted';
         }
         async getFile() {
-          const content = files.get(this.name);
-          if (content === undefined) {
-            throw new Error('File not found');
-          }
-          const blob = new Blob([content]);
-          blob.text = async () => typeof content === 'string' ? content : new TextDecoder().decode(content);
-          return blob;
+          return new Blob([databaseBytes() || new Uint8Array()]);
         }
         async createWritable() {
-          return new window.MockWritableStream(this.name);
+          return new window.MockWritableStream();
         }
       };
 
       window.MockWritableStream = class MockWritableStream {
-        constructor(name) {
-          this.name = name;
-        }
         async write(content) {
-          files.set(this.name, content);
+          persistDatabase(new Uint8Array(content));
         }
         async close() {}
       };
 
       const put = IDBObjectStore.prototype.put;
       IDBObjectStore.prototype.put = function(value, key) {
-        if (value?.__mockDirectoryHandle) {
-          value = { __mockDirectoryHandle: true, name: value.name, prefix: value.prefix };
+        if (value?.__mockFileHandle) {
+          value = { __mockFileHandle: true, name: value.name };
         }
         return put.call(this, value, key);
       };
@@ -104,20 +63,20 @@ export const test = base.extend({
         const request = get.apply(this, args);
         request.addEventListener('success', () => {
           const value = request.result;
-          if (value?.__mockDirectoryHandle) {
+          if (value?.__mockFileHandle) {
             Object.defineProperty(request, 'result', {
               configurable: true,
-              value: new window.MockDirectoryHandle(value.name, value.prefix),
+              value: new window.MockFileHandle(value.name),
             });
           }
         });
         return request;
       };
 
-      window.showDirectoryPicker = async (options) => {
-        window._directoryPickerCalls++;
-        window._directoryPickerOptions = options;
-        return new window.MockDirectoryHandle();
+      window.showSaveFilePicker = async (options) => {
+        window._databasePickerCalls++;
+        window._databasePickerOptions = options;
+        return new window.MockFileHandle(options.suggestedName);
       };
     });
     await use();

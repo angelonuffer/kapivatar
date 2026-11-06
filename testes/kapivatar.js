@@ -6,9 +6,9 @@ test.beforeEach(async ({ page }) => {
 
 test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
   // 1. Login
-  await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
-  await expect.poll(() => page.evaluate(() => window._directoryPickerCalls)).toBe(1);
-  expect(await page.evaluate(() => window._directoryPickerOptions)).toEqual({ mode: 'readwrite' });
+  await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
+  await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
+  expect(await page.evaluate(() => window._databasePickerOptions.suggestedName)).toBe('kapivatar.sqlite');
 
   // 2. Verificar se está na página Início
   await expect(page.locator('.conteudo-principal')).toBeVisible();
@@ -20,7 +20,7 @@ test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
 
 test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
-  await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
+  await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
 
   const navegacao = page.getByRole('navigation', { name: 'Navegação principal' });
   await expect(navegacao).toBeVisible();
@@ -34,17 +34,17 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await expect(page).toHaveURL(/\/perfis$/);
 
   await navegacao.getByRole('button', { name: 'Sair' }).click();
-  await expect(page.getByRole('button', { name: /Escolher pasta de dados/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ })).toBeVisible();
 });
 
 test('Deve realizar o logout', async ({ page }) => {
   // Realizar login primeiro
-  await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
+  await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
   await expect(page.locator('.conteudo-pagina')).toBeVisible();
 
   // Logout
   await page.locator('.sidebar-rodape').getByText('Sair').click();
 
   // Verificar se voltou para a tela de login
-  await expect(page.getByRole('button', { name: /Escolher pasta de dados/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ })).toBeVisible();
 });

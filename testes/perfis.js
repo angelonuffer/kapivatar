@@ -2,7 +2,7 @@ import { test, expect } from './simulações/fixtures.js';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
+  await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
 });
 
 test('Deve criar um perfil e listar no histórico', async ({ page }) => {
@@ -17,12 +17,13 @@ test('Deve criar um perfil e listar no histórico', async ({ page }) => {
 
   // Aguardar o redirecionamento e verificar o perfil criado
   await expect(page.locator('.perfil-card').first()).toBeVisible();
-  const arquivos = await page.evaluate(() => ({
-    metadados: window._files.get('kapivatar.json'),
-    arquivos_por_conteudo: [...window._files.keys()].filter(nome => /^[a-f0-9]{64}$/.test(nome)),
-  }));
-  expect(JSON.parse(arquivos.metadados)).toHaveProperty('perfis');
-  expect(arquivos.arquivos_por_conteudo.length).toBeGreaterThan(0);
+  const banco = await page.evaluate(() => window._files.get('kapivatar.sqlite'));
+  expect(new TextDecoder().decode(banco.slice(0, 16))).toBe('SQLite format 3\u0000');
+  expect(banco.byteLength).toBeGreaterThan(100);
+
+  await page.reload();
+  await page.goto('/perfis');
+  await expect(page.getByText('Capivara de Teste')).toBeVisible();
 
   // Criar segundo perfil para testar histórico
   await page.getByRole('button', { name: /Criar perfil/ }).click();

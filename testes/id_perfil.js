@@ -2,7 +2,7 @@ import { test, expect } from './simulações/fixtures.js';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Escolher pasta de dados/ }).click();
+  await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
 });
 
 test('Deve criar, visualizar, editar e ver histórico de um perfil', async ({ page }) => {
