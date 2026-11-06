@@ -88,10 +88,10 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage', 
   await expect(page.locator('.perfil-autenticado-icon')).not.toBeVisible();
 
   // Vamos verificar se o postMessage com os dados do perfil foi enviado
-  const messagesCount = await page.evaluate(() => {
-    return window._receivedMessages.length;
-  });
-  expect(messagesCount).toBeGreaterThan(0);
+  await expect.poll(
+    () => page.evaluate(() => window._receivedMessages.length),
+    { timeout: 10000 },
+  ).toBeGreaterThan(0);
 
   const perfil = await page.evaluate(() => {
     return window._receivedMessages[0].perfil;
