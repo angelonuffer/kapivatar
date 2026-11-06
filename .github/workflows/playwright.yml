@@ -14,6 +14,8 @@ jobs:
       contents: read
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     - uses: actions/setup-node@v4
       with:
         node-version: lts/*
@@ -23,6 +25,12 @@ jobs:
       run: npx playwright install chromium --with-deps
     - name: Run Playwright tests
       run: npx playwright test
+    - name: List changed test files
+      if: always() && github.event_name == 'pull_request'
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: git diff --name-only --diff-filter=ACMR "$BASE_SHA...$HEAD_SHA" > "$RUNNER_TEMP/changed-test-files.txt"
     - name: Check Playwright report
       id: report
       if: always()
@@ -34,7 +42,13 @@ jobs:
         fi
     - name: Generate static Pages report
       if: always() && steps.report.outputs.ready == 'true'
-      run: npm run report:pages -- playwright-report playwright-report/pages
+      env:
+        CHANGED_TEST_FILES: ${{ runner.temp }}/changed-test-files.txt
+      run: |
+        if [[ "$GITHUB_EVENT_NAME" != "pull_request" ]]; then
+          : > "$CHANGED_TEST_FILES"
+        fi
+        npm run report:pages -- playwright-report playwright-report/pages "$CHANGED_TEST_FILES"
     - name: Upload Playwright report
       id: report_artifact
       uses: actions/upload-artifact@v4
