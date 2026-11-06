@@ -22,6 +22,7 @@
     .teste[aria-current="true"] { border-color: #315aa9; background: #eaf0ff; }
     .teste strong, .teste small { display: block; }
     .teste small, .muted { color: #59677e; margin-top: .3rem; }
+    .teste .alterado { color: #315aa9; font-weight: 600; }
     .status { font-weight: 600; }
     .expected, .passed { color: #147040; }
     .unexpected, .failed, .timedOut, .interrupted { color: #b12232; }
@@ -95,7 +96,9 @@
     for (const teste of relatorio.testes) {
       const botao = criar('button', null, 'teste');
       botao.type = 'button';
-      botao.append(criar('strong', teste.titulo), criar('small', `${nomes[teste.outcome] ?? teste.outcome} • ${teste.caminho}`));
+      botao.append(criar('strong', teste.titulo));
+      if (teste.modificadoNoPR) botao.append(criar('small', 'Teste novo/modificado neste PR', 'alterado'));
+      botao.append(criar('small', `${nomes[teste.outcome] ?? teste.outcome} • ${teste.caminho}`));
       botao.addEventListener('click', () => mostrar(teste, botao));
       lista.append(botao);
     }

@@ -6,11 +6,16 @@ import { unzipSync, strFromU8 } from 'fflate';
 
 const entrada = path.resolve(process.argv[2] ?? 'playwright-report');
 const saida = path.resolve(process.argv[3] ?? 'playwright-pages');
+const arquivoListaAlterados = process.argv[4] ? path.resolve(process.argv[4]) : null;
 const modelo = fileURLToPath(new URL('./relatorio.html', import.meta.url));
 
 function json(arquivos, nome) {
   if (!arquivos[nome]) throw new Error(`Arquivo ausente no ZIP: ${nome}`);
   return JSON.parse(strFromU8(arquivos[nome]));
+}
+
+function normalizarCaminho(arquivo) {
+  return path.posix.normalize(arquivo.replaceAll('\\', '/')).replace(/^\.\//, '');
 }
 
 async function lerAnexo(nome) {
@@ -32,6 +37,11 @@ async function gerar() {
   const relatorio = json(arquivos, 'report.json');
   if (!Array.isArray(relatorio.files)) throw new Error('Lista de arquivos ausente no relatório.');
   await mkdir(path.join(saida, 'imagens'), { recursive: true });
+  const arquivosAlterados = new Set(
+    arquivoListaAlterados
+      ? (await readFile(arquivoListaAlterados, 'utf8')).split(/\r?\n/).filter(Boolean).map(normalizarCaminho)
+      : [],
+  );
 
   async function salvarImagem(bytes, extensao, titulo) {
     const hash = createHash('sha256').update(bytes).digest('hex');
@@ -88,11 +98,13 @@ async function gerar() {
         caminho: [...(teste.path ?? []), arquivo.fileName].join(' / '),
         projeto: teste.projectName,
         outcome: teste.outcome,
+        modificadoNoPR: arquivosAlterados.has(normalizarCaminho(arquivo.fileName)),
         resultados,
       });
     }
   }
 
+  testes.sort((a, b) => Number(b.modificadoNoPR) - Number(a.modificadoNoPR));
   const pagina = await readFile(modelo, 'utf8');
   const conteudo = JSON.stringify({ testes, startTime: relatorio.startTime }).replace(/</g, '\\u003c');
   await writeFile(path.join(saida, 'index.html'), pagina.replace('/* DADOS_DO_RELATORIO */', () => `const relatorio = ${conteudo};`));

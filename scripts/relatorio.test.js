@@ -18,13 +18,12 @@ async function fixture(t) {
   return { pasta, entrada, saida };
 }
 
-async function escreverRelatorio(entrada, testes) {
-  const resumo = { startTime: 123, files: [{ fileId: 'arquivo', fileName: 'teste.js' }] };
-  const detalhes = { tests: testes };
-  const zip = zipSync({
-    'report.json': strToU8(JSON.stringify(resumo)),
-    'arquivo.json': strToU8(JSON.stringify(detalhes)),
-  });
+async function escreverRelatorio(entrada, testes, arquivosExtras = []) {
+  const arquivos = [{ fileId: 'arquivo', fileName: 'teste.js', tests: testes }, ...arquivosExtras];
+  const resumo = { startTime: 123, files: arquivos.map(({ fileId, fileName }) => ({ fileId, fileName })) };
+  const dados = { 'report.json': strToU8(JSON.stringify(resumo)) };
+  for (const { fileId, tests } of arquivos) dados[`${fileId}.json`] = strToU8(JSON.stringify({ tests }));
+  const zip = zipSync(dados);
   await writeFile(path.join(entrada, 'index.html'), `<template id="playwrightReportBase64">data:application/zip;base64,${Buffer.from(zip).toString('base64')}</template>`);
 }
 
@@ -74,4 +73,29 @@ test('falha explicitamente para relatório inválido e anexos fora da pasta', as
   resultado = spawnSync(process.execPath, [script, entrada, saida], { encoding: 'utf8' });
   assert.notEqual(resultado.status, 0);
   assert.match(resultado.stderr, /Anexo fora do relatório/);
+});
+
+test('marca e prioriza testes de arquivos novos ou modificados no PR', async (t) => {
+  const { entrada, saida, pasta } = await fixture(t);
+  await escreverRelatorio(entrada, [
+    { testId: 'modificado', title: 'Teste modificado', outcome: 'expected', results: [] },
+  ], [
+    { fileId: 'novo', fileName: 'tests/novo.spec.js', tests: [
+      { testId: 'novo-teste', title: 'Teste novo', outcome: 'expected', results: [] },
+    ] },
+    { fileId: 'inalterado', fileName: 'tests/inalterado.spec.js', tests: [
+      { testId: 'inalterado', title: 'Teste inalterado', outcome: 'expected', results: [] },
+    ] },
+  ]);
+  const alterados = path.join(pasta, 'arquivos-alterados.txt');
+  await writeFile(alterados, 'teste.js\ntests/novo.spec.js\n');
+  execFileSync(process.execPath, [script, entrada, saida, alterados]);
+  const html = await readFile(path.join(saida, 'index.html'), 'utf8');
+  const dados = JSON.parse(html.match(/const relatorio = (.*);/)[1]);
+  assert.deepEqual(dados.testes.map(({ titulo, modificadoNoPR }) => [titulo, modificadoNoPR]), [
+    ['Teste modificado', true],
+    ['Teste novo', true],
+    ['Teste inalterado', false],
+  ]);
+  assert.match(html, /Teste novo\/modificado neste PR/);
 });
