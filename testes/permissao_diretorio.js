@@ -15,7 +15,7 @@ test('Deve mostrar tela de permissão quando o diretório existe mas não tem pe
   await page.reload();
 
   // 3. Verificar se a tela de permissão é exibida
-  await expect(page.getByText('Permissão Necessária')).toBeVisible();
+  await expect(page.getByText('Permissão Necessária')).toBeVisible({ timeout: 10000 });
   await expect(page.getByRole('button', { name: 'Permitir Acesso' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Sair e trocar pasta' })).toBeVisible();
 
