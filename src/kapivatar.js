@@ -2114,7 +2114,8 @@ const carregar_layout = () => {
     menu: coluna_1_1,
     perfil_selecionado: perfil_selecionado_container,
     titulo: base_vertical.querySelector(".titulo-pagina"),
-    acoes: base_vertical.querySelector(".acoes"),
+    botao_menu_acoes: base_vertical.querySelector(".botao-mais-acoes"),
+    menu_acoes: base_vertical.querySelector(".menu-acoes"),
     conteudo: base_vertical.querySelector(".conteudo-pagina"),
     botoes_navegacao: Array.from(
       base_vertical.querySelectorAll(".navegacao-inferior-item[data-url]")
@@ -2190,7 +2191,7 @@ const atualizar_sidebar_perfil_selecionado = async () => {
 }
 
 const renderizar_página = async (página, params, route_params, id_rota, sinal_rota) => {
-  const { menu, titulo, acoes, conteudo, botoes_navegacao } = layout_referencias
+  const { menu, titulo, botao_menu_acoes, menu_acoes, conteudo, botoes_navegacao } = layout_referencias
 
   atualizar_sidebar_perfil_selecionado()
 
@@ -2245,7 +2246,10 @@ const renderizar_página = async (página, params, route_params, id_rota, sinal_
   titulo.appendChild(span_titulo_texto)
 
   // Atualiza Ações
-  acoes.innerHTML = ""
+  menu_acoes.innerHTML = ""
+  menu_acoes.classList.remove("aberto")
+  botao_menu_acoes.setAttribute("aria-expanded", "false")
+  botao_menu_acoes.hidden = !página.ações?.length
   página.ações?.forEach(ação => {
     const botão_ação = document.createElement("button")
     if (ação.ícone) {
@@ -2261,7 +2265,7 @@ const renderizar_página = async (página, params, route_params, id_rota, sinal_
       const url = ação.url_dinamica ? ação.url_dinamica(route_params) : ação.url
       navegar(url)
     }
-    acoes.appendChild(botão_ação)
+    menu_acoes.appendChild(botão_ação)
   })
 
   // Atualiza Conteúdo
@@ -2281,7 +2285,7 @@ const renderizar_página = async (página, params, route_params, id_rota, sinal_
 }
 
 const renderizar_404 = () => {
-  const { menu, titulo, acoes, conteudo } = layout_referencias
+  const { menu, titulo, botao_menu_acoes, menu_acoes, conteudo } = layout_referencias
 
   // Atualiza Menu (limpa seleção)
   menu.querySelectorAll("a").forEach(a => a.classList.remove("ativo"))
@@ -2295,7 +2299,10 @@ const renderizar_404 = () => {
   span_texto.textContent = "404 - Não Encontrado"
   titulo.appendChild(span_texto)
 
-  acoes.innerHTML = ""
+  menu_acoes.innerHTML = ""
+  menu_acoes.classList.remove("aberto")
+  botao_menu_acoes.setAttribute("aria-expanded", "false")
+  botao_menu_acoes.hidden = true
   conteudo.innerHTML = "<p>A página que você procura não existe.</p>"
 }
 
