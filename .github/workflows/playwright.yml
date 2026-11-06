@@ -32,6 +32,9 @@ jobs:
         else
           echo "ready=false" >> "$GITHUB_OUTPUT"
         fi
+    - name: Generate static Pages report
+      if: always() && steps.report.outputs.ready == 'true'
+      run: npm run report:pages -- playwright-report playwright-report/pages
     - name: Upload Playwright report
       id: report_artifact
       uses: actions/upload-artifact@v4

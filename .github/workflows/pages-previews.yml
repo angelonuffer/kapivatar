@@ -123,12 +123,16 @@ jobs:
           if [[ "$PR_STATE" == "closed" ]]; then
             rm -rf "$preview_dir"
           else
+            test -f playwright-report/pages/index.html
+            rm -rf "$preview_dir"
             mkdir -p "$preview_dir"
-            cp -R playwright-report/. "$preview_dir/"
+            cp -R playwright-report/pages/. "$preview_dir/"
           fi
         else
+          test -f playwright-report/pages/index.html
+          rm -rf site/latest
           mkdir -p site/latest
-          cp -R playwright-report/. site/latest/
+          cp -R playwright-report/pages/. site/latest/
         fi
         {
           echo '<!doctype html>'

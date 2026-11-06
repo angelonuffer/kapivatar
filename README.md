@@ -82,13 +82,23 @@ Os testes são realizados utilizando o Playwright. Para executá-los, use:
 npm test
 ```
 
+Para gerar um relatório estático e responsivo a partir de `playwright-report/`:
+
+```bash
+npm run report:pages
+```
+
+O resultado fica em `playwright-pages/` e pode ser aberto pelo `index.html` ou publicado como conteúdo estático. Para escolher as pastas de entrada e saída, execute `npm run report:pages -- <entrada> <saída>`. O relatório apresenta os passos e as capturas disponíveis em cada execução, incluindo novas tentativas. As capturas do rastreamento dependem de a opção `trace` do Playwright estar habilitada; testes ignorados ou sem capturas podem não apresentar imagens.
+
+Para testar o próprio gerador, execute `npm run test:report`.
+
 Para verificar os tipos e diagnósticos do projeto, use:
 
 ```bash
 npm run check
 ```
 
-No GitHub Actions, cada execução disponibiliza o relatório Playwright como artefato quando gerado. PRs do próprio repositório também publicam um preview público em `https://angelonuffer.github.io/kapivatar/previews/pr-<número>/`; o preview é removido quando o PR é fechado. PRs de forks continuam executando os testes e disponibilizando o artefato, mas não publicam no Pages.
+No GitHub Actions, cada execução disponibiliza o relatório Playwright original e a página gerada como artefato quando gerados. O relatório da branch principal é publicado em `https://angelonuffer.github.io/kapivatar/latest/`. PRs do próprio repositório também publicam um preview público em `https://angelonuffer.github.io/kapivatar/previews/pr-<número>/`; o preview é removido quando o PR é fechado. PRs de forks continuam executando os testes e disponibilizando o artefato, mas não publicam no Pages. Esses relatórios e suas capturas são públicos: não inclua dados sensíveis nos testes.
 
 ## 📄 Licença
 

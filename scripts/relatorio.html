@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Relatório de testes - Kapivatar</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #172033; background: #f3f5f9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header { background: #263b67; color: white; padding: 1.5rem max(1rem, calc((100% - 1100px) / 2)); }
+    h1 { margin: 0 0 .4rem; font-size: 1.6rem; }
+    header p { margin: 0; color: #dce5f7; }
+    main { max-width: 1100px; margin: auto; padding: 1rem; }
+    .layout { display: grid; grid-template-columns: minmax(230px, 1fr) minmax(0, 2fr); gap: 1rem; align-items: start; }
+    .panel { background: white; border-radius: .6rem; padding: 1rem; box-shadow: 0 2px 8px #17203312; min-width: 0; }
+    h2 { font-size: 1.2rem; margin: 0 0 1rem; overflow-wrap: anywhere; }
+    h3 { margin: 1.3rem 0 .5rem; }
+    .lista { display: grid; gap: .5rem; }
+    button { font: inherit; text-align: left; cursor: pointer; }
+    .teste { background: #f5f7fb; border: 1px solid #d5dce9; border-radius: .4rem; padding: .7rem; width: 100%; overflow-wrap: anywhere; }
+    .teste[aria-current="true"] { border-color: #315aa9; background: #eaf0ff; }
+    .teste strong, .teste small { display: block; }
+    .teste small, .muted { color: #59677e; margin-top: .3rem; }
+    .status { font-weight: 600; }
+    .expected, .passed { color: #147040; }
+    .unexpected, .failed, .timedOut, .interrupted { color: #b12232; }
+    .flaky { color: #875300; }
+    ol { padding-left: 1.5rem; }
+    li { padding: .2rem 0; overflow-wrap: anywhere; }
+    .galeria { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: .8rem; }
+    figure { margin: 0; }
+    img { display: block; width: 100%; height: auto; border: 1px solid #d5dce9; border-radius: .3rem; }
+    figcaption { font-size: .85rem; margin-top: .3rem; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #fff3f3; padding: .7rem; }
+    @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } header { padding: 1rem; } }
+  </style>
+</head>
+<body>
+  <header><h1>Relatório de testes</h1><p id="resumo"></p></header>
+  <main><div class="layout"><section class="panel"><h2>Testes</h2><div class="lista" id="lista"></div></section><section class="panel" id="detalhes" aria-live="polite"><p>Selecione um teste para ver os detalhes.</p></section></div></main>
+  <script>
+    /* DADOS_DO_RELATORIO */
+    const nomes = { expected: 'Aprovado', unexpected: 'Falhou', flaky: 'Instável', skipped: 'Ignorado', passed: 'Aprovado', failed: 'Falhou', timedOut: 'Tempo esgotado', interrupted: 'Interrompido' };
+    const lista = document.getElementById('lista');
+    const detalhes = document.getElementById('detalhes');
+    const criar = (tag, texto, classe) => {
+      const elemento = document.createElement(tag);
+      if (texto != null) elemento.textContent = texto;
+      if (classe) elemento.className = classe;
+      return elemento;
+    };
+    document.getElementById('resumo').textContent = `${relatorio.testes.length} teste(s)${relatorio.startTime ? ' • ' + new Date(relatorio.startTime).toLocaleString('pt-BR') : ''}`;
+    function passos(steps) {
+      const listaPassos = criar('ol');
+      for (const step of steps) {
+        const item = criar('li', `${step.title}${step.skipped ? ' (ignorado)' : ''}`);
+        if (step.steps?.length) item.append(passos(step.steps));
+        listaPassos.append(item);
+      }
+      return listaPassos;
+    }
+    function mostrar(teste, botao) {
+      for (const elemento of lista.querySelectorAll('button')) elemento.removeAttribute('aria-current');
+      botao.setAttribute('aria-current', 'true');
+      detalhes.replaceChildren(criar('h2', teste.titulo), criar('p', `${teste.caminho} • ${teste.projeto}`, 'muted'), criar('p', nomes[teste.outcome] ?? teste.outcome, `status ${teste.outcome}`));
+      if (!teste.resultados.length) detalhes.append(criar('p', 'Nenhuma execução disponível.'));
+      for (const resultado of teste.resultados) {
+        detalhes.append(criar('h3', `Execução ${(resultado.retry ?? 0) + 1} — ${nomes[resultado.status] ?? resultado.status} (${Math.round(resultado.duration ?? 0)} ms)`));
+        for (const erro of resultado.errors) detalhes.append(criar('pre', erro.message ?? erro.snippet ?? JSON.stringify(erro)));
+        detalhes.append(criar('h3', 'Passos'));
+        detalhes.append(resultado.steps.length ? passos(resultado.steps) : criar('p', 'Nenhum passo disponível.', 'muted'));
+        detalhes.append(criar('h3', 'Capturas de tela'));
+        if (!resultado.imagens.length) detalhes.append(criar('p', 'Nenhuma captura disponível.', 'muted'));
+        else {
+          const galeria = criar('div', null, 'galeria');
+          resultado.imagens.forEach((imagem, indice) => {
+            const figura = criar('figure');
+            const link = criar('a');
+            link.href = imagem.url;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            const img = criar('img');
+            img.src = imagem.url;
+            img.alt = imagem.titulo || `Captura ${indice + 1}`;
+            img.loading = 'lazy';
+            link.append(img);
+            figura.append(link, criar('figcaption', imagem.titulo || `Captura ${indice + 1}`));
+            galeria.append(figura);
+          });
+          detalhes.append(galeria);
+        }
+      }
+    }
+    for (const teste of relatorio.testes) {
+      const botao = criar('button', null, 'teste');
+      botao.type = 'button';
+      botao.append(criar('strong', teste.titulo), criar('small', `${nomes[teste.outcome] ?? teste.outcome} • ${teste.caminho}`));
+      botao.addEventListener('click', () => mostrar(teste, botao));
+      lista.append(botao);
+    }
+    if (!relatorio.testes.length) lista.append(criar('p', 'Nenhum teste no relatório.', 'muted'));
+  </script>
+</body>
+</html>
