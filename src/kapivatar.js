@@ -82,11 +82,35 @@ const banco_kapivatar = banco({
 let diretorio_selecionado = null
 let sincronizacao_iniciada = false
 let banco_sqlite_aberto = false
+let gerador_descricao_imagem
+let carregamento_gerador_descricao_imagem
 
 const gerar_hash = async (conteudo) => {
   const buffer = typeof conteudo === "string" ? new TextEncoder().encode(conteudo) : conteudo
   const hash_buffer = await crypto.subtle.digest("SHA-256", buffer)
   return Array.from(new Uint8Array(hash_buffer)).map((b) => b.toString(16).padStart(2, "0")).join("")
+}
+
+const descrever_imagem = async (imagem) => {
+  if (!gerador_descricao_imagem) {
+    carregamento_gerador_descricao_imagem ??= import("@huggingface/transformers")
+      .then(({ pipeline }) => pipeline("image-to-text", "Xenova/vit-gpt2-image-captioning"))
+    try {
+      gerador_descricao_imagem = await carregamento_gerador_descricao_imagem
+    } catch (erro) {
+      carregamento_gerador_descricao_imagem = null
+      throw erro
+    }
+  }
+  const url_imagem = URL.createObjectURL(imagem)
+  try {
+    const resultado = await gerador_descricao_imagem(url_imagem)
+    const descricao = resultado?.[0]?.generated_text?.trim()
+    if (!descricao) throw new Error("O modelo não gerou uma descrição para esta imagem.")
+    return descricao
+  } finally {
+    URL.revokeObjectURL(url_imagem)
+  }
 }
 
 const gerar_chaves = async () => {
@@ -1800,18 +1824,62 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
   const nome_imagem = document.createElement("span")
   nome_imagem.classList.add("nome-arquivo")
   preview_imagem.appendChild(nome_imagem)
+  let imagem_atual = null
   if (registro?.dados.imagem) {
     const arquivo_imagem = await aguardar_rota(ler_arquivo(diretorio, registro.dados.imagem), sinal_rota)
     if (arquivo_imagem) {
+      imagem_atual = arquivo_imagem
       img.src = URL.createObjectURL(arquivo_imagem)
       preview_imagem.style.display = "flex"
     }
   } else {
     preview_imagem.style.display = "none"
   }
+  const campo_nota = criar_campo("Nota", "textarea", registro?.dados.nota || "")
+  const input_nota = campo_nota.querySelector("textarea")
+  const container_nota = document.createElement("div")
+  container_nota.classList.add("campo-nota-container")
+  const botao_descricao = document.createElement("button")
+  botao_descricao.type = "button"
+  botao_descricao.classList.add("botao-descricao-imagem")
+  botao_descricao.setAttribute("aria-label", "Gerar descrição da imagem")
+  botao_descricao.title = "Gerar descrição da imagem"
+  const icone_descricao = document.createElement("span")
+  icone_descricao.classList.add("material-symbols-outlined")
+  icone_descricao.setAttribute("aria-hidden", "true")
+  icone_descricao.textContent = "auto_awesome"
+  botao_descricao.appendChild(icone_descricao)
+  botao_descricao.style.display = "none"
+  const status_descricao = document.createElement("span")
+  status_descricao.classList.add("status-descricao-imagem")
+  status_descricao.setAttribute("aria-live", "polite")
+  container_nota.append(input_nota, botao_descricao)
+  campo_nota.appendChild(container_nota)
+  campo_nota.appendChild(status_descricao)
+  const atualizar_botao_descricao = () => {
+    botao_descricao.style.display = imagem_atual ? "inline-flex" : "none"
+  }
+  atualizar_botao_descricao()
+  botao_descricao.onclick = async () => {
+    if (!imagem_atual) return
+    botao_descricao.disabled = true
+    status_descricao.textContent = "Gerando descrição localmente…"
+    try {
+      input_nota.value = await descrever_imagem(imagem_atual)
+      atualizar_validade_nota()
+      status_descricao.textContent = "Descrição adicionada à nota."
+    } catch (erro) {
+      console.error("Erro ao gerar descrição da imagem:", erro)
+      status_descricao.textContent = "Não foi possível gerar a descrição. Tente novamente."
+    } finally {
+      botao_descricao.disabled = false
+    }
+  }
   input_imagem.onchange = () => {
     const arquivo = input_imagem.files?.[0]
     if (!arquivo) return
+    imagem_atual = arquivo
+    atualizar_botao_descricao()
     atualizar_validade_nota()
     img.src = URL.createObjectURL(arquivo)
     nome_imagem.textContent = arquivo.name
@@ -1820,9 +1888,7 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
   container_imagem.append(input_imagem, botao_imagem, preview_imagem)
   campo_imagem.append(label_imagem, container_imagem)
   form.appendChild(campo_imagem)
-  const campo_nota = criar_campo("Nota", "textarea", registro?.dados.nota || "")
   form.appendChild(campo_nota)
-  const input_nota = form.elements.namedItem("nota")
   const atualizar_validade_nota = () => {
     const tem_imagem = Boolean(input_imagem.files?.length || registro?.dados.imagem)
     input_nota.required = false

@@ -14,14 +14,17 @@ test('Deve criar, editar, arquivar e consultar o histórico de um assobio', asyn
   await expect(page.getByLabel('Data')).toHaveAttribute('type', 'datetime-local');
   await expect(page.locator('.form-assobio label')).toHaveText(['Perfil', 'Data', 'Imagem', 'Nota']);
   await page.getByLabel('Data').fill('2026-11-07T13:45');
+  const botao_descricao = page.getByRole('button', { name: 'Gerar descrição da imagem' });
+  await expect(botao_descricao).not.toBeVisible();
   await page.getByRole('button', { name: 'Salvar Assobio' }).click();
   await expect(page).toHaveURL(/\/assobios\/criar$/);
   expect(await page.getByLabel('Nota').evaluate(input => input.validity.valid)).toBe(false);
-  await page.getByLabel('Imagem').setInputFiles({
+  await page.getByLabel('Imagem', { exact: true }).setInputFiles({
     name: 'assobio.png',
     mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64'),
   });
+  await expect(botao_descricao).toBeVisible();
   expect(await page.getByLabel('Nota').evaluate(input => input.validity.valid)).toBe(true);
   await page.getByRole('button', { name: 'Salvar Assobio' }).click();
   const imagem_assobio = page.getByRole('img', { name: 'Imagem do assobio', exact: true });
