@@ -26,6 +26,12 @@ O projeto baseia-se na premissa de que a soberania digital é um direito. Ao uti
 - **Infraestrutura:** [Cloudflare Workers](https://workers.cloudflare.com/) para entrega de assets.
 - **Testes:** [Playwright](https://playwright.dev/) para testes de ponta a ponta (E2E).
 
+## Sincronização entre dispositivos
+
+Dispositivos pareados sincronizam os dados do arquivo SQLite pelo MQTT. O conteúdo é criptografado de ponta a ponta com AES-GCM e uma chave derivada por HKDF da chave secreta compartilhada no pareamento; essa chave não é publicada. O broker ainda pode observar tópicos, horários e tamanhos das mensagens. Os dados são fragmentados para transporte, e alterações concorrentes são resolvidas pela versão mais recente (com o ID do dispositivo como desempate).
+
+A chave compartilhada é mantida no armazenamento local do navegador para permitir a sincronização futura. A sincronização acontece quando o arquivo de dados está aberto; handles de arquivos e outras permissões locais não são transferidos. Como em qualquer aplicação web, scripts executados na mesma origem podem acessar dados guardados pelo navegador.
+
 ## 🚀 Como Executar o Projeto
 
 ### Pré-requisitos

@@ -136,3 +136,23 @@ export const existe_dado_sqlite = (chave) => {
     [chave],
   ) === 1
 }
+
+export const listar_dados_sqlite = async () => {
+  await fila_gravacao
+  if (!db) return []
+
+  const linhas = []
+  db.exec({
+    sql: "SELECT chave, tipo, valor FROM kapivatar_dados WHERE chave != ?",
+    bind: ["arquivo_sqlite"],
+    rowMode: "array",
+    resultRows: linhas,
+  })
+
+  return linhas.map(([chave, tipo, valor]) => {
+    if (tipo === "texto") return [chave, valor]
+    const bytes = valor instanceof Uint8Array ? valor : new Uint8Array(valor)
+    if (tipo === "json") return [chave, JSON.parse(new TextDecoder().decode(bytes))]
+    return [chave, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)]
+  })
+}

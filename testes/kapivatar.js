@@ -186,6 +186,91 @@ test('Deve parear dispositivos pelo MQTT sem publicar a chave secreta', async ({
   await expect.poll(() => page.evaluate((id) => JSON.parse(
     localStorage.getItem('kapivatar.dispositivos.pareados')
   ).some((dispositivo) => dispositivo.id === id), id_dispositivo_remoto)).toBe(true);
+
+  await page.evaluate(async () => {
+    await window.salvar_lista_contatos({
+      contatos: [],
+      solicitações_enviadas: [],
+      solicitações_recebidas: [],
+      marcador: 'conteúdo privado de sincronização',
+    });
+  });
+  const mensagens_sincronizacao = await page.evaluate(() =>
+    window._publishedMessages.filter(({ message }) => message.uso === 'sincronizacao-v1')
+  );
+  expect(mensagens_sincronizacao.length).toBeGreaterThan(0);
+  expect(mensagens_sincronizacao.every(({ topic, message }) =>
+    topic === publicacao.topic && !JSON.stringify(message).includes('conteúdo privado de sincronização')
+  )).toBe(true);
+
+  await page.evaluate(async ({ topic, secret, id }) => {
+    const codificar = (valor) => {
+      const bytes = new Uint8Array(valor);
+      let binario = '';
+      for (const byte of bytes) binario += String.fromCharCode(byte);
+      return btoa(binario).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    };
+    const decodificar = (valor) => {
+      const base64 = valor.replace(/-/g, '+').replace(/_/g, '/');
+      const binario = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='));
+      return Uint8Array.from(binario, (caractere) => caractere.charCodeAt(0));
+    };
+    const material = await crypto.subtle.importKey('raw', decodificar(secret), 'HKDF', false, ['deriveKey']);
+    const chave_aes = await crypto.subtle.deriveKey({
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: new TextEncoder().encode('kapivatar-pareamento-v1'),
+      info: new TextEncoder().encode('mqtt-sync-v1'),
+    }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+
+    const lista = JSON.stringify({
+      contatos: [],
+      solicitações_enviadas: [],
+      solicitações_recebidas: [],
+      marcador: 'recebido com segurança',
+    });
+    const hash_buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(lista));
+    const hash = Array.from(new Uint8Array(hash_buffer))
+      .map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    const enviar = async (chave, valor, instante) => {
+      const dados = {
+        versao: 1,
+        tipo: 'sincronizacao',
+        criado_em: Date.now(),
+        dispositivo_id: id,
+        chave,
+        operacao: 'gravar',
+        versao_dado: { instante, dispositivo: id },
+        formato: 'texto',
+        transferencia_id: crypto.randomUUID(),
+        parte: 0,
+        total: 1,
+        dados: codificar(new TextEncoder().encode(valor)),
+      };
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const criptografado = await crypto.subtle.encrypt({
+        name: 'AES-GCM',
+        iv,
+        additionalData: new TextEncoder().encode(topic),
+      }, chave_aes, new TextEncoder().encode(JSON.stringify(dados)));
+      window._mqttClient._simulateIncoming(topic, {
+        versao: 1,
+        uso: 'sincronizacao-v1',
+        iv: codificar(iv),
+        dados: codificar(criptografado),
+      });
+    };
+    const instante = Date.now();
+    await enviar(hash, lista, instante);
+    await enviar('contatos', hash, instante + 1);
+  }, {
+    topic: publicacao.topic,
+    secret: chave_outro_dispositivo,
+    id: id_dispositivo_remoto,
+  });
+  await expect.poll(async () => page.evaluate(async () =>
+    (await window.carregar_lista_contatos()).marcador
+  )).toBe('recebido com segurança');
 });
 
 test('Deve criar um novo arquivo de dados', async ({ page }) => {

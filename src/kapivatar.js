@@ -6,6 +6,7 @@ import {
   gravar_dado_sqlite,
   remover_dado_sqlite,
   existe_dado_sqlite,
+  listar_dados_sqlite,
 } from "./sqlite.js"
 import { mount, unmount } from "svelte"
 import TelaInicial from "./início.svelte"
@@ -79,6 +80,8 @@ const banco_kapivatar = banco({
 })
 
 let diretorio_selecionado = null
+let handle_sincronizado = null
+let banco_sqlite_aberto = false
 
 const gerar_hash = async (conteudo) => {
   const buffer = typeof conteudo === "string" ? new TextEncoder().encode(conteudo) : conteudo
@@ -245,16 +248,26 @@ const vfs_obter = async (key) => await ler_dado_sqlite(key)
 
 const vfs_salvar = async (key, value) => {
   await gravar_dado_sqlite(key, value)
+  if (key !== "arquivo_sqlite") {
+    publicar_alteracao_local(key, value, "gravar").catch((erro) => {
+      console.error("Erro ao sincronizar dado local:", erro)
+    })
+  }
 }
 
 const vfs_remover = async (key) => {
   if (key === "arquivo_sqlite") {
     await remover_handle_salvo()
     diretorio_selecionado = null
-    fechar_banco_sqlite()
+    handle_sincronizado = null
+    banco_sqlite_aberto = false
+    await fechar_banco_sqlite()
     return
   }
   await remover_dado_sqlite(key)
+  publicar_alteracao_local(key, undefined, "remover").catch((erro) => {
+    console.error("Erro ao sincronizar remoção local:", erro)
+  })
 }
 
 const vfs_existe = async (key) => {
@@ -359,6 +372,13 @@ const obter_diretorio = async (sinal_rota) => {
   if (!handle) return null
   if (await handle.queryPermission({ mode: "readwrite" }) === "granted") {
     await abrir_banco_sqlite(handle)
+    banco_sqlite_aberto = true
+    if (handle_sincronizado !== handle) {
+      handle_sincronizado = handle
+      sincronizar_pares_conhecidos().catch((erro) => {
+        console.error("Erro ao iniciar sincronização dos dispositivos pareados:", erro)
+      })
+    }
   }
   return new VirtualDirectoryHandle(handle.name, "", handle)
 }
@@ -644,8 +664,12 @@ const tamanho_chave_pareamento = 32
 const chave_storage_dispositivo = "kapivatar.dispositivo.chave"
 const chave_storage_id_dispositivo = "kapivatar.dispositivo.id"
 const chave_storage_dispositivos_pareados = "kapivatar.dispositivos.pareados"
+const chave_storage_versoes_sincronizacao = "kapivatar.sincronizacao.versoes"
 const prefixo_topico_pareamento = "kapivatar.net/pareamento/"
 const pareamentos_pendentes = new Map()
+const transferencias_sincronizacao = new Map()
+const tamanho_fragmento_sincronizacao = 48 * 1024
+const tamanho_maximo_sincronizacao = 32 * 1024 * 1024
 let elemento_status_pareamento = null
 
 const gerar_chave_secreta_dispositivo = () => {
@@ -704,14 +728,19 @@ const validar_dispositivo_pareado = (dispositivo) => {
 const salvar_dispositivo_pareado = (dispositivo) => {
   validar_dispositivo_pareado(dispositivo)
   const dispositivos = carregar_dispositivos_pareados()
-  if (!dispositivos.some((item) => item.id === dispositivo.id)) {
-    dispositivos.push({
-      id: dispositivo.id,
-      nome: dispositivo.nome,
-      pareado_em: new Date().toISOString(),
-    })
-    localStorage.setItem(chave_storage_dispositivos_pareados, JSON.stringify(dispositivos))
+  const existente = dispositivos.find((item) => item.id === dispositivo.id)
+  const atualizado = {
+    ...existente,
+    id: dispositivo.id,
+    nome: dispositivo.nome,
+    chave_secreta: dispositivo.chave_secreta,
+    pareado_em: existente?.pareado_em || new Date().toISOString(),
   }
+  if (!atualizado.chave_secreta) throw new Error("A chave do dispositivo pareado é inválida.")
+  decodificar_chave_pareamento(atualizado.chave_secreta)
+  if (existente) Object.assign(existente, atualizado)
+  else dispositivos.push(atualizado)
+  localStorage.setItem(chave_storage_dispositivos_pareados, JSON.stringify(dispositivos))
 }
 
 const obter_topico_pareamento = async (chave) => {
@@ -719,7 +748,7 @@ const obter_topico_pareamento = async (chave) => {
   return `${prefixo_topico_pareamento}${hash}`
 }
 
-const derivar_chave_pareamento = async (chave) => {
+const derivar_chave_pareamento = async (chave, contexto = "mqtt-e2e") => {
   const material = await crypto.subtle.importKey(
     "raw",
     decodificar_chave_pareamento(chave),
@@ -732,7 +761,7 @@ const derivar_chave_pareamento = async (chave) => {
       name: "HKDF",
       hash: "SHA-256",
       salt: new TextEncoder().encode("kapivatar-pareamento-v1"),
-      info: new TextEncoder().encode("mqtt-e2e"),
+      info: new TextEncoder().encode(contexto),
     },
     material,
     { name: "AES-GCM", length: 256 },
@@ -742,6 +771,7 @@ const derivar_chave_pareamento = async (chave) => {
 }
 
 const criptografar_mensagem_pareamento = async (chave, topico, mensagem) => {
+  const eh_sincronizacao = mensagem.tipo.startsWith("sincronizacao")
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const dados = await crypto.subtle.encrypt(
     {
@@ -749,18 +779,24 @@ const criptografar_mensagem_pareamento = async (chave, topico, mensagem) => {
       iv,
       additionalData: new TextEncoder().encode(topico),
     },
-    await derivar_chave_pareamento(chave),
+    await derivar_chave_pareamento(chave, eh_sincronizacao ? "mqtt-sync-v1" : "mqtt-e2e"),
     new TextEncoder().encode(JSON.stringify(mensagem)),
   )
   return {
     versao: 1,
+    ...(eh_sincronizacao ? { uso: "sincronizacao-v1" } : {}),
     iv: buffer_para_base64url(iv),
     dados: buffer_para_base64url(dados),
   }
 }
 
 const descriptografar_mensagem_pareamento = async (chave, topico, envelope) => {
-  if (envelope?.versao !== 1 || typeof envelope.iv !== "string" || typeof envelope.dados !== "string") {
+  if (
+    envelope?.versao !== 1 ||
+    (envelope.uso !== undefined && envelope.uso !== "sincronizacao-v1") ||
+    typeof envelope.iv !== "string" ||
+    typeof envelope.dados !== "string"
+  ) {
     throw new Error("Envelope de pareamento inválido.")
   }
   const dados = await crypto.subtle.decrypt(
@@ -769,10 +805,250 @@ const descriptografar_mensagem_pareamento = async (chave, topico, envelope) => {
       iv: base64url_para_buffer(envelope.iv),
       additionalData: new TextEncoder().encode(topico),
     },
-    await derivar_chave_pareamento(chave),
+    await derivar_chave_pareamento(chave, envelope.uso === "sincronizacao-v1" ? "mqtt-sync-v1" : "mqtt-e2e"),
     base64url_para_buffer(envelope.dados),
   )
   return JSON.parse(new TextDecoder().decode(dados))
+}
+
+const ler_versoes_sincronizacao = () => {
+  const salvas = localStorage.getItem(chave_storage_versoes_sincronizacao)
+  return salvas ? JSON.parse(salvas) : {}
+}
+
+const salvar_versao_sincronizacao = (chave, versao) => {
+  const versoes = ler_versoes_sincronizacao()
+  versoes[chave] = versao
+  localStorage.setItem(chave_storage_versoes_sincronizacao, JSON.stringify(versoes))
+}
+
+const comparar_versoes_sincronizacao = (a, b) => {
+  if (!b) return 1
+  if (a.instante !== b.instante) return a.instante - b.instante
+  return a.dispositivo.localeCompare(b.dispositivo)
+}
+
+const nova_versao_sincronizacao = (chave, operacao = "gravar") => {
+  const anterior = ler_versoes_sincronizacao()[chave]
+  const versao = {
+    instante: Math.max(Date.now(), (anterior?.instante || 0) + 1),
+    dispositivo: obter_dispositivo_local().id,
+    operacao,
+  }
+  salvar_versao_sincronizacao(chave, versao)
+  return versao
+}
+
+const serializar_valor_sincronizacao = async (valor) => {
+  if (typeof valor === "string") return { formato: "texto", bytes: new TextEncoder().encode(valor) }
+  if (valor instanceof Blob) return { formato: "binario", bytes: new Uint8Array(await valor.arrayBuffer()) }
+  if (valor instanceof ArrayBuffer) return { formato: "binario", bytes: new Uint8Array(valor) }
+  if (ArrayBuffer.isView(valor)) {
+    return {
+      formato: "binario",
+      bytes: new Uint8Array(valor.buffer, valor.byteOffset, valor.byteLength),
+    }
+  }
+  return { formato: "json", bytes: new TextEncoder().encode(JSON.stringify(valor)) }
+}
+
+const publicar_registro_sincronizacao = async (topico, chave_secreta, chave, registro) => {
+  if (chave === "arquivo_sqlite" || typeof chave !== "string" || chave.length > 512) return
+  const { formato, bytes } = registro.operacao === "remover"
+    ? { formato: "vazio", bytes: new Uint8Array() }
+    : await serializar_valor_sincronizacao(registro.valor)
+  if (bytes.byteLength > tamanho_maximo_sincronizacao) {
+    throw new Error(`O dado "${chave}" excede o limite de sincronização.`)
+  }
+
+  const total = Math.max(1, Math.ceil(bytes.byteLength / tamanho_fragmento_sincronizacao))
+  const transferencia_id = crypto.randomUUID()
+  for (let parte = 0; parte < total; parte++) {
+    const fragmento = bytes.slice(
+      parte * tamanho_fragmento_sincronizacao,
+      Math.min((parte + 1) * tamanho_fragmento_sincronizacao, bytes.byteLength),
+    )
+    const mensagem = await criptografar_mensagem_pareamento(chave_secreta, topico, {
+      versao: 1,
+      tipo: "sincronizacao",
+      criado_em: Date.now(),
+      dispositivo_id: obter_dispositivo_local().id,
+      chave,
+      operacao: registro.operacao || "gravar",
+      versao_dado: registro.versao,
+      formato,
+      transferencia_id,
+      parte,
+      total,
+      dados: buffer_para_base64url(fragmento),
+    })
+    cliente_mqtt.publish(topico, JSON.stringify(mensagem))
+  }
+}
+
+const publicar_registro_para_pares = async (chave, registro, excluir_dispositivo = null) => {
+  const dispositivos = carregar_dispositivos_pareados()
+  for (const dispositivo of dispositivos) {
+    if (!dispositivo.chave_secreta || dispositivo.id === excluir_dispositivo) continue
+    const topico = await obter_topico_pareamento(dispositivo.chave_secreta)
+    await publicar_registro_sincronizacao(topico, dispositivo.chave_secreta, chave, registro)
+  }
+}
+
+const publicar_alteracao_local = async (chave, valor, operacao) => {
+  const versao = nova_versao_sincronizacao(chave, operacao)
+  await publicar_registro_para_pares(chave, { valor, operacao, versao })
+}
+
+const sincronizar_banco_com_par = async (topico, chave_secreta) => {
+  const dados = await listar_dados_sqlite()
+  const chaves_presentes = new Set(dados.map(([chave]) => chave))
+  for (const [chave, valor] of dados) {
+    const versao = ler_versoes_sincronizacao()[chave] || nova_versao_sincronizacao(chave)
+    await publicar_registro_sincronizacao(topico, chave_secreta, chave, { valor, versao })
+  }
+  for (const [chave, versao] of Object.entries(ler_versoes_sincronizacao())) {
+    if (!chaves_presentes.has(chave) && versao.operacao === "remover") {
+      await publicar_registro_sincronizacao(topico, chave_secreta, chave, {
+        operacao: "remover",
+        versao,
+      })
+    }
+  }
+}
+
+const solicitar_sincronizacao_dispositivo = async (topico, chave_secreta) => {
+  if (!banco_sqlite_aberto) return
+  const solicitação = await criptografar_mensagem_pareamento(chave_secreta, topico, {
+    versao: 1,
+    tipo: "sincronizacao_solicitar",
+    criado_em: Date.now(),
+    dispositivo_id: obter_dispositivo_local().id,
+  })
+  cliente_mqtt.publish(topico, JSON.stringify(solicitação))
+}
+
+const sincronizar_pares_conhecidos = async () => {
+  if (!banco_sqlite_aberto) return
+  const dispositivos = carregar_dispositivos_pareados()
+  for (const dispositivo of dispositivos) {
+    if (!dispositivo.chave_secreta) continue
+    const topico = await obter_topico_pareamento(dispositivo.chave_secreta)
+    cliente_mqtt.subscribe(topico)
+    await solicitar_sincronizacao_dispositivo(topico, dispositivo.chave_secreta)
+  }
+}
+
+const decodificar_fragmento_sincronizacao = (mensagem) => {
+  if (
+    mensagem.versao !== 1 ||
+    typeof mensagem.dispositivo_id !== "string" ||
+    typeof mensagem.chave !== "string" ||
+    mensagem.chave.length > 512 ||
+    mensagem.chave === "arquivo_sqlite" ||
+    !["gravar", "remover"].includes(mensagem.operacao) ||
+    !["texto", "json", "binario", "vazio"].includes(mensagem.formato) ||
+    typeof mensagem.transferencia_id !== "string" ||
+    !Number.isInteger(mensagem.parte) ||
+    !Number.isInteger(mensagem.total) ||
+    mensagem.total < 1 ||
+    mensagem.total > 1024 ||
+    mensagem.parte < 0 ||
+    mensagem.parte >= mensagem.total ||
+    typeof mensagem.dados !== "string" ||
+    mensagem.dados.length > Math.ceil(tamanho_fragmento_sincronizacao * 4 / 3) + 4 ||
+    !Number.isSafeInteger(mensagem.versao_dado?.instante) ||
+    mensagem.versao_dado.instante < 0 ||
+    mensagem.versao_dado.instante > Date.now() + 120_000 ||
+    typeof mensagem.versao_dado?.dispositivo !== "string"
+  ) {
+    throw new Error("Fragmento de sincronização inválido.")
+  }
+  return base64url_para_buffer(mensagem.dados)
+}
+
+const processar_mensagem_sincronizacao = async (topico, chave_secreta, mensagem) => {
+  if (!banco_sqlite_aberto) return
+  const pareado = carregar_dispositivos_pareados().find((item) =>
+    item.chave_secreta === chave_secreta && item.id === mensagem.dispositivo_id)
+  if (
+    !pareado ||
+    !Number.isSafeInteger(mensagem.criado_em) ||
+    mensagem.criado_em > Date.now() + 120_000 ||
+    Date.now() - mensagem.criado_em > 120_000
+  ) return
+
+  const bytes = new Uint8Array(decodificar_fragmento_sincronizacao(mensagem))
+  if (bytes.byteLength > tamanho_fragmento_sincronizacao) throw new Error("Fragmento de sincronização excede o limite.")
+  const transferencias = transferencias_sincronizacao
+  for (const [id, transferencia] of transferencias) {
+    if (Date.now() - transferencia.criado_em > 120_000) transferencias.delete(id)
+  }
+  let transferencia = transferencias.get(mensagem.transferencia_id)
+  if (!transferencia) {
+    if (transferencias.size >= 32) throw new Error("Limite de transferências simultâneas excedido.")
+    transferencia = {
+      topico,
+      remetente: mensagem.dispositivo_id,
+      chave: mensagem.chave,
+      operacao: mensagem.operacao,
+      versao: mensagem.versao_dado,
+      formato: mensagem.formato,
+      total: mensagem.total,
+      partes: new Array(mensagem.total),
+      tamanho: 0,
+      criado_em: Date.now(),
+    }
+    transferencias.set(mensagem.transferencia_id, transferencia)
+  }
+  if (
+    transferencia.topico !== topico ||
+    transferencia.remetente !== mensagem.dispositivo_id ||
+    transferencia.chave !== mensagem.chave ||
+    transferencia.operacao !== mensagem.operacao ||
+    transferencia.total !== mensagem.total ||
+    transferencia.formato !== mensagem.formato ||
+    comparar_versoes_sincronizacao(mensagem.versao_dado, transferencia.versao) !== 0
+  ) {
+    transferencias.delete(mensagem.transferencia_id)
+    throw new Error("Fragmentos incompatíveis na sincronização.")
+  }
+  if (!transferencia.partes[mensagem.parte]) {
+    transferencia.partes[mensagem.parte] = bytes
+    transferencia.tamanho += bytes.byteLength
+  }
+  if (transferencia.tamanho > tamanho_maximo_sincronizacao) {
+    transferencias.delete(mensagem.transferencia_id)
+    throw new Error("Dado sincronizado excede o limite.")
+  }
+  if (transferencia.partes.some((parte) => !parte)) return
+
+  transferencias.delete(mensagem.transferencia_id)
+  const versoes = ler_versoes_sincronizacao()
+  if (comparar_versoes_sincronizacao(transferencia.versao, versoes[transferencia.chave]) <= 0) return
+  const conteudo = new Uint8Array(transferencia.tamanho)
+  let deslocamento = 0
+  for (const parte of transferencia.partes) {
+    conteudo.set(parte, deslocamento)
+    deslocamento += parte.byteLength
+  }
+  let valor
+  if (transferencia.formato === "texto") valor = new TextDecoder().decode(conteudo)
+  else if (transferencia.formato === "json") valor = JSON.parse(new TextDecoder().decode(conteudo))
+  else if (transferencia.formato === "binario") valor = conteudo.buffer
+  else if (transferencia.operacao !== "remover") throw new Error("Formato de sincronização inválido.")
+
+  if (transferencia.operacao === "remover") await remover_dado_sqlite(transferencia.chave)
+  else await gravar_dado_sqlite(transferencia.chave, valor)
+  salvar_versao_sincronizacao(transferencia.chave, {
+    ...transferencia.versao,
+    operacao: transferencia.operacao,
+  })
+  await publicar_registro_para_pares(transferencia.chave, {
+    operacao: transferencia.operacao,
+    valor,
+    versao: transferencia.versao,
+  }, transferencia.remetente)
 }
 
 const atualizar_status_pareamento = (mensagem) => {
@@ -785,10 +1061,40 @@ const processar_mensagem_pareamento = async (topico, envelope) => {
   const chave_local = obter_chave_secreta_dispositivo()
   const topico_local = await obter_topico_pareamento(chave_local)
   const pendente = [...pareamentos_pendentes.values()].find((item) => item.topico === topico)
-  const chave = topico_local === topico ? chave_local : pendente?.chave
+  let par_topico = null
+  for (const dispositivo of carregar_dispositivos_pareados()) {
+    if (dispositivo.chave_secreta && await obter_topico_pareamento(dispositivo.chave_secreta) === topico) {
+      par_topico = dispositivo.chave_secreta
+      break
+    }
+  }
+  const chave = topico_local === topico ? chave_local : pendente?.chave || par_topico
   if (!chave) return
 
   const mensagem = await descriptografar_mensagem_pareamento(chave, topico, envelope)
+  if (
+    typeof mensagem.tipo === "string" &&
+    mensagem.tipo.startsWith("sincronizacao") &&
+    envelope.uso !== "sincronizacao-v1"
+  ) {
+    throw new Error("Uso do envelope de sincronização inválido.")
+  }
+  if (mensagem.tipo === "sincronizacao_solicitar") {
+    const pareado = carregar_dispositivos_pareados().find((item) =>
+      item.chave_secreta === chave && item.id === mensagem.dispositivo_id)
+    if (
+      pareado &&
+      Number.isSafeInteger(mensagem.criado_em) &&
+      mensagem.criado_em <= Date.now() + 120_000 &&
+      Date.now() - mensagem.criado_em <= 120_000 &&
+      banco_sqlite_aberto
+    ) await sincronizar_banco_com_par(topico, chave)
+    return
+  }
+  if (mensagem.tipo === "sincronizacao") {
+    await processar_mensagem_sincronizacao(topico, chave, mensagem)
+    return
+  }
   if (
     mensagem.versao !== 1 ||
     typeof mensagem.solicitacao_id !== "string" ||
@@ -811,7 +1117,9 @@ const processar_mensagem_pareamento = async (topico, envelope) => {
       dispositivo: dispositivo_local,
     })
     cliente_mqtt.publish(topico, JSON.stringify(resposta))
-    salvar_dispositivo_pareado(dispositivo_remoto)
+    salvar_dispositivo_pareado({ ...dispositivo_remoto, chave_secreta: chave })
+    cliente_mqtt.subscribe(topico)
+    await sincronizar_banco_com_par(topico, chave)
     atualizar_status_pareamento(`Dispositivo pareado: ${dispositivo_remoto.nome}.`)
     return
   }
@@ -823,9 +1131,12 @@ const processar_mensagem_pareamento = async (topico, envelope) => {
     const dispositivo_remoto = validar_dispositivo_pareado(mensagem.dispositivo)
     clearTimeout(pendente_resposta.timeout)
     pareamentos_pendentes.delete(mensagem.solicitacao_id)
-    salvar_dispositivo_pareado(dispositivo_remoto)
+    salvar_dispositivo_pareado({ ...dispositivo_remoto, chave_secreta: chave })
+    cliente_mqtt.subscribe(topico)
     pendente_resposta.botao.disabled = false
     pendente_resposta.status.textContent = `Dispositivo pareado: ${dispositivo_remoto.nome}.`
+    await sincronizar_banco_com_par(topico, chave)
+    await solicitar_sincronizacao_dispositivo(topico, chave)
   }
 }
 
@@ -844,6 +1155,7 @@ const iniciar_pareamento = async (chave_informada, botao, status) => {
 
   cliente_mqtt.subscribe(topico)
   cliente_mqtt.publish(topico, JSON.stringify(envelope))
+  cliente_mqtt.subscribe(topico)
   botao.disabled = true
   status.textContent = "Solicitação enviada. Aguardando confirmação do outro dispositivo..."
 
@@ -1112,6 +1424,9 @@ const cliente_mqtt = window.cliente_mqtt
 cliente_mqtt.on("connect", () => {
   console.log("Conectado ao MQTT")
   cliente_mqtt.subscribe("kapivatar.net")
+  sincronizar_pares_conhecidos().catch((erro) => {
+    console.error("Erro ao sincronizar dispositivos pareados após conexão MQTT:", erro)
+  })
 })
 
 cliente_mqtt.on("message", (topico, mensagem) => {
@@ -2691,6 +3006,7 @@ const carregar_tela_permissao = async (diretorio) => {
   botão_sair.appendChild(texto_sair)
   botão_sair.onclick = async () => {
     await vfs_remover("arquivo_sqlite")
+    handle_sincronizado = null
     rotear()
   }
   coluna_2.appendChild(botão_sair)
