@@ -1,7 +1,7 @@
 <script>
   import { itens_navegacao } from "./seções"
 
-  let { url_logo, navegar, fechar_sidebar, sair } = $props()
+  let { url_logo, navegar, fechar_sidebar } = $props()
 </script>
 
 <button type="button" class="overlay" aria-label="Fechar menu" onclick={fechar_sidebar}></button>
@@ -44,10 +44,6 @@
 
   <div class="coluna sidebar-rodape">
     <div class="perfil-selecionado-sidebar"></div>
-    <button type="button" onclick={sair}>
-      <span class="material-symbols-outlined">logout</span>
-      <span>Sair</span>
-    </button>
   </div>
 </div>
 
@@ -110,8 +106,7 @@
     padding: 0.5rem 0.25rem;
   }
 
-  .menu a,
-  .sidebar-rodape > button {
+  .menu a {
     box-sizing: border-box;
     min-width: 0;
     width: 3.5rem;
@@ -126,8 +121,7 @@
     text-align: center;
   }
 
-  .menu a .material-symbols-outlined,
-  .sidebar-rodape > button .material-symbols-outlined {
+  .menu a .material-symbols-outlined {
     font-size: 1.7em;
   }
 
@@ -136,10 +130,6 @@
     align-items: center;
     gap: 0.5em;
     padding: 0.5rem 0.25rem;
-  }
-
-  .sidebar-rodape button {
-    background: none;
   }
 
   .perfil-selecionado-sidebar {

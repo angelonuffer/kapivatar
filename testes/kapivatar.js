@@ -39,8 +39,8 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await expect(navegacao).toBeVisible();
   expect(await navegacao.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(5);
   expect(await navegacao.getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label'))))
-    .toEqual(['Início', 'Assobios', 'Perfis', 'Contatos', 'Sair']);
-  await expect(navegacao.locator('.navegacao-inferior-item > span:nth-child(2)')).toHaveText(['Início', 'Assobios', 'Perfis', 'Contatos', 'Sair']);
+    .toEqual(['Início', 'Assobios', 'Perfis', 'Contatos', 'Dispositivos']);
+  await expect(navegacao.locator('.navegacao-inferior-item > span:nth-child(2)')).toHaveText(['Início', 'Assobios', 'Perfis', 'Contatos', 'Dispositivos']);
   await expect(page.locator('.sidebar')).not.toBeVisible();
   await expect(page.locator('.botao-menu')).not.toBeVisible();
   await expect(page.getByRole('button', { name: 'Mais opções' })).not.toBeVisible();
@@ -70,8 +70,9 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await page.getByRole('button', { name: 'Criar perfil' }).click();
   await expect(page).toHaveURL(/\/perfis\/criar$/);
 
-  await navegacao.getByRole('button', { name: 'Sair' }).click();
-  await expect(page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ })).toBeVisible();
+  await navegacao.getByRole('button', { name: 'Dispositivos' }).click();
+  await expect(page).toHaveURL(/\/dispositivos$/);
+  await expect(page.locator('.dispositivo-card')).toHaveCount(1);
 });
 
 test('Deve realizar o logout', async ({ page }) => {
@@ -79,10 +80,12 @@ test('Deve realizar o logout', async ({ page }) => {
   await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
   await expect(page.locator('.conteudo-pagina')).toBeVisible();
 
-  // Logout
-  await page.locator('.sidebar-rodape').getByText('Sair').click();
+  await page.getByRole('link', { name: 'Dispositivos' }).click();
+  await expect(page.locator('.dispositivo-card')).toHaveCount(1);
+  await expect(page.locator('.dispositivo-arquivo')).toContainText('kapivatar.sqlite');
+  await expect(page.getByRole('button', { name: 'Sair deste dispositivo' })).toBeVisible();
 
-  // Verificar se voltou para a tela de login
+  await page.getByRole('button', { name: 'Sair deste dispositivo' }).click();
   await expect(page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ })).toBeVisible();
 });
 

@@ -308,6 +308,38 @@ a.ativo {
   color: var(--cor-primaria);
 }
 
+/* Dispositivos */
+.dispositivos-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 24rem));
+  gap: 1.5em;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dispositivo-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1em;
+  padding: 1.5em;
+  border-radius: 1em;
+  background-color: #333;
+}
+
+.dispositivo-card h2,
+.dispositivo-arquivo {
+  margin: 0;
+}
+
+.dispositivo-arquivo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25em;
+}
+
 /* Contatos e Solicitações */
 .contatos-acoes {
   display: flex;

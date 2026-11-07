@@ -1215,6 +1215,44 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
 const páginas = [
   página_inicial,
   {
+    nome: "Dispositivos",
+    url: "/dispositivos",
+    ícone: "devices",
+    render: (conteudo) => {
+      const lista = document.createElement("ul")
+      lista.classList.add("dispositivos-lista")
+
+      const item = document.createElement("li")
+      item.classList.add("dispositivo-card")
+
+      const titulo = document.createElement("h2")
+      titulo.textContent = "Este dispositivo"
+      item.appendChild(titulo)
+
+      const arquivo = document.createElement("p")
+      arquivo.classList.add("dispositivo-arquivo")
+      const rotulo_arquivo = document.createElement("span")
+      rotulo_arquivo.textContent = "Arquivo de dados"
+      const nome_arquivo = document.createElement("strong")
+      nome_arquivo.textContent = diretorio_selecionado.name
+      arquivo.append(rotulo_arquivo, nome_arquivo)
+      item.appendChild(arquivo)
+
+      const botão_sair = document.createElement("button")
+      botão_sair.type = "button"
+      const ícone_sair = document.createElement("span")
+      ícone_sair.classList.add("material-symbols-outlined")
+      ícone_sair.textContent = "logout"
+      botão_sair.appendChild(ícone_sair)
+      botão_sair.appendChild(document.createTextNode("Sair deste dispositivo"))
+      botão_sair.onclick = sair
+      item.appendChild(botão_sair)
+
+      lista.appendChild(item)
+      conteudo.appendChild(lista)
+    }
+  },
+  {
     nome: "Perfis",
     url: "/perfis",
     ícone: "account_circle",
@@ -2307,13 +2345,13 @@ const carregar_layout = () => {
 
   base_horizontal_montada = mount(BaseHorizontal, {
     target: document.body,
-    props: { url_logo, navegar, fechar_sidebar, sair }
+    props: { url_logo, navegar, fechar_sidebar }
   })
   const base_horizontal = document.body.querySelector(".sidebar")
 
   base_vertical_montada = mount(BaseVertical, {
     target: document.body,
-    props: { navegar, sair, abrir_sidebar }
+    props: { navegar, abrir_sidebar }
   })
   const base_vertical = document.body.querySelector(".conteudo-principal")
 

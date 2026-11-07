@@ -1,7 +1,7 @@
 <script>
   import { itens_navegacao } from "./seções"
 
-  let { navegar, sair, abrir_sidebar } = $props()
+  let { navegar, abrir_sidebar } = $props()
   let botao_menu_acoes
   let menu_acoes
 
@@ -50,10 +50,6 @@
         <span>{item.nome}</span>
       </button>
     {/each}
-    <button type="button" class="navegacao-inferior-item" aria-label="Sair" onclick={sair}>
-      <span class="material-symbols-outlined" aria-hidden="true">logout</span>
-      <span>Sair</span>
-    </button>
   </nav>
 </div>
 
