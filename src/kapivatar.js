@@ -2998,7 +2998,6 @@ const carregar_tela_permissao = async (diretorio) => {
   botão_sair.appendChild(texto_sair)
   botão_sair.onclick = async () => {
     await vfs_remover("arquivo_sqlite")
-    handle_sincronizado = null
     rotear()
   }
   coluna_2.appendChild(botão_sair)
