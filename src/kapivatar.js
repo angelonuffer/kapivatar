@@ -1812,6 +1812,7 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
   input_imagem.onchange = () => {
     const arquivo = input_imagem.files?.[0]
     if (!arquivo) return
+    atualizar_validade_nota()
     img.src = URL.createObjectURL(arquivo)
     nome_imagem.textContent = arquivo.name
     preview_imagem.style.display = "flex"
@@ -1819,13 +1820,29 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
   container_imagem.append(input_imagem, botao_imagem, preview_imagem)
   campo_imagem.append(label_imagem, container_imagem)
   form.appendChild(campo_imagem)
-  form.appendChild(criar_campo("Nota", "textarea", registro?.dados.nota || ""))
+  const campo_nota = criar_campo("Nota", "textarea", registro?.dados.nota || "")
+  form.appendChild(campo_nota)
+  const input_nota = form.elements.namedItem("nota")
+  const atualizar_validade_nota = () => {
+    const tem_imagem = Boolean(input_imagem.files?.length || registro?.dados.imagem)
+    input_nota.required = false
+    input_nota.setCustomValidity(!input_nota.value.trim() && !tem_imagem ? "Informe uma nota ou anexe uma imagem." : "")
+  }
+  input_nota.oninput = atualizar_validade_nota
+  atualizar_validade_nota()
   const botao = document.createElement("button")
   botao.type = "submit"
   botao.textContent = "Salvar Assobio"
   form.appendChild(botao)
   form.onsubmit = async (evento) => {
     evento.preventDefault()
+    atualizar_validade_nota()
+    const nota = form.elements.namedItem("nota")
+    if (!nota.validity.valid) {
+      nota.reportValidity()
+      return
+    }
+    const arquivo_imagem = form.elements.namedItem("imagem").files?.[0]
     botao.disabled = true
     try {
       const option = select.selectedOptions[0]
@@ -1836,7 +1853,6 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
         nota: form.elements.namedItem("nota").value,
         imagem: registro?.dados.imagem,
       }
-      const arquivo_imagem = form.elements.namedItem("imagem").files?.[0]
       if (arquivo_imagem) {
         const bytes = await arquivo_imagem.arrayBuffer()
         dados.imagem = await gerar_hash(bytes)
@@ -2604,15 +2620,18 @@ const páginas = [
         const arquivo_imagem = await aguardar_rota(ler_arquivo(diretorio, dados.imagem), sinal_rota)
         if (arquivo_imagem) {
           const imagem = document.createElement("img")
-          imagem.classList.add("preview-imagem")
+          imagem.classList.add("imagem-assobio")
           imagem.alt = "Imagem do assobio"
           imagem.src = URL.createObjectURL(arquivo_imagem)
           elementos.push(imagem)
         }
       }
-      const nota = document.createElement("p")
-      nota.textContent = dados.nota
-      conteudo.append(...elementos, nota)
+      if (dados.nota) {
+        const nota = document.createElement("p")
+        nota.textContent = dados.nota
+        elementos.push(nota)
+      }
+      conteudo.append(...elementos)
     }
   },
   {
