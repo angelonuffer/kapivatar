@@ -1022,6 +1022,168 @@ const renderizar_lista_perfis = async (conteudo, chave_lista, somente_leitura, s
   }
 }
 
+const carregar_lista_assobios = async (diretorio, chave) => {
+  const arquivo_lista = await ler_arquivo(diretorio, chave)
+  if (!arquivo_lista) return { assobios: [] }
+  const hash_lista = await arquivo_lista.text()
+  const arquivo_conteudo = await ler_arquivo(diretorio, hash_lista)
+  if (!arquivo_conteudo) throw new Error(`Lista de assobios ausente: ${chave}`)
+  return JSON.parse(await arquivo_conteudo.text())
+}
+
+const salvar_lista_assobios = async (diretorio, chave, assobios) => {
+  const arquivo_lista = await ler_arquivo(diretorio, chave)
+  const anterior = arquivo_lista ? await arquivo_lista.text() : null
+  const dados = { assobios, data: new Date().toISOString(), ...(anterior ? { anterior } : {}) }
+  const conteudo = JSON.stringify(dados)
+  const hash = await gerar_hash(conteudo)
+  await escrever_arquivo(diretorio, hash, conteudo)
+  await escrever_arquivo(diretorio, chave, hash)
+}
+
+const carregar_dados_assobio = async (diretorio, id) => {
+  const arquivo_id = await ler_arquivo(diretorio, id)
+  if (!arquivo_id) return null
+  const hash = await arquivo_id.text()
+  const arquivo = await ler_arquivo(diretorio, hash)
+  return arquivo ? { hash, dados: JSON.parse(await arquivo.text()) } : null
+}
+
+const salvar_assobio = async (diretorio, id, dados, hash_anterior = null) => {
+  const versão = { ...dados, data_modificacao: new Date().toISOString(), ...(hash_anterior ? { anterior: hash_anterior } : {}) }
+  const conteudo = JSON.stringify(versão)
+  const hash = await gerar_hash(conteudo)
+  await escrever_arquivo(diretorio, hash, conteudo)
+  await escrever_arquivo(diretorio, id, hash)
+  return versão
+}
+
+const arquivar_assobio = async (id, arquivar) => {
+  const diretorio = await obter_diretorio()
+  const ativos = await carregar_lista_assobios(diretorio, "assobios")
+  const arquivados = await carregar_lista_assobios(diretorio, "assobios_arquivados")
+  if (arquivar) {
+    if (!ativos.assobios.includes(id)) return
+    await salvar_lista_assobios(diretorio, "assobios_arquivados", [...new Set([...arquivados.assobios, id])])
+    await salvar_lista_assobios(diretorio, "assobios", ativos.assobios.filter(item => item !== id))
+  } else {
+    if (!arquivados.assobios.includes(id)) return
+    await salvar_lista_assobios(diretorio, "assobios", [...new Set([...ativos.assobios, id])])
+    await salvar_lista_assobios(diretorio, "assobios_arquivados", arquivados.assobios.filter(item => item !== id))
+  }
+  rotear()
+}
+
+const renderizar_lista_assobios = async (conteudo, chave_lista, sinal_rota) => {
+  const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+  const lista = await carregar_lista_assobios(diretorio, chave_lista)
+  if (!lista.assobios.length) {
+    conteudo.innerHTML = chave_lista === "assobios_arquivados" ? "<p>Nenhum assobio arquivado.</p>" : "<p>Nenhum assobio encontrado.</p>"
+    return
+  }
+  const ul = document.createElement("ul")
+  for (const id of lista.assobios) {
+    const item = document.createElement("li")
+    const registro = await carregar_dados_assobio(diretorio, id)
+    if (!registro) continue
+    const link = document.createElement("a")
+    link.href = `/assobio/${id}`
+    link.textContent = `${registro.dados.perfil_nome} — ${registro.dados.data}`
+    item.appendChild(link)
+    const nota = document.createElement("p")
+    nota.textContent = registro.dados.nota
+    item.appendChild(nota)
+    const acao = document.createElement("button")
+    acao.type = "button"
+    acao.textContent = chave_lista === "assobios_arquivados" ? "Restaurar" : "Arquivar"
+    acao.onclick = async () => await arquivar_assobio(id, chave_lista !== "assobios_arquivados")
+    item.appendChild(acao)
+    ul.appendChild(item)
+  }
+  conteudo.appendChild(ul)
+}
+
+const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
+  const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+  const perfis = await carregar_lista_perfis(diretorio, "perfis")
+  const form = document.createElement("form")
+  form.classList.add("form-perfil")
+
+  const campo_perfil = document.createElement("div")
+  campo_perfil.classList.add("form-campo")
+  const label_perfil = document.createElement("label")
+  label_perfil.textContent = "Perfil"
+  label_perfil.htmlFor = "perfil"
+  const select = document.createElement("select")
+  select.id = "perfil"
+  select.name = "perfil"
+  select.required = true
+  for (const id of perfis.perfis) {
+    const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
+    if (!arquivo_id) continue
+    const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, await arquivo_id.text()), sinal_rota)
+    if (!arquivo_perfil) continue
+    const dados_perfil = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
+    const option = document.createElement("option")
+    option.value = id
+    option.textContent = dados_perfil.nome
+    option.selected = registro?.dados.perfil === id
+    select.appendChild(option)
+  }
+  if (!registro && select.options.length) {
+    const selecionado = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
+    const option = Array.from(select.options).find(item => item.value === selecionado)
+    if (option) option.selected = true
+  }
+  campo_perfil.append(label_perfil, select)
+  form.appendChild(campo_perfil)
+  const criar_campo = (nome, tipo, valor = "") => {
+    const campo = document.createElement("div")
+    campo.classList.add("form-campo")
+    const label = document.createElement("label")
+    label.textContent = nome
+    label.htmlFor = nome.toLowerCase()
+    const input = document.createElement(tipo === "textarea" ? "textarea" : "input")
+    if (tipo !== "textarea") input.type = tipo
+    input.id = nome.toLowerCase()
+    input.name = nome.toLowerCase()
+    input.value = valor
+    input.required = true
+    campo.append(label, input)
+    return campo
+  }
+  form.appendChild(criar_campo("Data", "date", registro?.dados.data || new Date().toISOString().slice(0, 10)))
+  form.appendChild(criar_campo("Nota", "textarea", registro?.dados.nota || ""))
+  const botao = document.createElement("button")
+  botao.type = "submit"
+  botao.textContent = "Salvar Assobio"
+  form.appendChild(botao)
+  form.onsubmit = async (evento) => {
+    evento.preventDefault()
+    botao.disabled = true
+    try {
+      const option = select.selectedOptions[0]
+      const dados = {
+        perfil: select.value,
+        perfil_nome: option.textContent,
+        data: form.elements.namedItem("data").value,
+        nota: form.elements.namedItem("nota").value,
+      }
+      const id = registro?.id || crypto.randomUUID()
+      await salvar_assobio(diretorio, id, dados, registro?.hash)
+      if (!registro) {
+        const ativos = await carregar_lista_assobios(diretorio, "assobios")
+        await salvar_lista_assobios(diretorio, "assobios", [...ativos.assobios, id])
+      }
+      navegar(`/assobio/${id}`)
+    } catch (erro) {
+      console.error("Erro ao salvar assobio:", erro)
+      botao.disabled = false
+    }
+  }
+  conteudo.appendChild(form)
+}
+
 const páginas = [
   página_inicial,
   {
@@ -1540,6 +1702,106 @@ const páginas = [
       } else {
         conteudo.innerHTML = "<p>Nenhum histórico encontrado.</p>"
       }
+    }
+  },
+  {
+    nome: "Assobios",
+    url: "/assobios",
+    ícone: "campaign",
+    ações: [
+      { nome: "Criar assobio", url: "/assobios/criar", ícone: "add" },
+      { nome: "Arquivo", url: "/assobios/arquivo", ícone: "archive" },
+    ],
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      await renderizar_lista_assobios(conteudo, "assobios", sinal_rota)
+    }
+  },
+  {
+    nome: "Criar Assobio",
+    url: "/assobios/criar",
+    ícone: "add",
+    ocultar_no_menu: true,
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      await criar_formulario_assobio(conteudo, null, sinal_rota)
+    }
+  },
+  {
+    nome: "Arquivo de Assobios",
+    url: "/assobios/arquivo",
+    ícone: "archive",
+    ocultar_no_menu: true,
+    ações: [{ nome: "Voltar aos assobios", url: "/assobios", ícone: "campaign" }],
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      await renderizar_lista_assobios(conteudo, "assobios_arquivados", sinal_rota)
+    }
+  },
+  {
+    nome: "Assobio",
+    url: "/assobio/:id",
+    ícone: "campaign",
+    ocultar_no_menu: true,
+    ações: [
+      { nome: "Editar", ícone: "edit", url_dinamica: route_params => `/assobio/${route_params.id}/editar` },
+      { nome: "Histórico", ícone: "history", url_dinamica: route_params => `/assobio/${route_params.id}/histórico` },
+    ],
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+      const atual = await carregar_dados_assobio(diretorio, route_params.id)
+      const hash = params.get("v") || atual?.hash
+      const arquivo = hash ? await aguardar_rota(ler_arquivo(diretorio, hash), sinal_rota) : null
+      if (!arquivo) {
+        conteudo.innerHTML = "<p>Assobio não encontrado.</p>"
+        return
+      }
+      const dados = JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
+      const perfil = document.createElement("p")
+      perfil.textContent = `Perfil: ${dados.perfil_nome}`
+      const data = document.createElement("p")
+      data.textContent = `Data: ${dados.data}`
+      const nota = document.createElement("p")
+      nota.textContent = dados.nota
+      conteudo.append(perfil, data, nota)
+    }
+  },
+  {
+    nome: "Editar Assobio",
+    url: "/assobio/:id/editar",
+    ícone: "edit",
+    ocultar_no_menu: true,
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+      const atual = await carregar_dados_assobio(diretorio, route_params.id)
+      if (!atual) {
+        conteudo.innerHTML = "<p>Assobio não encontrado.</p>"
+        return
+      }
+      await criar_formulario_assobio(conteudo, { ...atual, id: route_params.id }, sinal_rota)
+    }
+  },
+  {
+    nome: "Histórico do Assobio",
+    url: "/assobio/:id/histórico",
+    ícone: "history",
+    ocultar_no_menu: true,
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+      const lista = document.createElement("ul")
+      const atual = await carregar_dados_assobio(diretorio, route_params.id)
+      let hash = atual?.hash
+      while (hash) {
+        const arquivo = await aguardar_rota(ler_arquivo(diretorio, hash), sinal_rota)
+        if (!arquivo) break
+        const versão = JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
+        const item = document.createElement("li")
+        const link = document.createElement("a")
+        link.href = `/assobio/${route_params.id}?v=${hash}`
+        link.textContent = new Date(versão.data_modificacao).toLocaleString()
+        item.appendChild(link)
+        lista.appendChild(item)
+        hash = versão.anterior
+      }
+      if (lista.children.length) conteudo.appendChild(lista)
+      else conteudo.innerHTML = "<p>Nenhum histórico encontrado.</p>"
     }
   },
   {
