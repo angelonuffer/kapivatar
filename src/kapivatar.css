@@ -340,6 +340,37 @@ a.ativo {
   gap: 0.25em;
 }
 
+.dispositivos-pareados {
+  margin-top: 1em;
+}
+
+.dispositivos-pareados h2 {
+  margin-bottom: 0.5em;
+}
+
+.pareamento-dispositivo {
+  display: grid;
+  gap: 1em;
+  max-width: 42rem;
+}
+
+.pareamento-dispositivo > p {
+  margin: 0;
+}
+
+.pareamento-dispositivo .campo-copia-container input {
+  min-width: 0;
+}
+
+.pareamento-formulario {
+  margin: 0;
+}
+
+.pareamento-status {
+  min-height: 1.5em;
+  margin: 0;
+}
+
 /* Contatos e Solicitações */
 .contatos-acoes {
   display: flex;

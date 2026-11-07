@@ -630,6 +630,231 @@ const base64_para_buffer = (base64) => {
   return bytes.buffer
 }
 
+const buffer_para_base64url = (buffer) => buffer_para_base64(buffer)
+  .replace(/\+/g, "-")
+  .replace(/\//g, "_")
+  .replace(/=+$/g, "")
+
+const base64url_para_buffer = (base64url) => {
+  const base64 = base64url.replace(/-/g, "+").replace(/_/g, "/")
+  return base64_para_buffer(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="))
+}
+
+const tamanho_chave_pareamento = 32
+const chave_storage_dispositivo = "kapivatar.dispositivo.chave"
+const chave_storage_id_dispositivo = "kapivatar.dispositivo.id"
+const chave_storage_dispositivos_pareados = "kapivatar.dispositivos.pareados"
+const prefixo_topico_pareamento = "kapivatar.net/pareamento/"
+const pareamentos_pendentes = new Map()
+let elemento_status_pareamento = null
+
+const gerar_chave_secreta_dispositivo = () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(tamanho_chave_pareamento))
+  return buffer_para_base64url(bytes)
+}
+
+const obter_chave_secreta_dispositivo = () => {
+  let chave = localStorage.getItem(chave_storage_dispositivo)
+  if (!chave) {
+    chave = gerar_chave_secreta_dispositivo()
+    localStorage.setItem(chave_storage_dispositivo, chave)
+  }
+  decodificar_chave_pareamento(chave)
+  return chave
+}
+
+const decodificar_chave_pareamento = (chave) => {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(chave)) {
+    throw new Error("A chave secreta precisa ter 43 caracteres válidos.")
+  }
+  const bytes = new Uint8Array(base64url_para_buffer(chave))
+  if (bytes.byteLength !== tamanho_chave_pareamento) {
+    throw new Error("A chave secreta informada é inválida.")
+  }
+  return bytes
+}
+
+const obter_dispositivo_local = () => {
+  let id = localStorage.getItem(chave_storage_id_dispositivo)
+  if (!id) {
+    id = crypto.randomUUID()
+    localStorage.setItem(chave_storage_id_dispositivo, id)
+  }
+  return { id, nome: `Dispositivo ${id.slice(0, 8)}` }
+}
+
+const carregar_dispositivos_pareados = () => {
+  const salvos = localStorage.getItem(chave_storage_dispositivos_pareados)
+  return salvos ? JSON.parse(salvos) : []
+}
+
+const validar_dispositivo_pareado = (dispositivo) => {
+  if (
+    !dispositivo ||
+    typeof dispositivo.id !== "string" ||
+    !/^[0-9a-f-]{36}$/i.test(dispositivo.id) ||
+    typeof dispositivo.nome !== "string" ||
+    dispositivo.nome.length > 80
+  ) {
+    throw new Error("A identidade do dispositivo recebido é inválida.")
+  }
+  return dispositivo
+}
+
+const salvar_dispositivo_pareado = (dispositivo) => {
+  validar_dispositivo_pareado(dispositivo)
+  const dispositivos = carregar_dispositivos_pareados()
+  if (!dispositivos.some((item) => item.id === dispositivo.id)) {
+    dispositivos.push({
+      id: dispositivo.id,
+      nome: dispositivo.nome,
+      pareado_em: new Date().toISOString(),
+    })
+    localStorage.setItem(chave_storage_dispositivos_pareados, JSON.stringify(dispositivos))
+  }
+}
+
+const obter_topico_pareamento = async (chave) => {
+  const hash = await gerar_hash(decodificar_chave_pareamento(chave))
+  return `${prefixo_topico_pareamento}${hash}`
+}
+
+const derivar_chave_pareamento = async (chave) => {
+  const material = await crypto.subtle.importKey(
+    "raw",
+    decodificar_chave_pareamento(chave),
+    "HKDF",
+    false,
+    ["deriveKey"],
+  )
+  return await crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new TextEncoder().encode("kapivatar-pareamento-v1"),
+      info: new TextEncoder().encode("mqtt-e2e"),
+    },
+    material,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  )
+}
+
+const criptografar_mensagem_pareamento = async (chave, topico, mensagem) => {
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const dados = await crypto.subtle.encrypt(
+    {
+      name: "AES-GCM",
+      iv,
+      additionalData: new TextEncoder().encode(topico),
+    },
+    await derivar_chave_pareamento(chave),
+    new TextEncoder().encode(JSON.stringify(mensagem)),
+  )
+  return {
+    versao: 1,
+    iv: buffer_para_base64url(iv),
+    dados: buffer_para_base64url(dados),
+  }
+}
+
+const descriptografar_mensagem_pareamento = async (chave, topico, envelope) => {
+  if (envelope?.versao !== 1 || typeof envelope.iv !== "string" || typeof envelope.dados !== "string") {
+    throw new Error("Envelope de pareamento inválido.")
+  }
+  const dados = await crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: base64url_para_buffer(envelope.iv),
+      additionalData: new TextEncoder().encode(topico),
+    },
+    await derivar_chave_pareamento(chave),
+    base64url_para_buffer(envelope.dados),
+  )
+  return JSON.parse(new TextDecoder().decode(dados))
+}
+
+const atualizar_status_pareamento = (mensagem) => {
+  if (elemento_status_pareamento?.isConnected) {
+    elemento_status_pareamento.textContent = mensagem
+  }
+}
+
+const processar_mensagem_pareamento = async (topico, envelope) => {
+  const chave_local = obter_chave_secreta_dispositivo()
+  const topico_local = await obter_topico_pareamento(chave_local)
+  const pendente = [...pareamentos_pendentes.values()].find((item) => item.topico === topico)
+  const chave = topico_local === topico ? chave_local : pendente?.chave
+  if (!chave) return
+
+  const mensagem = await descriptografar_mensagem_pareamento(chave, topico, envelope)
+  if (
+    mensagem.versao !== 1 ||
+    typeof mensagem.solicitacao_id !== "string" ||
+    typeof mensagem.criado_em !== "number" ||
+    Math.abs(Date.now() - mensagem.criado_em) > 120_000
+  ) {
+    throw new Error("Mensagem de pareamento expirada ou inválida.")
+  }
+
+  if (mensagem.tipo === "solicitacao") {
+    const dispositivo_local = obter_dispositivo_local()
+    if (mensagem.dispositivo?.id === dispositivo_local.id) return
+    const dispositivo_remoto = validar_dispositivo_pareado(mensagem.dispositivo)
+
+    const resposta = await criptografar_mensagem_pareamento(chave, topico, {
+      versao: 1,
+      tipo: "resposta",
+      solicitacao_id: mensagem.solicitacao_id,
+      criado_em: Date.now(),
+      dispositivo: dispositivo_local,
+    })
+    cliente_mqtt.publish(topico, JSON.stringify(resposta))
+    salvar_dispositivo_pareado(dispositivo_remoto)
+    atualizar_status_pareamento(`Dispositivo pareado: ${dispositivo_remoto.nome}.`)
+    return
+  }
+
+  if (mensagem.tipo === "resposta") {
+    const pendente_resposta = pareamentos_pendentes.get(mensagem.solicitacao_id)
+    if (!pendente_resposta || pendente_resposta.topico !== topico) return
+
+    const dispositivo_remoto = validar_dispositivo_pareado(mensagem.dispositivo)
+    clearTimeout(pendente_resposta.timeout)
+    pareamentos_pendentes.delete(mensagem.solicitacao_id)
+    salvar_dispositivo_pareado(dispositivo_remoto)
+    pendente_resposta.botao.disabled = false
+    pendente_resposta.status.textContent = `Dispositivo pareado: ${dispositivo_remoto.nome}.`
+  }
+}
+
+const iniciar_pareamento = async (chave_informada, botao, status) => {
+  const chave = chave_informada.trim()
+  decodificar_chave_pareamento(chave)
+  const topico = await obter_topico_pareamento(chave)
+  const solicitacao_id = crypto.randomUUID()
+  const envelope = await criptografar_mensagem_pareamento(chave, topico, {
+    versao: 1,
+    tipo: "solicitacao",
+    solicitacao_id,
+    criado_em: Date.now(),
+    dispositivo: obter_dispositivo_local(),
+  })
+
+  cliente_mqtt.subscribe(topico)
+  cliente_mqtt.publish(topico, JSON.stringify(envelope))
+  botao.disabled = true
+  status.textContent = "Solicitação enviada. Aguardando confirmação do outro dispositivo..."
+
+  const timeout = setTimeout(() => {
+    pareamentos_pendentes.delete(solicitacao_id)
+    botao.disabled = false
+    status.textContent = "O outro dispositivo não respondeu. Verifique se a página de pareamento está aberta."
+  }, 45_000)
+  pareamentos_pendentes.set(solicitacao_id, { topico, chave, botao, status, timeout })
+}
+
 const enviar_solicitacao_contato = async (id_alvo, eh_retentativa = false) => {
   const id_meu_perfil = await obter_id_perfil_selecionado()
   const diretorio = await obter_diretorio()
@@ -890,13 +1115,19 @@ cliente_mqtt.on("connect", () => {
 })
 
 cliente_mqtt.on("message", (topico, mensagem) => {
-  if (topico === "kapivatar.net") {
-    try {
-      const dados = JSON.parse(mensagem.toString())
-      processar_mensagem_mqtt(dados)
-    } catch (e) {
-      console.error("Erro ao processar mensagem MQTT:", e)
+  try {
+    const dados = JSON.parse(mensagem.toString())
+    if (topico === "kapivatar.net") {
+      processar_mensagem_mqtt(dados).catch((erro) => {
+        console.error("Erro ao processar mensagem MQTT:", erro)
+      })
+    } else if (topico.startsWith(prefixo_topico_pareamento)) {
+      processar_mensagem_pareamento(topico, dados).catch((erro) => {
+        console.error("Erro ao processar mensagem de pareamento:", erro)
+      })
     }
+  } catch (erro) {
+    console.error("Erro ao processar mensagem MQTT:", erro)
   }
 })
 
@@ -1250,6 +1481,136 @@ const páginas = [
 
       lista.appendChild(item)
       conteudo.appendChild(lista)
+
+      const botao_parear = document.createElement("button")
+      botao_parear.type = "button"
+      const icone_parear = document.createElement("span")
+      icone_parear.classList.add("material-symbols-outlined")
+      icone_parear.textContent = "sync_alt"
+      botao_parear.append(icone_parear, document.createTextNode("Parear dispositivo"))
+      botao_parear.onclick = () => navegar("/dispositivos/parear")
+      conteudo.appendChild(botao_parear)
+
+      const dispositivos_pareados = carregar_dispositivos_pareados()
+      const secao_pareados = document.createElement("section")
+      secao_pareados.classList.add("dispositivos-pareados")
+      const titulo_pareados = document.createElement("h2")
+      titulo_pareados.textContent = "Dispositivos pareados"
+      secao_pareados.appendChild(titulo_pareados)
+      if (dispositivos_pareados.length) {
+        const lista_pareados = document.createElement("ul")
+        for (const dispositivo of dispositivos_pareados) {
+          const item_pareado = document.createElement("li")
+          item_pareado.textContent = dispositivo.nome
+          lista_pareados.appendChild(item_pareado)
+        }
+        secao_pareados.appendChild(lista_pareados)
+      } else {
+        const vazio = document.createElement("p")
+        vazio.textContent = "Nenhum dispositivo pareado."
+        secao_pareados.appendChild(vazio)
+      }
+      conteudo.appendChild(secao_pareados)
+    }
+  },
+  {
+    nome: "Parear dispositivo",
+    url: "/dispositivos/parear",
+    ícone: "sync_alt",
+    ocultar_no_menu: true,
+    ações: [{ nome: "Voltar aos dispositivos", url: "/dispositivos", ícone: "devices" }],
+    render: async (conteudo) => {
+      const secao = document.createElement("section")
+      secao.classList.add("pareamento-dispositivo")
+
+      const explicacao = document.createElement("p")
+      explicacao.textContent = "Compartilhe a chave secreta deste dispositivo com o outro dispositivo. As mensagens de pareamento são criptografadas neste navegador antes de serem enviadas pelo MQTT."
+
+      const campo_chave = document.createElement("div")
+      campo_chave.classList.add("form-campo")
+      const rotulo_chave = document.createElement("label")
+      rotulo_chave.htmlFor = "chave_secreta_dispositivo"
+      rotulo_chave.textContent = "Chave secreta deste dispositivo"
+      const container_chave = document.createElement("div")
+      container_chave.classList.add("campo-copia-container")
+      const chave_secreta = document.createElement("input")
+      chave_secreta.id = "chave_secreta_dispositivo"
+      chave_secreta.type = "text"
+      chave_secreta.readOnly = true
+      chave_secreta.autocomplete = "off"
+      const botao_copiar = document.createElement("button")
+      botao_copiar.type = "button"
+      botao_copiar.setAttribute("aria-label", "Copiar chave secreta")
+      const icone_copiar = document.createElement("span")
+      icone_copiar.classList.add("material-symbols-outlined")
+      icone_copiar.textContent = "content_copy"
+      botao_copiar.appendChild(icone_copiar)
+      container_chave.append(chave_secreta, botao_copiar)
+      campo_chave.append(rotulo_chave, container_chave)
+      secao.append(explicacao, campo_chave)
+
+      const form = document.createElement("form")
+      form.classList.add("form-perfil", "pareamento-formulario")
+      const campo_chave_outro = document.createElement("div")
+      campo_chave_outro.classList.add("form-campo")
+      const rotulo_chave_outro = document.createElement("label")
+      rotulo_chave_outro.htmlFor = "chave_secreta_outro_dispositivo"
+      rotulo_chave_outro.textContent = "Chave secreta do outro dispositivo"
+      const chave_outro = document.createElement("input")
+      chave_outro.id = "chave_secreta_outro_dispositivo"
+      chave_outro.name = "chave_secreta_outro_dispositivo"
+      chave_outro.type = "text"
+      chave_outro.required = true
+      chave_outro.autocomplete = "off"
+      chave_outro.spellcheck = false
+      chave_outro.maxLength = 43
+      chave_outro.pattern = "[A-Za-z0-9_-]{43}"
+      campo_chave_outro.append(rotulo_chave_outro, chave_outro)
+      const botao_parear = document.createElement("button")
+      botao_parear.type = "submit"
+      botao_parear.textContent = "Parear"
+      form.append(campo_chave_outro, botao_parear)
+
+      const status = document.createElement("p")
+      status.classList.add("pareamento-status")
+      status.setAttribute("role", "status")
+      status.setAttribute("aria-live", "polite")
+      elemento_status_pareamento = status
+      secao.append(form, status)
+      conteudo.appendChild(secao)
+
+      try {
+        const chave = obter_chave_secreta_dispositivo()
+        chave_secreta.value = chave
+        const topico = await obter_topico_pareamento(chave)
+        cliente_mqtt.subscribe(topico)
+      } catch (erro) {
+        console.error("Erro ao preparar o pareamento:", erro)
+        status.textContent = "Não foi possível preparar o pareamento neste navegador."
+        botao_parear.disabled = true
+      }
+
+      botao_copiar.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(chave_secreta.value)
+          status.textContent = "Chave secreta copiada."
+        } catch (erro) {
+          console.error("Erro ao copiar a chave secreta:", erro)
+          status.textContent = "Não foi possível copiar a chave secreta."
+        }
+      }
+
+      form.onsubmit = async (evento) => {
+        evento.preventDefault()
+        botao_parear.disabled = true
+        try {
+          await iniciar_pareamento(chave_outro.value, botao_parear, status)
+        } catch (erro) {
+          console.error("Erro ao iniciar o pareamento:", erro)
+          status.textContent = erro instanceof Error ? erro.message : "Não foi possível iniciar o pareamento."
+          botao_parear.disabled = false
+        }
+      }
     }
   },
   {

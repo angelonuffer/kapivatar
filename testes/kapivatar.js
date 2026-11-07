@@ -89,6 +89,105 @@ test('Deve realizar o logout', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ })).toBeVisible();
 });
 
+test('Deve parear dispositivos pelo MQTT sem publicar a chave secreta', async ({ page }) => {
+  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
+  await page.getByRole('link', { name: 'Dispositivos' }).click();
+  await page.getByRole('button', { name: 'Parear dispositivo' }).click();
+
+  const minha_chave = page.locator('#chave_secreta_dispositivo')
+  await expect(minha_chave).toHaveValue(/^[A-Za-z0-9_-]{43}$/);
+  const chave = await minha_chave.inputValue();
+  const chave_outro_dispositivo = await page.evaluate(() => {
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    let binario = '';
+    for (const byte of bytes) binario += String.fromCharCode(byte);
+    return btoa(binario).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  });
+
+  await page.getByLabel('Chave secreta do outro dispositivo').fill(chave_outro_dispositivo);
+  await page.getByRole('button', { name: 'Parear', exact: true }).click();
+
+  const publicacao = await page.evaluate(() => window._publishedMessages.at(-1));
+  expect(publicacao.topic).toMatch(/^kapivatar\.net\/pareamento\/[a-f0-9]{64}$/);
+  expect(JSON.stringify(publicacao.message)).not.toContain(chave_outro_dispositivo);
+  expect(publicacao.message.versao).toBe(1);
+  expect(publicacao.message.iv).toMatch(/^[A-Za-z0-9_-]{16}$/);
+
+  const solicitacao = await page.evaluate(async ({ pacote, segredo }) => {
+    const decodificar = (valor) => {
+      const base64 = valor.replace(/-/g, '+').replace(/_/g, '/');
+      const binario = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='));
+      return Uint8Array.from(binario, (caractere) => caractere.charCodeAt(0));
+    };
+    const bytes = decodificar(segredo);
+    const material = await crypto.subtle.importKey('raw', bytes, 'HKDF', false, ['deriveKey']);
+    const chave_aes = await crypto.subtle.deriveKey({
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: new TextEncoder().encode('kapivatar-pareamento-v1'),
+      info: new TextEncoder().encode('mqtt-e2e'),
+    }, material, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const dados = await crypto.subtle.decrypt({
+      name: 'AES-GCM',
+      iv: decodificar(pacote.message.iv),
+      additionalData: new TextEncoder().encode(pacote.topic),
+    }, chave_aes, decodificar(pacote.message.dados));
+    return JSON.parse(new TextDecoder().decode(dados));
+  }, { pacote: publicacao, segredo: chave_outro_dispositivo });
+
+  expect(solicitacao.tipo).toBe('solicitacao');
+  expect(solicitacao.dispositivo.id).toMatch(/^[0-9a-f-]{36}$/i);
+
+  const id_dispositivo_remoto = await page.evaluate(() => crypto.randomUUID());
+  await page.evaluate(async ({ topic, secret, id, requestId }) => {
+    const codificar = (valor) => {
+      const bytes = new Uint8Array(valor);
+      let binario = '';
+      for (const byte of bytes) binario += String.fromCharCode(byte);
+      return btoa(binario).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+    };
+    const decodificar = (valor) => {
+      const base64 = valor.replace(/-/g, '+').replace(/_/g, '/');
+      const binario = atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='));
+      return Uint8Array.from(binario, (caractere) => caractere.charCodeAt(0));
+    };
+    const material = await crypto.subtle.importKey('raw', decodificar(secret), 'HKDF', false, ['deriveKey']);
+    const chave_aes = await crypto.subtle.deriveKey({
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: new TextEncoder().encode('kapivatar-pareamento-v1'),
+      info: new TextEncoder().encode('mqtt-e2e'),
+    }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const dados = await crypto.subtle.encrypt({
+      name: 'AES-GCM',
+      iv,
+      additionalData: new TextEncoder().encode(topic),
+    }, chave_aes, new TextEncoder().encode(JSON.stringify({
+      versao: 1,
+      tipo: 'resposta',
+      solicitacao_id: requestId,
+      criado_em: Date.now(),
+      dispositivo: { id, nome: 'Dispositivo remoto' },
+    })));
+    window._mqttClient._simulateIncoming(topic, {
+      versao: 1,
+      iv: codificar(iv),
+      dados: codificar(dados),
+    });
+  }, {
+    topic: publicacao.topic,
+    secret: chave_outro_dispositivo,
+    id: id_dispositivo_remoto,
+    requestId: solicitacao.solicitacao_id,
+  });
+
+  await expect(page.getByRole('status')).toHaveText('Dispositivo pareado: Dispositivo remoto.');
+  await expect.poll(() => page.evaluate((id) => JSON.parse(
+    localStorage.getItem('kapivatar.dispositivos.pareados')
+  ).some((dispositivo) => dispositivo.id === id), id_dispositivo_remoto)).toBe(true);
+});
+
 test('Deve criar um novo arquivo de dados', async ({ page }) => {
   await page.getByRole('button', { name: /Criar arquivo kapivatar\.sqlite/ }).click();
 
