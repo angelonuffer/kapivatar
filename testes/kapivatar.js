@@ -24,12 +24,27 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
 
   const navegacao = page.getByRole('navigation', { name: 'Navegação principal' });
   await expect(navegacao).toBeVisible();
+  expect(await navegacao.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(5);
   expect(await navegacao.getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label'))))
-    .toEqual(['Início', 'Perfis', 'Contatos', 'Sair']);
-  await expect(navegacao.locator('.navegacao-inferior-item > span:nth-child(2)')).toHaveText(['Início', 'Perfis', 'Contatos', 'Sair']);
+    .toEqual(['Início', 'Assobios', 'Perfis', 'Contatos', 'Sair']);
+  await expect(navegacao.locator('.navegacao-inferior-item > span:nth-child(2)')).toHaveText(['Início', 'Assobios', 'Perfis', 'Contatos', 'Sair']);
   await expect(page.locator('.sidebar')).not.toBeVisible();
   await expect(page.locator('.botao-menu')).not.toBeVisible();
   await expect(page.getByRole('button', { name: 'Mais opções' })).not.toBeVisible();
+
+  await navegacao.getByRole('button', { name: 'Assobios' }).click();
+  await expect(page).toHaveURL(/\/assobios$/);
+  await expect(navegacao.getByRole('button', { name: 'Assobios' })).toHaveClass(/ativo/);
+  await expect(navegacao.getByRole('button', { name: 'Assobios' })).toHaveAttribute('aria-current', 'page');
+
+  await page.getByRole('button', { name: 'Mais opções' }).click();
+  await page.getByRole('button', { name: 'Criar assobio' }).click();
+  await expect(page).toHaveURL(/\/assobios\/criar$/);
+  await expect(navegacao.getByRole('button', { name: 'Assobios' })).toHaveClass(/ativo/);
+
+  await page.evaluate(() => window.navegar('/assobio/teste'));
+  await expect(page).toHaveURL(/\/assobio\/teste$/);
+  await expect(navegacao.getByRole('button', { name: 'Assobios' })).toHaveClass(/ativo/);
 
   await navegacao.getByRole('button', { name: 'Perfis' }).click();
   await expect(page).toHaveURL(/\/perfis$/);

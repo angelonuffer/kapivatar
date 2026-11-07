@@ -2461,15 +2461,12 @@ const renderizar_página = async (página, params, route_params, id_rota, sinal_
     menu.appendChild(link)
   })
 
-  const url_navegacao_ativa = página.url === "/"
-    ? "/"
-    : página.url.startsWith("/perfi")
-      ? "/perfis"
-      : página.url.startsWith("/contato")
-        ? "/contatos"
-        : null
   botoes_navegacao.forEach((botão) => {
-    const ativo = botão.dataset.url === url_navegacao_ativa
+    const ativo = botão.dataset.rotas.split(" ").some((rota) =>
+      rota === "/"
+        ? página.url === rota
+        : página.url === rota || página.url.startsWith(`${rota}/`)
+    )
     botão.classList.toggle("ativo", ativo)
     if (ativo) {
       botão.setAttribute("aria-current", "page")

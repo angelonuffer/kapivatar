@@ -9,9 +9,10 @@
   }
 
   const itens_navegacao = [
-    { nome: "Início", url: "/", icone: "home" },
-    { nome: "Perfis", url: "/perfis", icone: "account_circle" },
-    { nome: "Contatos", url: "/contatos", icone: "contacts" },
+    { nome: "Início", url: "/", rotas: ["/"], icone: "home" },
+    { nome: "Assobios", url: "/assobios", rotas: ["/assobios", "/assobio"], icone: "campaign" },
+    { nome: "Perfis", url: "/perfis", rotas: ["/perfis", "/perfil"], icone: "account_circle" },
+    { nome: "Contatos", url: "/contatos", rotas: ["/contatos", "/contato"], icone: "contacts" },
   ]
 </script>
 
@@ -46,6 +47,7 @@
         class="navegacao-inferior-item"
         aria-label={item.nome}
         data-url={item.url}
+        data-rotas={item.rotas.join(" ")}
         onclick={() => navegar(item.url)}
       >
         <span class="material-symbols-outlined" aria-hidden="true">{item.icone}</span>

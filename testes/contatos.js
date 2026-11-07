@@ -25,7 +25,7 @@ test('Deve realizar fluxo de solicitação, retentativa e confirmação ao receb
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   await page.getByLabel('Nome').fill('Meu Perfil');
-  await page.getByLabel('Bio').fill('Minha bio');
+  await page.getByLabel('Bio', { exact: true }).fill('Minha bio');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
 
   // Selecionar o perfil criado

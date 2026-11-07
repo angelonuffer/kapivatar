@@ -11,7 +11,7 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil', async ({ pa
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   await page.getByLabel('Nome').fill('Capivara Original');
-  await page.getByLabel('Bio').fill('Bio original');
+  await page.getByLabel('Bio', { exact: true }).fill('Bio original');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
 
   // 2. Verificar card e clicar para ver detalhes
@@ -29,7 +29,7 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil', async ({ pa
   await expect(page).toHaveURL(/\/perfil\/[a-f0-9]{64}\/editar/);
 
   await page.getByLabel('Nome').fill('Capivara Editada');
-  await page.getByLabel('Bio').fill('Bio editada');
+  await page.getByLabel('Bio', { exact: true }).fill('Bio editada');
   await page.getByRole('button', { name: 'Salvar Alterações' }).click();
 
   // 5. Verificar atualização nos detalhes
