@@ -80,7 +80,7 @@ const banco_kapivatar = banco({
 })
 
 let diretorio_selecionado = null
-let handle_sincronizado = null
+let sincronizacao_iniciada = false
 let banco_sqlite_aberto = false
 
 const gerar_hash = async (conteudo) => {
@@ -259,7 +259,7 @@ const vfs_remover = async (key) => {
   if (key === "arquivo_sqlite") {
     await remover_handle_salvo()
     diretorio_selecionado = null
-    handle_sincronizado = null
+    sincronizacao_iniciada = false
     banco_sqlite_aberto = false
     await fechar_banco_sqlite()
     return
@@ -373,8 +373,8 @@ const obter_diretorio = async (sinal_rota) => {
   if (await handle.queryPermission({ mode: "readwrite" }) === "granted") {
     await abrir_banco_sqlite(handle)
     banco_sqlite_aberto = true
-    if (handle_sincronizado !== handle) {
-      handle_sincronizado = handle
+    if (!sincronizacao_iniciada) {
+      sincronizacao_iniciada = true
       sincronizar_pares_conhecidos().catch((erro) => {
         console.error("Erro ao iniciar sincronização dos dispositivos pareados:", erro)
       })

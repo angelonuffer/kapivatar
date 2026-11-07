@@ -281,3 +281,27 @@ test('Deve criar um novo arquivo de dados', async ({ page }) => {
   expect(await page.evaluate(() => window._databasePickerOptions.suggestedName)).toBe('kapivatar.sqlite');
   await expect(page.locator('.conteudo-principal')).toBeVisible();
 });
+
+test('Deve sincronizar uma vez ao abrir o banco, sem repetir em cada navegação', async ({ page }) => {
+  await page.evaluate(() => {
+    localStorage.setItem('kapivatar.dispositivos.pareados', JSON.stringify([{
+      id: crypto.randomUUID(),
+      nome: 'Dispositivo pareado',
+      chave_secreta: 'A'.repeat(43),
+      pareado_em: new Date().toISOString(),
+    }]));
+  });
+
+  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
+  await expect.poll(() => page.evaluate(() =>
+    window._publishedMessages.filter(({ message }) => message.uso === 'sincronizacao-v1').length
+  )).toBe(1);
+
+  await page.evaluate(() => window.navegar('/dispositivos'));
+  await expect(page).toHaveURL(/\/dispositivos$/);
+  await page.evaluate(() => window.navegar('/perfis'));
+  await expect(page).toHaveURL(/\/perfis$/);
+  expect(await page.evaluate(() =>
+    window._publishedMessages.filter(({ message }) => message.uso === 'sincronizacao-v1').length
+  )).toBe(1);
+});
