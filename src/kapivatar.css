@@ -581,14 +581,6 @@ a.ativo {
   background-color: #555;
 }
 
-.perfil-menu-item.remover {
-  color: #ff6b6b;
-}
-
-.perfil-menu-item.remover:hover {
-  background-color: rgba(255, 107, 107, 0.15);
-}
-
 .historico {
   margin-top: 2em;
   border-top: 1px solid #444;

@@ -5,38 +5,43 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
 });
 
-test('Deve remover um perfil da lista e aparecer no histórico', async ({ page }) => {
+test('Deve arquivar e restaurar um perfil', async ({ page }) => {
   // Criar um perfil primeiro
   await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
-  await page.getByLabel('Nome').fill('Perfil para Remover');
+  await page.getByLabel('Nome').fill('Perfil para Arquivar');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
 
   // Verificar se o card aparece
-  const card = page.locator('.perfil-card', { hasText: 'Perfil para Remover' });
+  const card = page.locator('.perfil-card', { hasText: 'Perfil para Arquivar' });
   await expect(card).toBeVisible();
 
   // Abrir o menu de três pontos
   await card.getByRole('button', { name: /Ações para/ }).click();
 
-  const menuRemover = page.getByRole('button', { name: 'Remover perfil' });
-  await expect(menuRemover).toBeVisible();
+  const menuArquivar = page.getByRole('button', { name: 'Arquivar perfil' });
+  await expect(menuArquivar).toBeVisible();
 
   // Configurar para aceitar o confirm
   page.once('dialog', dialog => {
-    expect(dialog.message()).toContain('Tem certeza que deseja remover o perfil');
+    expect(dialog.message()).toContain('Tem certeza que deseja arquivar o perfil');
     dialog.accept();
   });
 
-  // Clicar em remover
-  await menuRemover.click();
+  await menuArquivar.click();
 
-  // Verificar se o card sumiu
+  // O perfil sai da lista ativa sem ser excluído
   await expect(card).not.toBeVisible();
   await expect(page.getByText('Nenhum perfil encontrado.')).toBeVisible();
 
-  // Verificar histórico
-  await page.getByRole('button', { name: 'Histórico' }).click();
-  // Deve ter 2 versões: a criação e a remoção
-  await expect(page.locator('.historico ul li')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Arquivo' }).click();
+  await expect(page).toHaveURL(/\/perfis\/arquivo/);
+  const cardArquivado = page.locator('.perfil-card', { hasText: 'Perfil para Arquivar' });
+  await expect(cardArquivado).toBeVisible();
+  await cardArquivado.getByRole('button', { name: /Ações para/ }).click();
+  await page.getByRole('button', { name: 'Restaurar perfil' }).click();
+
+  await expect(page.getByText('Nenhum perfil arquivado.')).toBeVisible();
+  await page.getByRole('button', { name: 'Voltar aos perfis' }).click();
+  await expect(page.locator('.perfil-card', { hasText: 'Perfil para Arquivar' })).toBeVisible();
 });

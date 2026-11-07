@@ -404,33 +404,75 @@ const definir_id_perfil_selecionado = async (id) => {
   await escrever_arquivo(diretorio, "perfil_selecionado", id)
 }
 
-const remover_perfil = async (hash_remover) => {
-  const diretorio = await obter_diretorio()
-  const arquivo_perfis = await ler_arquivo(diretorio, "perfis")
-  if (!arquivo_perfis) return
+const carregar_lista_perfis = async (diretorio, chave) => {
+  const arquivo_lista = await ler_arquivo(diretorio, chave)
+  if (!arquivo_lista) return { perfis: [], data: new Date().toISOString() }
 
-  const hash_lista_atual = await arquivo_perfis.text()
-  const arquivo_lista_atual = await ler_arquivo(diretorio, hash_lista_atual)
-  if (!arquivo_lista_atual) return
+  const hash_lista = await arquivo_lista.text()
+  const arquivo_conteudo = await ler_arquivo(diretorio, hash_lista)
+  if (!arquivo_conteudo) throw new Error(`Lista de perfis ausente: ${chave}`)
+  return JSON.parse(await arquivo_conteudo.text())
+}
 
-  const lista_atual = JSON.parse(await arquivo_lista_atual.text())
+const salvar_lista_perfis = async (diretorio, chave, perfis) => {
+  const arquivo_lista = await ler_arquivo(diretorio, chave)
+  const hash_lista_anterior = arquivo_lista ? await arquivo_lista.text() : null
   const nova_lista = {
-    perfis: lista_atual.perfis.filter(hash => hash !== hash_remover),
+    perfis,
     data: new Date().toISOString(),
-    anterior: hash_lista_atual
+    ...(hash_lista_anterior ? { anterior: hash_lista_anterior } : {})
   }
-
   const conteudo_lista = JSON.stringify(nova_lista)
   const hash_nova_lista = await gerar_hash(conteudo_lista)
   await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista)
-  await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
+  await escrever_arquivo(diretorio, chave, hash_nova_lista)
+}
+
+const arquivar_perfil = async (id_arquivar) => {
+  const diretorio = await obter_diretorio()
+  const lista_ativa = await carregar_lista_perfis(diretorio, "perfis")
+  const lista_arquivada = await carregar_lista_perfis(diretorio, "perfis_arquivados")
+  if (!lista_ativa.perfis.includes(id_arquivar)) return
+
+  await salvar_lista_perfis(
+    diretorio,
+    "perfis_arquivados",
+    [...new Set([...lista_arquivada.perfis, id_arquivar])]
+  )
+  await salvar_lista_perfis(
+    diretorio,
+    "perfis",
+    lista_ativa.perfis.filter(id => id !== id_arquivar)
+  )
 
   const id_selecionado = await obter_id_perfil_selecionado()
-  if (id_selecionado === hash_remover) {
-    const handle = await diretorio.getFileHandle("perfil_selecionado")
-    await handle.remove()
+  if (id_selecionado === id_arquivar) {
+    const arquivo_selecionado = await ler_arquivo(diretorio, "perfil_selecionado")
+    if (arquivo_selecionado) {
+      const handle = await diretorio.getFileHandle("perfil_selecionado")
+      await handle.remove()
+    }
   }
 
+  rotear()
+}
+
+const restaurar_perfil = async (id_restaurar) => {
+  const diretorio = await obter_diretorio()
+  const lista_ativa = await carregar_lista_perfis(diretorio, "perfis")
+  const lista_arquivada = await carregar_lista_perfis(diretorio, "perfis_arquivados")
+  if (!lista_arquivada.perfis.includes(id_restaurar)) return
+
+  await salvar_lista_perfis(
+    diretorio,
+    "perfis",
+    [...new Set([...lista_ativa.perfis, id_restaurar])]
+  )
+  await salvar_lista_perfis(
+    diretorio,
+    "perfis_arquivados",
+    lista_arquivada.perfis.filter(id => id !== id_restaurar)
+  )
   rotear()
 }
 
@@ -830,6 +872,156 @@ cliente_mqtt.on("message", (topico, mensagem) => {
   }
 })
 
+const renderizar_lista_perfis = async (conteudo, chave_lista, somente_leitura, sinal_rota, hash_lista_forcado = null) => {
+  const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+  const arquivo_lista = hash_lista_forcado
+    ? null
+    : await aguardar_rota(ler_arquivo(diretorio, chave_lista), sinal_rota)
+  const hash_lista = hash_lista_forcado || await aguardar_rota(arquivo_lista?.text(), sinal_rota)
+  const arquivo_conteudo = hash_lista
+    ? await aguardar_rota(ler_arquivo(diretorio, hash_lista), sinal_rota)
+    : null
+  const lista = arquivo_conteudo
+    ? JSON.parse(await aguardar_rota(arquivo_conteudo.text(), sinal_rota))
+    : { perfis: [] }
+
+  if (!lista.perfis.length) {
+    conteudo.innerHTML = chave_lista === "perfis_arquivados"
+      ? "<p>Nenhum perfil arquivado.</p>"
+      : "<p>Nenhum perfil encontrado.</p>"
+    return
+  }
+
+  const grid = document.createElement("div")
+  grid.classList.add("perfis-grid")
+  conteudo.appendChild(grid)
+
+  for (const id_ou_hash_perfil of lista.perfis) {
+    let hash_perfil = id_ou_hash_perfil
+    let id_perfil = id_ou_hash_perfil
+
+    const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id_perfil), sinal_rota)
+    if (arquivo_id) {
+      const texto_id = await aguardar_rota(arquivo_id.text(), sinal_rota)
+      if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) {
+        hash_perfil = texto_id
+      } else {
+        id_perfil = null
+      }
+    } else {
+      id_perfil = null
+    }
+
+    const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, hash_perfil), sinal_rota)
+    if (!arquivo_perfil) continue
+    const dados = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
+
+    const card = document.createElement("div")
+    card.classList.add("perfil-card")
+    if (id_perfil) card.onclick = () => navegar(`/perfil/${id_perfil}`)
+
+    if (id_perfil && !somente_leitura) {
+      const menu_container = document.createElement("div")
+      menu_container.classList.add("perfil-menu-container")
+
+      const botao_menu = document.createElement("button")
+      botao_menu.classList.add("perfil-menu-botao")
+      botao_menu.setAttribute("aria-label", `Ações para ${dados.nome}`)
+      const icone_menu = document.createElement("span")
+      icone_menu.classList.add("material-symbols-outlined")
+      icone_menu.textContent = "more_vert"
+      botao_menu.appendChild(icone_menu)
+
+      const dropdown = document.createElement("div")
+      dropdown.classList.add("perfil-menu-dropdown")
+
+      const criar_acao_menu = (nome, icone, executar) => {
+        const item = document.createElement("button")
+        item.classList.add("perfil-menu-item")
+        const simbolo = document.createElement("span")
+        simbolo.classList.add("material-symbols-outlined")
+        simbolo.textContent = icone
+        item.appendChild(simbolo)
+        const texto = document.createElement("span")
+        texto.textContent = nome
+        item.appendChild(texto)
+        item.onclick = async (e) => {
+          e.stopPropagation()
+          await executar()
+        }
+        dropdown.appendChild(item)
+      }
+
+      if (chave_lista === "perfis_arquivados") {
+        criar_acao_menu("Restaurar perfil", "unarchive", () => restaurar_perfil(id_perfil))
+      } else {
+        criar_acao_menu("Selecionar perfil", "check_circle", async () => {
+          await definir_id_perfil_selecionado(id_perfil)
+          navegar("/")
+        })
+        criar_acao_menu("Arquivar perfil", "archive", async () => {
+          if (confirm(`Tem certeza que deseja arquivar o perfil de "${dados.nome}"?`)) {
+            await arquivar_perfil(id_perfil)
+          }
+        })
+      }
+
+      menu_container.appendChild(botao_menu)
+      menu_container.appendChild(dropdown)
+      card.appendChild(menu_container)
+
+      botao_menu.onclick = (e) => {
+        e.stopPropagation()
+        const ja_aberto = dropdown.classList.contains("aberto")
+        document.querySelectorAll(".perfil-menu-dropdown.aberto").forEach(d => d.classList.remove("aberto"))
+        if (!ja_aberto) {
+          dropdown.classList.add("aberto")
+          const fechar = () => {
+            dropdown.classList.remove("aberto")
+            document.removeEventListener("click", fechar)
+          }
+          setTimeout(() => document.addEventListener("click", fechar), 0)
+        }
+      }
+    }
+
+    if (dados.capa) {
+      const img_capa = document.createElement("img")
+      const arquivo_capa = await aguardar_rota(ler_arquivo(diretorio, dados.capa), sinal_rota)
+      if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
+      img_capa.classList.add("perfil-capa")
+      img_capa.alt = `Capa de ${dados.nome}`
+      card.appendChild(img_capa)
+    }
+
+    const info = document.createElement("div")
+    info.classList.add("perfil-info")
+
+    if (dados.foto) {
+      const img_foto = document.createElement("img")
+      const arquivo_foto = await aguardar_rota(ler_arquivo(diretorio, dados.foto), sinal_rota)
+      if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
+      img_foto.classList.add("perfil-foto")
+      img_foto.alt = `Foto de ${dados.nome}`
+      img_foto.style.marginTop = dados.capa ? "-35px" : "0"
+      info.appendChild(img_foto)
+    }
+
+    const nome = document.createElement("h3")
+    nome.textContent = dados.nome
+    nome.classList.add("perfil-nome")
+    info.appendChild(nome)
+
+    const bio = document.createElement("p")
+    bio.textContent = dados.bio
+    bio.classList.add("perfil-bio")
+    info.appendChild(bio)
+
+    card.appendChild(info)
+    grid.appendChild(card)
+  }
+}
+
 const páginas = [
   página_inicial,
   {
@@ -844,187 +1036,13 @@ const páginas = [
         ícone: "person_add",
       },
       {
-        nome: "Histórico",
-        url: "/perfis/histórico",
-        ícone: "history",
+        nome: "Arquivo",
+        url: "/perfis/arquivo",
+        ícone: "archive",
       },
     ],
     render: async (conteudo, params, route_params, sinal_rota) => {
-      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-      const hash_lista_visualizada = params.get("v")
-      const arquivo_lista = hash_lista_visualizada ? null : await aguardar_rota(ler_arquivo(diretorio, "perfis"), sinal_rota)
-      const hash_lista_atual = hash_lista_visualizada || (await aguardar_rota(arquivo_lista?.text(), sinal_rota))
-
-      const carregar_lista = async (hash) => {
-        if (!hash) return null
-        const arquivo = await aguardar_rota(ler_arquivo(diretorio, hash), sinal_rota)
-        if (!arquivo) return null
-        return JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
-      }
-
-      const lista = await aguardar_rota(carregar_lista(hash_lista_atual), sinal_rota)
-
-      if (!lista || lista.perfis.length === 0) {
-        conteudo.innerHTML = "<p>Nenhum perfil encontrado.</p>"
-      } else {
-        const grid = document.createElement("div")
-        grid.classList.add("perfis-grid")
-        conteudo.appendChild(grid)
-
-        for (const id_ou_hash_perfil of lista.perfis) {
-          let hash_perfil = id_ou_hash_perfil
-          let id_perfil = id_ou_hash_perfil
-
-          // Se estamos visualizando a lista atual, os itens são IDs.
-          // Se estamos visualizando uma lista histórica, os itens podem ser hashes de versão (comportamento antigo) ou IDs (novo).
-          // Para garantir compatibilidade e funcionamento correto:
-          if (!hash_lista_visualizada) {
-            // Tenta ler como ID (ponteiro)
-            const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id_perfil), sinal_rota)
-            if (arquivo_id) {
-              const texto_id = await aguardar_rota(arquivo_id.text(), sinal_rota)
-              // Verifica se o conteúdo do arquivo é um hash SHA-256 (64 hex chars)
-              // Se for o próprio JSON (perfil antigo), texto_id começará com '{'
-              if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) {
-                hash_perfil = texto_id
-              } else {
-                // É um perfil antigo que estava na lista por hash de versão
-                id_perfil = null
-                hash_perfil = id_ou_hash_perfil
-              }
-            }
-          } else {
-             // No histórico, tentamos ver se é um ID
-             const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id_perfil), sinal_rota)
-             if (arquivo_id) {
-                const texto_id = await aguardar_rota(arquivo_id.text(), sinal_rota)
-                if (texto_id.length === 64 && /^[a-f0-9]+$/.test(texto_id)) {
-                  hash_perfil = texto_id
-                } else {
-                  id_perfil = null
-                  hash_perfil = id_ou_hash_perfil
-                }
-             } else {
-                // É um hash de versão (perfil antigo)
-                id_perfil = null
-             }
-          }
-
-          const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, hash_perfil), sinal_rota)
-          if (!arquivo_perfil) continue
-          const dados = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
-
-          const card = document.createElement("div")
-          card.classList.add("perfil-card")
-          if (id_perfil) {
-            card.onclick = () => navegar(`/perfil/${id_perfil}`)
-          }
-
-          // Menu de Ações
-          const menu_container = document.createElement("div")
-          menu_container.classList.add("perfil-menu-container")
-
-          const botao_menu = document.createElement("button")
-          botao_menu.classList.add("perfil-menu-botao")
-          botao_menu.setAttribute("aria-label", `Ações para ${dados.nome}`)
-          const icone_menu = document.createElement("span")
-          icone_menu.classList.add("material-symbols-outlined")
-          icone_menu.textContent = "more_vert"
-          botao_menu.appendChild(icone_menu)
-
-          const dropdown = document.createElement("div")
-          dropdown.classList.add("perfil-menu-dropdown")
-
-          const item_selecionar = document.createElement("button")
-          item_selecionar.classList.add("perfil-menu-item")
-          const icone_selecionar = document.createElement("span")
-          icone_selecionar.classList.add("material-symbols-outlined")
-          icone_selecionar.textContent = "check_circle"
-          item_selecionar.appendChild(icone_selecionar)
-          const texto_selecionar = document.createElement("span")
-          texto_selecionar.textContent = "Selecionar perfil"
-          item_selecionar.appendChild(texto_selecionar)
-
-          item_selecionar.onclick = async (e) => {
-            e.stopPropagation()
-            await definir_id_perfil_selecionado(id_perfil)
-            navegar("/")
-          }
-
-          const item_remover = document.createElement("button")
-          item_remover.classList.add("perfil-menu-item", "remover")
-          const icone_remover = document.createElement("span")
-          icone_remover.classList.add("material-symbols-outlined")
-          icone_remover.textContent = "delete"
-          item_remover.appendChild(icone_remover)
-          const texto_remover = document.createElement("span")
-          texto_remover.textContent = "Remover perfil"
-          item_remover.appendChild(texto_remover)
-
-          item_remover.onclick = async (e) => {
-            e.stopPropagation()
-            if (confirm(`Tem certeza que deseja remover o perfil de "${dados.nome}"?`)) {
-              await remover_perfil(id_perfil)
-            }
-          }
-
-          dropdown.appendChild(item_selecionar)
-          dropdown.appendChild(item_remover)
-          menu_container.appendChild(botao_menu)
-          menu_container.appendChild(dropdown)
-          card.appendChild(menu_container)
-
-          botao_menu.onclick = (e) => {
-            e.stopPropagation()
-            const ja_aberto = dropdown.classList.contains("aberto")
-            document.querySelectorAll(".perfil-menu-dropdown.aberto").forEach(d => d.classList.remove("aberto"))
-            if (!ja_aberto) {
-              dropdown.classList.add("aberto")
-              const fechar = () => {
-                dropdown.classList.remove("aberto")
-                document.removeEventListener("click", fechar)
-              }
-              setTimeout(() => document.addEventListener("click", fechar), 0)
-            }
-          }
-
-          if (dados.capa) {
-            const img_capa = document.createElement("img")
-            const arquivo_capa = await aguardar_rota(ler_arquivo(diretorio, dados.capa), sinal_rota)
-            if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
-            img_capa.classList.add("perfil-capa")
-            img_capa.alt = `Capa de ${dados.nome}`
-            card.appendChild(img_capa)
-          }
-
-          const info = document.createElement("div")
-          info.classList.add("perfil-info")
-
-          if (dados.foto) {
-            const img_foto = document.createElement("img")
-            const arquivo_foto = await aguardar_rota(ler_arquivo(diretorio, dados.foto), sinal_rota)
-            if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
-            img_foto.classList.add("perfil-foto")
-            img_foto.alt = `Foto de ${dados.nome}`
-            img_foto.style.marginTop = dados.capa ? "-35px" : "0"
-            info.appendChild(img_foto)
-          }
-
-          const nome = document.createElement("h3")
-          nome.textContent = dados.nome
-          nome.classList.add("perfil-nome")
-          info.appendChild(nome)
-
-          const bio = document.createElement("p")
-          bio.textContent = dados.bio
-          bio.classList.add("perfil-bio")
-          info.appendChild(bio)
-
-          card.appendChild(info)
-          grid.appendChild(card)
-        }
-      }
-
+      await renderizar_lista_perfis(conteudo, "perfis", Boolean(params.get("v")), sinal_rota, params.get("v"))
     }
   },
   {
@@ -1213,50 +1231,15 @@ const páginas = [
     }
   },
   {
-    nome: "Histórico de Perfis",
-    url: "/perfis/histórico",
-    ícone: "history",
+    nome: "Arquivo",
+    url: "/perfis/arquivo",
+    ícone: "archive",
     ocultar_no_menu: true,
+    ações: [
+      { nome: "Voltar aos perfis", url: "/perfis", ícone: "account_circle" },
+    ],
     render: async (conteudo, params, route_params, sinal_rota) => {
-      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-      const arquivo_lista = await aguardar_rota(ler_arquivo(diretorio, "perfis"), sinal_rota)
-      const hash_lista_atual = await aguardar_rota(arquivo_lista?.text(), sinal_rota)
-
-      const carregar_lista = async (hash) => {
-        if (!hash) return null
-        const arquivo = await aguardar_rota(ler_arquivo(diretorio, hash), sinal_rota)
-        if (!arquivo) return null
-        return JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
-      }
-
-      const secao_historico = document.createElement("div")
-      secao_historico.classList.add("historico")
-      secao_historico.style.marginTop = "0"
-      secao_historico.style.borderTop = "none"
-
-      const lista_historico = document.createElement("ul")
-      let hash_cursor = hash_lista_atual
-      while (hash_cursor) {
-        const dados_lista = await aguardar_rota(carregar_lista(hash_cursor), sinal_rota)
-        if (!dados_lista) break
-
-        const item = document.createElement("li")
-        const link = document.createElement("a")
-        const data = window.isScreenshotTest ? new Date('2026-03-30T12:00:00.000Z').toLocaleString() : (dados_lista.data ? new Date(dados_lista.data).toLocaleString() : `Versão: ${hash_cursor}`)
-        link.textContent = data
-        link.href = `/perfis?v=${hash_cursor}`
-        item.appendChild(link)
-        lista_historico.appendChild(item)
-
-        hash_cursor = dados_lista.anterior
-      }
-
-      if (lista_historico.children.length > 0) {
-        secao_historico.appendChild(lista_historico)
-        conteudo.appendChild(secao_historico)
-      } else {
-        conteudo.innerHTML = "<p>Nenhum histórico encontrado.</p>"
-      }
+      await renderizar_lista_perfis(conteudo, "perfis_arquivados", false, sinal_rota)
     }
   },
   {
