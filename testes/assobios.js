@@ -29,9 +29,11 @@ test('Deve criar, editar, arquivar e consultar o histórico de um assobio', asyn
   await expect(page.getByText('Primeira nota')).toBeVisible();
 
   await page.goto('/assobios');
+  await page.getByRole('button', { name: /Ações para Perfil de Assobio/ }).click();
   await page.getByRole('button', { name: 'Arquivar' }).click();
   await page.goto('/assobios/arquivo');
   await expect(page.getByText('Nota atualizada')).toBeVisible();
+  await page.getByRole('button', { name: /Ações para Perfil de Assobio/ }).click();
   await page.getByRole('button', { name: 'Restaurar' }).click();
   await page.goto('/assobios');
   await expect(page.getByText('Nota atualizada')).toBeVisible();

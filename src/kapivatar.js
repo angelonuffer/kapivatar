@@ -1648,22 +1648,71 @@ const renderizar_lista_assobios = async (conteudo, chave_lista, sinal_rota) => {
     return
   }
   const ul = document.createElement("ul")
+  ul.classList.add("assobios-lista")
   for (const id of lista.assobios) {
     const item = document.createElement("li")
+    item.classList.add("assobio-card")
     const registro = await carregar_dados_assobio(diretorio, id)
     if (!registro) continue
     const link = document.createElement("a")
     link.href = `/assobio/${id}`
+    link.classList.add("assobio-card-titulo")
     link.textContent = `${registro.dados.perfil_nome} — ${registro.dados.data}`
     item.appendChild(link)
     const nota = document.createElement("p")
+    nota.classList.add("assobio-card-nota")
     nota.textContent = registro.dados.nota
     item.appendChild(nota)
+
+    const menu_container = document.createElement("div")
+    menu_container.classList.add("assobio-menu-container")
+    const botao_menu = document.createElement("button")
+    botao_menu.type = "button"
+    botao_menu.classList.add("assobio-menu-botao")
+    botao_menu.setAttribute("aria-label", `Ações para ${registro.dados.perfil_nome} — ${registro.dados.data}`)
+    botao_menu.setAttribute("aria-expanded", "false")
+    const icone_menu = document.createElement("span")
+    icone_menu.classList.add("material-symbols-outlined")
+    icone_menu.setAttribute("aria-hidden", "true")
+    icone_menu.textContent = "more_vert"
+    botao_menu.appendChild(icone_menu)
+
+    const dropdown = document.createElement("div")
+    dropdown.classList.add("assobio-menu-dropdown")
     const acao = document.createElement("button")
     acao.type = "button"
-    acao.textContent = chave_lista === "assobios_arquivados" ? "Restaurar" : "Arquivar"
+    acao.classList.add("assobio-menu-item")
+    const icone_acao = document.createElement("span")
+    icone_acao.classList.add("material-symbols-outlined")
+    icone_acao.setAttribute("aria-hidden", "true")
+    icone_acao.textContent = chave_lista === "assobios_arquivados" ? "unarchive" : "archive"
+    const texto_acao = document.createElement("span")
+    texto_acao.textContent = chave_lista === "assobios_arquivados" ? "Restaurar" : "Arquivar"
+    acao.append(icone_acao, texto_acao)
     acao.onclick = async () => await arquivar_assobio(id, chave_lista !== "assobios_arquivados")
-    item.appendChild(acao)
+    dropdown.appendChild(acao)
+    menu_container.append(botao_menu, dropdown)
+    item.appendChild(menu_container)
+
+    botao_menu.onclick = (evento) => {
+      evento.stopPropagation()
+      const ja_aberto = dropdown.classList.contains("aberto")
+      document.querySelectorAll(".assobio-menu-dropdown.aberto").forEach(menu => {
+        menu.classList.remove("aberto")
+        menu.previousElementSibling?.setAttribute("aria-expanded", "false")
+      })
+      if (!ja_aberto) {
+        dropdown.classList.add("aberto")
+        botao_menu.setAttribute("aria-expanded", "true")
+        const fechar = () => {
+          dropdown.classList.remove("aberto")
+          botao_menu.setAttribute("aria-expanded", "false")
+          document.removeEventListener("click", fechar)
+        }
+        setTimeout(() => document.addEventListener("click", fechar), 0)
+      }
+    }
+
     ul.appendChild(item)
   }
   conteudo.appendChild(ul)
