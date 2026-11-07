@@ -2318,15 +2318,15 @@ const carregar_layout = () => {
   const base_vertical = document.body.querySelector(".conteudo-principal")
 
   layout_referencias = {
-    menu: base_horizontal.querySelector(".menu"),
     perfil_selecionado: base_horizontal.querySelector(".perfil-selecionado-sidebar"),
     titulo: base_vertical.querySelector(".titulo-pagina"),
     botao_menu_acoes: base_vertical.querySelector(".botao-mais-acoes"),
     menu_acoes: base_vertical.querySelector(".menu-acoes"),
     conteudo: base_vertical.querySelector(".conteudo-pagina"),
-    botoes_navegacao: Array.from(
-      base_vertical.querySelectorAll(".navegacao-inferior-item[data-url]")
-    )
+    elementos_navegacao: [
+      ...base_horizontal.querySelectorAll(".menu a[data-url]"),
+      ...base_vertical.querySelectorAll(".navegacao-inferior-item[data-url]")
+    ]
   }
 }
 
@@ -2398,42 +2398,21 @@ const atualizar_sidebar_perfil_selecionado = async () => {
 }
 
 const renderizar_página = async (página, params, route_params, id_rota, sinal_rota) => {
-  const { menu, titulo, botao_menu_acoes, menu_acoes, conteudo, botoes_navegacao } = layout_referencias
+  const { titulo, botao_menu_acoes, menu_acoes, conteudo, elementos_navegacao } = layout_referencias
 
   atualizar_sidebar_perfil_selecionado()
 
-  // Atualiza Menu
-  menu.innerHTML = ""
-  páginas.forEach(p => {
-    if (p.ocultar_no_menu || p.url === "/") return
-    const link = document.createElement("a")
-    if (p.ícone) {
-      const span_ícone = document.createElement("span")
-      span_ícone.classList.add("material-symbols-outlined")
-      span_ícone.textContent = p.ícone
-      link.appendChild(span_ícone)
-    }
-    const span_texto = document.createElement("span")
-    span_texto.textContent = p.nome
-    link.appendChild(span_texto)
-    link.href = p.url
-    if (location.pathname === p.url) {
-      link.classList.add("ativo")
-    }
-    menu.appendChild(link)
-  })
-
-  botoes_navegacao.forEach((botão) => {
-    const ativo = botão.dataset.rotas.split(" ").some((rota) =>
+  elementos_navegacao.forEach((item) => {
+    const ativo = item.dataset.rotas.split(" ").some((rota) =>
       rota === "/"
         ? página.url === rota
         : página.url === rota || página.url.startsWith(`${rota}/`)
     )
-    botão.classList.toggle("ativo", ativo)
+    item.classList.toggle("ativo", ativo)
     if (ativo) {
-      botão.setAttribute("aria-current", "page")
+      item.setAttribute("aria-current", "page")
     } else {
-      botão.removeAttribute("aria-current")
+      item.removeAttribute("aria-current")
     }
   })
 

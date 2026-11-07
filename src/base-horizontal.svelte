@@ -1,4 +1,6 @@
 <script>
+  import { itens_navegacao } from "./seções"
+
   let { url_logo, navegar, fechar_sidebar, sair } = $props()
 </script>
 
@@ -23,7 +25,22 @@
     </button>
   </div>
 
-  <div class="coluna menu"></div>
+  <div class="coluna menu">
+    {#each itens_navegacao as item}
+      <a
+        href={item.url}
+        data-url={item.url}
+        data-rotas={item.rotas.join(" ")}
+        onclick={(evento) => {
+          evento.preventDefault()
+          navegar(item.url)
+        }}
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">{item.icone}</span>
+        <span>{item.nome}</span>
+      </a>
+    {/each}
+  </div>
 
   <div class="coluna sidebar-rodape">
     <div class="perfil-selecionado-sidebar"></div>
