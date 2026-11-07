@@ -1774,6 +1774,51 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
     ? /^\d{4}-\d{2}-\d{2}$/.test(data_registro) ? `${data_registro}T00:00` : data_registro.slice(0, 16)
     : data_atual.toISOString().slice(0, 16)
   form.appendChild(criar_campo("Data", "datetime-local", valor_data))
+  const campo_imagem = document.createElement("div")
+  campo_imagem.classList.add("form-campo")
+  const label_imagem = document.createElement("label")
+  label_imagem.textContent = "Imagem"
+  label_imagem.htmlFor = "imagem"
+  const container_imagem = document.createElement("div")
+  container_imagem.classList.add("input-arquivo-container")
+  const input_imagem = document.createElement("input")
+  input_imagem.type = "file"
+  input_imagem.id = "imagem"
+  input_imagem.name = "imagem"
+  input_imagem.accept = "image/*"
+  input_imagem.style.display = "none"
+  const botao_imagem = document.createElement("button")
+  botao_imagem.type = "button"
+  botao_imagem.textContent = "Escolher imagem"
+  botao_imagem.onclick = () => input_imagem.click()
+  const preview_imagem = document.createElement("div")
+  preview_imagem.classList.add("preview-container")
+  const img = document.createElement("img")
+  img.classList.add("preview-imagem")
+  img.alt = "Pré-visualização da imagem do assobio"
+  preview_imagem.appendChild(img)
+  const nome_imagem = document.createElement("span")
+  nome_imagem.classList.add("nome-arquivo")
+  preview_imagem.appendChild(nome_imagem)
+  if (registro?.dados.imagem) {
+    const arquivo_imagem = await aguardar_rota(ler_arquivo(diretorio, registro.dados.imagem), sinal_rota)
+    if (arquivo_imagem) {
+      img.src = URL.createObjectURL(arquivo_imagem)
+      preview_imagem.style.display = "flex"
+    }
+  } else {
+    preview_imagem.style.display = "none"
+  }
+  input_imagem.onchange = () => {
+    const arquivo = input_imagem.files?.[0]
+    if (!arquivo) return
+    img.src = URL.createObjectURL(arquivo)
+    nome_imagem.textContent = arquivo.name
+    preview_imagem.style.display = "flex"
+  }
+  container_imagem.append(input_imagem, botao_imagem, preview_imagem)
+  campo_imagem.append(label_imagem, container_imagem)
+  form.appendChild(campo_imagem)
   form.appendChild(criar_campo("Nota", "textarea", registro?.dados.nota || ""))
   const botao = document.createElement("button")
   botao.type = "submit"
@@ -1789,6 +1834,13 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
         perfil_nome: option.textContent,
         data: form.elements.namedItem("data").value,
         nota: form.elements.namedItem("nota").value,
+        imagem: registro?.dados.imagem,
+      }
+      const arquivo_imagem = form.elements.namedItem("imagem").files?.[0]
+      if (arquivo_imagem) {
+        const bytes = await arquivo_imagem.arrayBuffer()
+        dados.imagem = await gerar_hash(bytes)
+        await escrever_arquivo(diretorio, dados.imagem, bytes)
       }
       const id = registro?.id || crypto.randomUUID()
       await salvar_assobio(diretorio, id, dados, registro?.hash)
@@ -2547,9 +2599,20 @@ const páginas = [
       perfil.textContent = `Perfil: ${dados.perfil_nome}`
       const data = document.createElement("p")
       data.textContent = `Data: ${dados.data}`
+      const elementos = [perfil, data]
+      if (dados.imagem) {
+        const arquivo_imagem = await aguardar_rota(ler_arquivo(diretorio, dados.imagem), sinal_rota)
+        if (arquivo_imagem) {
+          const imagem = document.createElement("img")
+          imagem.classList.add("preview-imagem")
+          imagem.alt = "Imagem do assobio"
+          imagem.src = URL.createObjectURL(arquivo_imagem)
+          elementos.push(imagem)
+        }
+      }
       const nota = document.createElement("p")
       nota.textContent = dados.nota
-      conteudo.append(perfil, data, nota)
+      conteudo.append(...elementos, nota)
     }
   },
   {
