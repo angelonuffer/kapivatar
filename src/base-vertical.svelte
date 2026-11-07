@@ -10,7 +10,17 @@
     botao_menu_acoes.setAttribute("aria-expanded", String(aberto))
   }
 
+  const fechar_menu_acoes_se_fora = (evento) => {
+    if (!(evento.target instanceof Node)) return
+    if (menu_acoes.contains(evento.target) || botao_menu_acoes.contains(evento.target)) return
+
+    menu_acoes.classList.remove("aberto")
+    botao_menu_acoes.setAttribute("aria-expanded", "false")
+  }
+
 </script>
+
+<svelte:window onpointerdown={fechar_menu_acoes_se_fora} onfocusin={fechar_menu_acoes_se_fora} />
 
 <div class="coluna conteudo-principal">
   <div class="linha cabecalho">
