@@ -8,6 +8,8 @@ export const test = base.extend({
       window._databasePickerCalls = 0;
       window._databasePickerOptions = null;
       window._databasePickerType = null;
+      window._databasePickerSelectedName = null;
+      let selectedDatabaseName = 'kapivatar.sqlite';
       const databaseStorageKey = '_kapivatarDatabase';
       const databaseBytes = () => {
         const encoded = sessionStorage.getItem(databaseStorageKey);
@@ -18,7 +20,7 @@ export const test = base.extend({
       const persistDatabase = (bytes) => {
         const binary = Array.from(bytes, byte => String.fromCharCode(byte)).join('');
         sessionStorage.setItem(databaseStorageKey, btoa(binary));
-        files.set('kapivatar.sqlite', bytes);
+        files.set(selectedDatabaseName, bytes);
       };
       const existingDatabase = databaseBytes();
       if (existingDatabase) files.set('kapivatar.sqlite', existingDatabase);
@@ -78,14 +80,16 @@ export const test = base.extend({
         window._databasePickerCalls++;
         window._databasePickerOptions = options;
         window._databasePickerType = 'save';
-        return new window.MockFileHandle(options.suggestedName);
+        selectedDatabaseName = window._databasePickerSelectedName || options.suggestedName;
+        return new window.MockFileHandle(selectedDatabaseName);
       };
 
       window.showOpenFilePicker = async (options) => {
         window._databasePickerCalls++;
         window._databasePickerOptions = options;
         window._databasePickerType = 'open';
-        return [new window.MockFileHandle(options.suggestedName)];
+        selectedDatabaseName = window._databasePickerSelectedName || 'kapivatar.sqlite';
+        return [new window.MockFileHandle(selectedDatabaseName)];
       };
     });
     await use();

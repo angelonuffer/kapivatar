@@ -32,11 +32,11 @@
   <p>Entrar no Kapivatar</p>
   <button onclick={() => escolher_arquivo(abrir_arquivo_sqlite)}>
     <span class="material-symbols-outlined">database</span>
-    <span>Abrir arquivo kapivatar.sqlite</span>
+    <span>Abrir arquivo SQLite</span>
   </button>
   <button onclick={() => escolher_arquivo(criar_arquivo_sqlite)}>
     <span class="material-symbols-outlined">database</span>
-    <span>Criar arquivo kapivatar.sqlite</span>
+    <span>Criar arquivo SQLite</span>
   </button>
   {#if erro_selecao}
     <p role="alert">{erro_selecao}</p>

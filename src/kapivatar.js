@@ -383,12 +383,6 @@ const obter_diretorio = async (sinal_rota) => {
   return new VirtualDirectoryHandle(handle.name, "", handle)
 }
 
-const validar_arquivo_sqlite = (handle) => {
-  if (handle.name !== "kapivatar.sqlite") {
-    throw new Error("O arquivo do banco de dados precisa se chamar kapivatar.sqlite.")
-  }
-}
-
 const opcoes_selecao_sqlite = {
   types: [{ description: "Banco de dados SQLite", accept: { "application/vnd.sqlite3": [".sqlite"] } }],
 }
@@ -401,7 +395,6 @@ const abrir_arquivo_sqlite = async () => {
     ...opcoes_selecao_sqlite,
     multiple: false,
   })
-  validar_arquivo_sqlite(handle)
   await abrir_banco_sqlite(handle)
   await gravar_handle_salvo(handle)
   diretorio_selecionado = handle
@@ -415,7 +408,6 @@ const criar_arquivo_sqlite = async () => {
     suggestedName: "kapivatar.sqlite",
     ...opcoes_selecao_sqlite,
   })
-  validar_arquivo_sqlite(handle)
   await abrir_banco_sqlite(handle)
   await gravar_handle_salvo(handle)
   diretorio_selecionado = handle

@@ -14,7 +14,7 @@ O Kapivatar é uma rede social descentralizada que coloca o usuário no controle
 
 O projeto baseia-se na premissa de que a soberania digital é um direito. Ao utilizar o poder das APIs modernas dos navegadores, o Kapivatar permite que você:
 - **Autentique-se sem senhas centrais:** Utilizando sua própria estrutura de dados.
-- **Armazenamento Local:** Seus dados são guardados em um arquivo `kapivatar.sqlite` escolhido no seu computador através da File System Access API.
+- **Armazenamento Local:** Seus dados são guardados em um arquivo SQLite escolhido no seu computador através da File System Access API. `kapivatar.sqlite` é apenas o nome sugerido ao criar um arquivo.
 - **Privacidade por Padrão:** O que é seu, permanece com você.
 
 ## 🛠 Tecnologias

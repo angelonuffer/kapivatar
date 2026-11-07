@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
 
 test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
   // 1. Login
-  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
+  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
   await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
   expect(await page.evaluate(() => window._databasePickerType)).toBe('open');
   expect(await page.evaluate(() => window._databasePickerOptions.types[0].accept['application/vnd.sqlite3'])).toEqual(['.sqlite']);
@@ -33,7 +33,7 @@ test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
 
 test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
-  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
+  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
 
   const navegacao = page.getByRole('navigation', { name: 'Navegação principal' });
   await expect(navegacao).toBeVisible();
@@ -77,20 +77,21 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
 
 test('Deve realizar o logout', async ({ page }) => {
   // Realizar login primeiro
-  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
+  await page.evaluate(() => { window._databasePickerSelectedName = 'arquivo-pessoal.sqlite'; });
+  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
   await expect(page.locator('.conteudo-pagina')).toBeVisible();
 
   await page.getByRole('link', { name: 'Dispositivos' }).click();
   await expect(page.locator('.dispositivo-card')).toHaveCount(1);
-  await expect(page.locator('.dispositivo-arquivo')).toContainText('kapivatar.sqlite');
+  await expect(page.locator('.dispositivo-arquivo')).toContainText('arquivo-pessoal.sqlite');
   await expect(page.getByRole('button', { name: 'Sair deste dispositivo' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Sair deste dispositivo' }).click();
-  await expect(page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Abrir arquivo SQLite/ })).toBeVisible();
 });
 
 test('Deve parear dispositivos pelo MQTT sem publicar a chave secreta', async ({ page }) => {
-  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
+  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
   await page.getByRole('link', { name: 'Dispositivos' }).click();
   await page.getByRole('button', { name: 'Parear dispositivo' }).click();
 
@@ -273,12 +274,15 @@ test('Deve parear dispositivos pelo MQTT sem publicar a chave secreta', async ({
   )).toBe('recebido com segurança');
 });
 
-test('Deve criar um novo arquivo de dados', async ({ page }) => {
-  await page.getByRole('button', { name: /Criar arquivo kapivatar\.sqlite/ }).click();
+test('Deve criar um novo arquivo de dados com nome escolhido pelo usuário', async ({ page }) => {
+  await page.evaluate(() => { window._databasePickerSelectedName = 'meus-dados.sqlite'; });
+  await page.getByRole('button', { name: /Criar arquivo SQLite/ }).click();
 
   await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
   expect(await page.evaluate(() => window._databasePickerType)).toBe('save');
   expect(await page.evaluate(() => window._databasePickerOptions.suggestedName)).toBe('kapivatar.sqlite');
+  await page.evaluate(() => window.navegar('/dispositivos'));
+  await expect(page.locator('.dispositivo-arquivo')).toContainText('meus-dados.sqlite');
   await expect(page.locator('.conteudo-principal')).toBeVisible();
 });
 
@@ -292,7 +296,7 @@ test('Deve sincronizar uma vez ao abrir o banco, sem repetir em cada navegação
     }]));
   });
 
-  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
+  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
   await expect.poll(() => page.evaluate(() =>
     window._publishedMessages.filter(({ message }) => message.uso === 'sincronizacao-v1').length
   )).toBe(1);
