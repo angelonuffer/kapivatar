@@ -178,6 +178,7 @@
   }
 
   .conteudo-pagina {
+    flex-direction: column;
     flex-grow: 1;
     padding: 2em;
 
