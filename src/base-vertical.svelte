@@ -172,8 +172,6 @@
   }
 
   .conteudo-pagina {
-    background-color: #222;
-    border-radius: 1em;
     flex-grow: 1;
     padding: 2em;
 
