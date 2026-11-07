@@ -543,6 +543,7 @@ a.ativo {
 
 .form-campo input[type="text"],
 .form-campo input[type="date"],
+.form-campo input[type="datetime-local"],
 .form-campo select,
 .form-campo textarea {
   background-color: #333;
@@ -556,6 +557,7 @@ a.ativo {
 
 .form-campo input[type="text"]:focus,
 .form-campo input[type="date"]:focus,
+.form-campo input[type="datetime-local"]:focus,
 .form-campo select:focus,
 .form-campo textarea:focus {
   outline: none;
