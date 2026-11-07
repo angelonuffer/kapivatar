@@ -14,6 +14,18 @@ test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
   // 2. Verificar se está na página Início
   await expect(page.locator('.conteudo-principal')).toBeVisible();
 
+  const itens_sidebar = await page.locator('.sidebar .menu > a').evaluateAll((links) =>
+    links.map((link) => {
+      const { width, height, top } = link.getBoundingClientRect();
+      return { width, height, top, direction: getComputedStyle(link).flexDirection };
+    })
+  );
+  expect(itens_sidebar.length).toBeGreaterThan(0);
+  expect(itens_sidebar.every((item) => item.width === 56 && item.height === 56 && item.direction === 'column')).toBe(true);
+  expect(itens_sidebar.map((item) => item.top)).toEqual(
+    [...itens_sidebar.map((item) => item.top)].sort((a, b) => a - b)
+  );
+
   // 3. Navegação: Perfis (via link de seleção na sidebar quando nenhum perfil está selecionado)
   await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();
   await expect(page.locator('.conteudo-pagina')).toBeVisible();
