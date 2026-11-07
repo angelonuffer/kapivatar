@@ -593,6 +593,12 @@ a.ativo {
   border: 2px solid #444;
 }
 
+.imagem-assobio {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .nome-arquivo {
   font-size: 0.9em;
   color: #bbb;
