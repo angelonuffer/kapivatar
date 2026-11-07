@@ -16,7 +16,7 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage', 
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   await page.getByLabel('Nome').fill('Capivara Autorizada');
-  await page.getByLabel('Bio').fill('Bio autorizada');
+  await page.getByLabel('Bio', { exact: true }).fill('Bio autorizada');
 
   // Adicionar uma foto para testar a renderização da imagem
   const fotoInput = page.locator('input#foto');

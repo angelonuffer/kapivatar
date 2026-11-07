@@ -10,7 +10,7 @@ test('Deve criar perfis e acessar o arquivo', async ({ page }) => {
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   await page.getByLabel('Nome').fill('Capivara de Teste');
-  await page.getByLabel('Bio').fill('Uma bio de teste');
+  await page.getByLabel('Bio', { exact: true }).fill('Uma bio de teste');
 
   const saveButton = page.getByRole('button', { name: 'Salvar Perfil' });
   await saveButton.click();

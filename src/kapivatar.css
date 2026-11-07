@@ -401,7 +401,7 @@ a.ativo {
     box-sizing: border-box;
     flex: 0 0 4.5rem;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     width: 100%;
     height: 4.5rem;
     min-height: 4.5rem;
@@ -665,6 +665,8 @@ a.ativo {
 }
 
 .form-campo input[type="text"],
+.form-campo input[type="date"],
+.form-campo select,
 .form-campo textarea {
   background-color: #333;
   border: 1px solid #444;
@@ -676,6 +678,8 @@ a.ativo {
 }
 
 .form-campo input[type="text"]:focus,
+.form-campo input[type="date"]:focus,
+.form-campo select:focus,
 .form-campo textarea:focus {
   outline: none;
   border-color: var(--cor-primaria-clara);
