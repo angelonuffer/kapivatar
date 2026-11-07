@@ -9,6 +9,7 @@ import {
 } from "./sqlite.js"
 import { mount, unmount } from "svelte"
 import TelaInicial from "./início.svelte"
+import BaseHorizontal from "./base-horizontal.svelte"
 import BaseVertical from "./base-vertical.svelte"
 
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
@@ -51,10 +52,15 @@ const aguardar_rota = (promessa, sinal) => {
 }
 
 let tela_inicial_montada
+let base_horizontal_montada
 let base_vertical_montada
 const renderizar_tela_inicial = (props) => {
   if (tela_inicial_montada) {
     unmount(tela_inicial_montada)
+  }
+  if (base_horizontal_montada) {
+    unmount(base_horizontal_montada)
+    base_horizontal_montada = null
   }
   if (base_vertical_montada) {
     unmount(base_vertical_montada)
@@ -2299,77 +2305,11 @@ const carregar_layout = () => {
   document.body.innerHTML = ""
   document.body.classList.add("app-logado")
 
-  const overlay = document.createElement("div")
-  overlay.classList.add("overlay")
-  overlay.onclick = fechar_sidebar
-  document.body.appendChild(overlay)
-
-  const coluna_1 = document.createElement("div")
-  coluna_1.classList.add("coluna", "sidebar")
-
-  const sidebar_header = document.createElement("div")
-  sidebar_header.classList.add("sidebar-header")
-
-  const link_home = document.createElement("a")
-  link_home.href = "/"
-  link_home.classList.add("sidebar-brand")
-  link_home.onclick = (e) => {
-    e.preventDefault()
-    navegar("/")
-  }
-
-  const logo = document.createElement("img")
-  logo.src = url_logo
-  logo.alt = "Kapivatar Logo"
-  logo.classList.add("sidebar-logo")
-  link_home.appendChild(logo)
-
-  const titulo_brand = document.createElement("span")
-  titulo_brand.textContent = "Kapivatar"
-  titulo_brand.classList.add("sidebar-titulo")
-  link_home.appendChild(titulo_brand)
-
-  sidebar_header.appendChild(link_home)
-
-  const botao_fechar = document.createElement("button")
-  botao_fechar.classList.add("botao-fechar-sidebar")
-  botao_fechar.setAttribute("aria-label", "Fechar menu")
-  const icone_fechar = document.createElement("span")
-  icone_fechar.classList.add("material-symbols-outlined")
-  icone_fechar.textContent = "close"
-  botao_fechar.appendChild(icone_fechar)
-  botao_fechar.onclick = fechar_sidebar
-  sidebar_header.appendChild(botao_fechar)
-
-  coluna_1.appendChild(sidebar_header)
-
-  const coluna_1_1 = document.createElement("div")
-  coluna_1_1.classList.add("coluna", "menu")
-  coluna_1.appendChild(coluna_1_1)
-
-  const coluna_1_2 = document.createElement("div")
-  coluna_1_2.classList.add("coluna", "sidebar-rodape")
-
-  const perfil_selecionado_container = document.createElement("div")
-  perfil_selecionado_container.classList.add("perfil-selecionado-sidebar")
-  coluna_1_2.appendChild(perfil_selecionado_container)
-
-  const link_sair = document.createElement("a")
-  const icone_sair = document.createElement("span")
-  icone_sair.classList.add("material-symbols-outlined")
-  icone_sair.textContent = "logout"
-  link_sair.appendChild(icone_sair)
-  const texto_sair = document.createElement("span")
-  texto_sair.textContent = "Sair"
-  link_sair.appendChild(texto_sair)
-  link_sair.href = "#"
-  link_sair.onclick = async (e) => {
-    e.preventDefault()
-    await sair()
-  }
-  coluna_1_2.appendChild(link_sair)
-  coluna_1.appendChild(coluna_1_2)
-  document.body.appendChild(coluna_1)
+  base_horizontal_montada = mount(BaseHorizontal, {
+    target: document.body,
+    props: { url_logo, navegar, fechar_sidebar, sair }
+  })
+  const base_horizontal = document.body.querySelector(".sidebar")
 
   base_vertical_montada = mount(BaseVertical, {
     target: document.body,
@@ -2378,8 +2318,8 @@ const carregar_layout = () => {
   const base_vertical = document.body.querySelector(".conteudo-principal")
 
   layout_referencias = {
-    menu: coluna_1_1,
-    perfil_selecionado: perfil_selecionado_container,
+    menu: base_horizontal.querySelector(".menu"),
+    perfil_selecionado: base_horizontal.querySelector(".perfil-selecionado-sidebar"),
     titulo: base_vertical.querySelector(".titulo-pagina"),
     botao_menu_acoes: base_vertical.querySelector(".botao-mais-acoes"),
     menu_acoes: base_vertical.querySelector(".menu-acoes"),

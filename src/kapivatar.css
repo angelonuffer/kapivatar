@@ -169,6 +169,10 @@ a.ativo {
   padding: 1em;
 }
 
+.sidebar-rodape button {
+  background: none;
+}
+
 .perfil-selecionado-sidebar {
   display: flex;
   align-items: center;
