@@ -1,4 +1,6 @@
 <script>
+  import { itens_navegacao } from "./seções"
+
   let { navegar, sair, abrir_sidebar } = $props()
   let botao_menu_acoes
   let menu_acoes
@@ -8,12 +10,6 @@
     botao_menu_acoes.setAttribute("aria-expanded", String(aberto))
   }
 
-  const itens_navegacao = [
-    { nome: "Início", url: "/", rotas: ["/"], icone: "home" },
-    { nome: "Assobios", url: "/assobios", rotas: ["/assobios", "/assobio"], icone: "campaign" },
-    { nome: "Perfis", url: "/perfis", rotas: ["/perfis", "/perfil"], icone: "account_circle" },
-    { nome: "Contatos", url: "/contatos", rotas: ["/contatos", "/contato"], icone: "contacts" },
-  ]
 </script>
 
 <div class="coluna conteudo-principal">
