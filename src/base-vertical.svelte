@@ -192,6 +192,22 @@
     }
   }
 
+  @media (max-width: 767px) {
+    .conteudo-pagina :global(.form-assobio) {
+      box-sizing: border-box;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+    }
+
+    .conteudo-pagina :global(.form-assobio .form-campo input),
+    .conteudo-pagina :global(.form-assobio .form-campo select),
+    .conteudo-pagina :global(.form-assobio .form-campo textarea) {
+      box-sizing: border-box;
+      width: 100%;
+    }
+  }
+
   .navegacao-inferior {
     display: none;
 
