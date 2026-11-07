@@ -1673,7 +1673,7 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
   const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
   const perfis = await carregar_lista_perfis(diretorio, "perfis")
   const form = document.createElement("form")
-  form.classList.add("form-perfil")
+  form.classList.add("form-perfil", "form-assobio")
 
   const campo_perfil = document.createElement("div")
   campo_perfil.classList.add("form-campo")
