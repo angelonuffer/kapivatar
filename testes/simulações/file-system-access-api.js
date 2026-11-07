@@ -7,6 +7,7 @@ export const test = base.extend({
       window._files = files;
       window._databasePickerCalls = 0;
       window._databasePickerOptions = null;
+      window._databasePickerType = null;
       const databaseStorageKey = '_kapivatarDatabase';
       const databaseBytes = () => {
         const encoded = sessionStorage.getItem(databaseStorageKey);
@@ -76,7 +77,15 @@ export const test = base.extend({
       window.showSaveFilePicker = async (options) => {
         window._databasePickerCalls++;
         window._databasePickerOptions = options;
+        window._databasePickerType = 'save';
         return new window.MockFileHandle(options.suggestedName);
+      };
+
+      window.showOpenFilePicker = async (options) => {
+        window._databasePickerCalls++;
+        window._databasePickerOptions = options;
+        window._databasePickerType = 'open';
+        return [new window.MockFileHandle(options.suggestedName)];
       };
     });
     await use();

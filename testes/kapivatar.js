@@ -6,9 +6,10 @@ test.beforeEach(async ({ page }) => {
 
 test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
   // 1. Login
-  await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
+  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
   await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
-  expect(await page.evaluate(() => window._databasePickerOptions.suggestedName)).toBe('kapivatar.sqlite');
+  expect(await page.evaluate(() => window._databasePickerType)).toBe('open');
+  expect(await page.evaluate(() => window._databasePickerOptions.types[0].accept['application/vnd.sqlite3'])).toEqual(['.sqlite']);
 
   // 2. Verificar se está na página Início
   await expect(page.locator('.conteudo-principal')).toBeVisible();
@@ -20,7 +21,7 @@ test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
 
 test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
-  await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
+  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
 
   const navegacao = page.getByRole('navigation', { name: 'Navegação principal' });
   await expect(navegacao).toBeVisible();
@@ -58,17 +59,26 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await expect(page).toHaveURL(/\/perfis\/criar$/);
 
   await navegacao.getByRole('button', { name: 'Sair' }).click();
-  await expect(page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ })).toBeVisible();
 });
 
 test('Deve realizar o logout', async ({ page }) => {
   // Realizar login primeiro
-  await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
+  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
   await expect(page.locator('.conteudo-pagina')).toBeVisible();
 
   // Logout
   await page.locator('.sidebar-rodape').getByText('Sair').click();
 
   // Verificar se voltou para a tela de login
-  await expect(page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ })).toBeVisible();
+});
+
+test('Deve criar um novo arquivo de dados', async ({ page }) => {
+  await page.getByRole('button', { name: /Criar arquivo kapivatar\.sqlite/ }).click();
+
+  await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
+  expect(await page.evaluate(() => window._databasePickerType)).toBe('save');
+  expect(await page.evaluate(() => window._databasePickerOptions.suggestedName)).toBe('kapivatar.sqlite');
+  await expect(page.locator('.conteudo-principal')).toBeVisible();
 });

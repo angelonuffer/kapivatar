@@ -357,17 +357,39 @@ const obter_diretorio = async (sinal_rota) => {
   return new VirtualDirectoryHandle(handle.name, "", handle)
 }
 
-const selecionar_arquivo_sqlite = async () => {
-  if (typeof window.showSaveFilePicker !== "function") {
-    throw new Error("Este navegador não oferece suporte à seleção de arquivos.")
-  }
-  const handle = await window.showSaveFilePicker({
-    suggestedName: "kapivatar.sqlite",
-    types: [{ description: "Banco de dados SQLite", accept: { "application/vnd.sqlite3": [".sqlite"] } }],
-  })
+const validar_arquivo_sqlite = (handle) => {
   if (handle.name !== "kapivatar.sqlite") {
     throw new Error("O arquivo do banco de dados precisa se chamar kapivatar.sqlite.")
   }
+}
+
+const opcoes_selecao_sqlite = {
+  types: [{ description: "Banco de dados SQLite", accept: { "application/vnd.sqlite3": [".sqlite"] } }],
+}
+
+const abrir_arquivo_sqlite = async () => {
+  if (typeof window.showOpenFilePicker !== "function") {
+    throw new Error("Este navegador não oferece suporte à seleção de arquivos.")
+  }
+  const [handle] = await window.showOpenFilePicker({
+    ...opcoes_selecao_sqlite,
+    multiple: false,
+  })
+  validar_arquivo_sqlite(handle)
+  await abrir_banco_sqlite(handle)
+  await gravar_handle_salvo(handle)
+  diretorio_selecionado = handle
+}
+
+const criar_arquivo_sqlite = async () => {
+  if (typeof window.showSaveFilePicker !== "function") {
+    throw new Error("Este navegador não oferece suporte à criação de arquivos.")
+  }
+  const handle = await window.showSaveFilePicker({
+    suggestedName: "kapivatar.sqlite",
+    ...opcoes_selecao_sqlite,
+  })
+  validar_arquivo_sqlite(handle)
   await abrir_banco_sqlite(handle)
   await gravar_handle_salvo(handle)
   diretorio_selecionado = handle
@@ -2690,7 +2712,7 @@ const rotear = async () => {
       const diretorio = await obter_diretorio()
       if (!diretorio) {
         layout_referencias = null
-        renderizar_tela_inicial({ url_logo, url_capivara, selecionar_arquivo_sqlite, navegar })
+        renderizar_tela_inicial({ url_logo, url_capivara, abrir_arquivo_sqlite, criar_arquivo_sqlite, navegar })
         return
       }
 
@@ -2830,7 +2852,7 @@ const rotear = async () => {
 
   if (!diretorio) {
     layout_referencias = null
-    renderizar_tela_inicial({ url_logo, url_capivara, selecionar_arquivo_sqlite, navegar })
+    renderizar_tela_inicial({ url_logo, url_capivara, abrir_arquivo_sqlite, criar_arquivo_sqlite, navegar })
     return
   }
 

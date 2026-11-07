@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
+  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
 });
 
 test('Deve realizar o fluxo de autenticação e comunicação via postMessage', async ({ page }) => {

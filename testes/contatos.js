@@ -18,7 +18,7 @@ test('Deve realizar fluxo de solicitação, retentativa e confirmação ao receb
   });
   await page.clock.setFixedTime(new Date('2026-01-15T12:00:00.000Z'));
   await page.goto('/');
-  await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
+  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
 
   // 1. Criar perfil
   await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();

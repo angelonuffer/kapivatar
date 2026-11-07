@@ -2,7 +2,7 @@ import { test, expect } from './simulações/fixtures.js';
 
 test('Deve criar, editar, arquivar e consultar o histórico de um assobio', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
+  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
   await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
   await page.getByLabel('Nome').fill('Perfil de Assobio');

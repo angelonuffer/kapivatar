@@ -2,7 +2,7 @@ import { test, expect } from './simulações/fixtures.js';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Escolher arquivo kapivatar\.sqlite/ }).click();
+  await page.getByRole('button', { name: /Abrir arquivo kapivatar\.sqlite/ }).click();
 });
 
 test('Deve criar perfis e acessar o arquivo', async ({ page }) => {
