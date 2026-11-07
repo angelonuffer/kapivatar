@@ -51,7 +51,7 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await expect(navegacao.getByRole('button', { name: 'Assobios' })).toHaveAttribute('aria-current', 'page');
 
   await page.getByRole('button', { name: 'Mais opções' }).click();
-  await page.getByRole('button', { name: 'Criar assobio' }).click();
+  await page.getByRole('button', { name: 'Assobiar' }).click();
   await expect(page).toHaveURL(/\/assobios\/criar$/);
   await expect(navegacao.getByRole('button', { name: 'Assobios' })).toHaveClass(/ativo/);
 

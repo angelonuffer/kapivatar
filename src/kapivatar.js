@@ -2498,7 +2498,7 @@ const páginas = [
     url: "/assobios",
     ícone: "campaign",
     ações: [
-      { nome: "Criar assobio", url: "/assobios/criar", ícone: "add" },
+      { nome: "Assobiar", url: "/assobios/criar", ícone: "add" },
       { nome: "Arquivo", url: "/assobios/arquivo", ícone: "archive" },
     ],
     render: async (conteudo, params, route_params, sinal_rota) => {
@@ -2506,7 +2506,7 @@ const páginas = [
     }
   },
   {
-    nome: "Criar Assobio",
+    nome: "Assobiar",
     url: "/assobios/criar",
     ícone: "add",
     ocultar_no_menu: true,
