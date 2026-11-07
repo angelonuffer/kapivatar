@@ -570,6 +570,28 @@ a.ativo {
   min-height: 100px;
 }
 
+.campo-nota-container {
+  position: relative;
+}
+
+.campo-nota-container textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding-bottom: 3em;
+}
+
+.botao-descricao-imagem {
+  position: absolute;
+  right: 0.5em;
+  bottom: 0.5em;
+  padding: 0.35em;
+}
+
+.status-descricao-imagem {
+  color: #bbb;
+  font-size: 0.9em;
+}
+
 /* Custom File Input */
 .input-arquivo-container {
   display: flex;
