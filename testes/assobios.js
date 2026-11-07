@@ -11,7 +11,8 @@ test('Deve criar, editar, arquivar e consultar o histórico de um assobio', asyn
 
   await page.goto('/assobios/criar');
   await page.getByLabel('Perfil').selectOption({ label: 'Perfil de Assobio' });
-  await page.getByLabel('Data').fill('2026-11-07');
+  await expect(page.getByLabel('Data')).toHaveAttribute('type', 'datetime-local');
+  await page.getByLabel('Data').fill('2026-11-07T13:45');
   await page.getByLabel('Nota').fill('Primeira nota');
   await page.getByRole('button', { name: 'Salvar Assobio' }).click();
   await expect(page.getByText('Primeira nota')).toBeVisible();
