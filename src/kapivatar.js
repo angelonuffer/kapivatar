@@ -84,6 +84,8 @@ let sincronizacao_iniciada = false
 let banco_sqlite_aberto = false
 let gerador_descricao_imagem
 let carregamento_gerador_descricao_imagem
+let tradutor_descricao_imagem
+let carregamento_tradutor_descricao_imagem
 
 const gerar_hash = async (conteudo) => {
   const buffer = typeof conteudo === "string" ? new TextEncoder().encode(conteudo) : conteudo
@@ -107,7 +109,20 @@ const descrever_imagem = async (imagem) => {
     const resultado = await gerador_descricao_imagem(url_imagem)
     const descricao = resultado?.[0]?.generated_text?.trim()
     if (!descricao) throw new Error("O modelo não gerou uma descrição para esta imagem.")
-    return descricao
+    if (!tradutor_descricao_imagem) {
+      carregamento_tradutor_descricao_imagem ??= import("@huggingface/transformers")
+        .then(({ pipeline }) => pipeline("translation", "Xenova/opus-mt-en-pt"))
+      try {
+        tradutor_descricao_imagem = await carregamento_tradutor_descricao_imagem
+      } catch (erro) {
+        carregamento_tradutor_descricao_imagem = null
+        throw erro
+      }
+    }
+    const resultado_traducao = await tradutor_descricao_imagem(descricao)
+    const descricao_traduzida = resultado_traducao?.[0]?.translation_text?.trim()
+    if (!descricao_traduzida) throw new Error("O modelo não traduziu a descrição para português.")
+    return descricao_traduzida
   } finally {
     URL.revokeObjectURL(url_imagem)
   }
@@ -1863,11 +1878,11 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
   botao_descricao.onclick = async () => {
     if (!imagem_atual) return
     botao_descricao.disabled = true
-    status_descricao.textContent = "Gerando descrição localmente…"
+    status_descricao.textContent = "Gerando e traduzindo a descrição para português localmente…"
     try {
       input_nota.value = await descrever_imagem(imagem_atual)
       atualizar_validade_nota()
-      status_descricao.textContent = "Descrição adicionada à nota."
+      status_descricao.textContent = "Descrição em português adicionada à nota."
     } catch (erro) {
       console.error("Erro ao gerar descrição da imagem:", erro)
       status_descricao.textContent = "Não foi possível gerar a descrição. Tente novamente."
