@@ -1767,7 +1767,13 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
     campo.append(label, input)
     return campo
   }
-  form.appendChild(criar_campo("Data", "date", registro?.dados.data || new Date().toISOString().slice(0, 10)))
+  const data_atual = new Date()
+  data_atual.setMinutes(data_atual.getMinutes() - data_atual.getTimezoneOffset())
+  const data_registro = registro?.dados.data
+  const valor_data = data_registro
+    ? /^\d{4}-\d{2}-\d{2}$/.test(data_registro) ? `${data_registro}T00:00` : data_registro.slice(0, 16)
+    : data_atual.toISOString().slice(0, 16)
+  form.appendChild(criar_campo("Data", "datetime-local", valor_data))
   form.appendChild(criar_campo("Nota", "textarea", registro?.dados.nota || ""))
   const botao = document.createElement("button")
   botao.type = "submit"
