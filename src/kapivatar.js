@@ -772,6 +772,11 @@ const obter_nome_dispositivo_local = () => {
   return nome_dispositivo_local_promise
 }
 
+const renomear_dispositivo_local = async (nome) => {
+  await gravar_dado_sqlite("kapivatar.dispositivo.nome", nome)
+  nome_dispositivo_local_promise = Promise.resolve(nome)
+}
+
 const obter_dispositivo_local = async () => ({
   id: obter_id_dispositivo_local(),
   nome: await obter_nome_dispositivo_local(),
@@ -1798,8 +1803,16 @@ const páginas = [
         arquivo_nome: diretorio_selecionado.name,
         nome_dispositivo: await obter_nome_dispositivo_local(),
         dispositivos_pareados: carregar_dispositivos_pareados(),
+        renomear_dispositivo: renomear_dispositivo_local,
+        abrir_arquivo_sqlite: async () => {
+          await abrir_arquivo_sqlite()
+          navegar("/")
+        },
+        criar_arquivo_sqlite: async () => {
+          await criar_arquivo_sqlite()
+          navegar("/")
+        },
         sair,
-        navegar,
       },
     })
   },
