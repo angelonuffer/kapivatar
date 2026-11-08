@@ -111,7 +111,7 @@ const descrever_imagem = async (imagem) => {
     if (!descricao) throw new Error("O modelo não gerou uma descrição para esta imagem.")
     if (!tradutor_descricao_imagem) {
       carregamento_tradutor_descricao_imagem ??= import("@huggingface/transformers")
-        .then(({ pipeline }) => pipeline("translation", "Xenova/opus-mt-en-pt"))
+        .then(({ pipeline }) => pipeline("translation", "Xenova/nllb-200-distilled-600M"))
       try {
         tradutor_descricao_imagem = await carregamento_tradutor_descricao_imagem
       } catch (erro) {
@@ -119,7 +119,10 @@ const descrever_imagem = async (imagem) => {
         throw erro
       }
     }
-    const resultado_traducao = await tradutor_descricao_imagem(descricao)
+    const resultado_traducao = await tradutor_descricao_imagem(descricao, {
+      src_lang: "eng_Latn",
+      tgt_lang: "por_Latn",
+    })
     const descricao_traduzida = resultado_traducao?.[0]?.translation_text?.trim()
     if (!descricao_traduzida) throw new Error("O modelo não traduziu a descrição para português.")
     return descricao_traduzida
