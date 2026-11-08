@@ -437,6 +437,7 @@ const abrir_arquivo_sqlite = async () => {
     ...opcoes_selecao_sqlite,
     multiple: false,
   })
+  await handle.requestPermission({ mode: "readwrite" })
   await abrir_banco_sqlite(handle)
   await gravar_handle_salvo(handle)
   diretorio_selecionado = handle
@@ -450,6 +451,7 @@ const criar_arquivo_sqlite = async () => {
     suggestedName: "kapivatar.sqlite",
     ...opcoes_selecao_sqlite,
   })
+  await handle.requestPermission({ mode: "readwrite" })
   await abrir_banco_sqlite(handle)
   await gravar_handle_salvo(handle)
   diretorio_selecionado = handle

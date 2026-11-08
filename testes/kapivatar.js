@@ -10,6 +10,7 @@ test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
   await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
   expect(await page.evaluate(() => window._databasePickerType)).toBe('open');
   expect(await page.evaluate(() => window._databasePickerOptions.types[0].accept['application/vnd.sqlite3'])).toEqual(['.sqlite']);
+  await expect.poll(() => page.evaluate(() => window._databasePermissionRequests)).toBe(1);
 
   // 2. Verificar se está na página Início
   await expect(page.locator('.conteudo-principal')).toBeVisible();
@@ -281,6 +282,7 @@ test('Deve criar um novo arquivo de dados com nome escolhido pelo usuário', asy
   await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
   expect(await page.evaluate(() => window._databasePickerType)).toBe('save');
   expect(await page.evaluate(() => window._databasePickerOptions.suggestedName)).toBe('kapivatar.sqlite');
+  await expect.poll(() => page.evaluate(() => window._databasePermissionRequests)).toBe(1);
   await page.evaluate(() => window.navegar('/dispositivos'));
   await expect(page.locator('.dispositivo-arquivo')).toContainText('meus-dados.sqlite');
   await expect(page.locator('.conteudo-principal')).toBeVisible();

@@ -9,6 +9,7 @@ export const test = base.extend({
       window._databasePickerOptions = null;
       window._databasePickerType = null;
       window._databasePickerSelectedName = null;
+      window._databasePermissionRequests = 0;
       let selectedDatabaseName = 'kapivatar.sqlite';
       const databaseStorageKey = '_kapivatarDatabase';
       const databaseBytes = () => {
@@ -35,6 +36,7 @@ export const test = base.extend({
           return sessionStorage.getItem('_permissionState') || 'granted';
         }
         async requestPermission(descriptor) {
+          window._databasePermissionRequests++;
           sessionStorage.setItem('_permissionState', 'granted');
           return 'granted';
         }
