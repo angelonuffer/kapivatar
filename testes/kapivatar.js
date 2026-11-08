@@ -85,16 +85,18 @@ test('Deve realizar o logout', async ({ page }) => {
   await page.getByRole('link', { name: 'Dispositivos' }).click();
   await expect(page.locator('.dispositivo-card')).toHaveCount(1);
   await expect(page.locator('.dispositivo-arquivo')).toContainText('arquivo-pessoal.sqlite');
-  await expect(page.getByRole('button', { name: 'Sair deste dispositivo' })).toBeVisible();
+  const menu_opcoes = page.getByRole('button', { name: 'Opções do dispositivo' });
 
-  await page.getByRole('button', { name: 'Sair deste dispositivo' }).click();
+  await menu_opcoes.click();
+  await page.getByRole('button', { name: 'Fechar arquivo de dados' }).click();
   const dialogo_confirmacao = page.getByRole('dialog');
   await expect(dialogo_confirmacao).toBeVisible();
   await dialogo_confirmacao.getByRole('button', { name: 'Cancelar' }).click();
   await expect(page.locator('.dispositivo-card')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Sair deste dispositivo' }).click();
-  await dialogo_confirmacao.getByRole('button', { name: 'Sair', exact: true }).click();
+  await menu_opcoes.click();
+  await page.getByRole('button', { name: 'Fechar arquivo de dados' }).click();
+  await dialogo_confirmacao.getByRole('button', { name: 'Fechar arquivo' }).click();
   await expect(page.getByRole('button', { name: /Abrir arquivo SQLite/ })).toBeVisible();
 });
 
