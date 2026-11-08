@@ -10,6 +10,7 @@ import {
 } from "./sqlite.js"
 import { mount, unmount } from "svelte"
 import TelaInicial from "./entrar.svelte"
+import CriarPerfil from "./criar-perfil.svelte"
 import BaseHorizontal from "./base-horizontal.svelte"
 import BaseVertical from "./base-vertical.svelte"
 import Assobios from "./assobios.svelte"
@@ -62,6 +63,10 @@ let componente_página_montado
 const renderizar_tela_inicial = (props) => {
   if (tela_inicial_montada) {
     unmount(tela_inicial_montada)
+  }
+  if (componente_página_montado) {
+    unmount(componente_página_montado)
+    componente_página_montado = null
   }
   if (base_horizontal_montada) {
     unmount(base_horizontal_montada)
@@ -1943,207 +1948,21 @@ const páginas = [
     url: "/perfis/criar",
     ícone: "person_add",
     ocultar_no_menu: true,
-    render: (conteudo, params, route_params, sinal_rota, criar_arquivo_dados = false) => {
-      const form = document.createElement("form")
-      form.classList.add("form-perfil")
-
-      const criar_campo_arquivo = (label, id) => {
-        const div = document.createElement("div")
-        div.classList.add("form-campo")
-        const l = document.createElement("label")
-        l.textContent = label
-        l.htmlFor = id
-        div.appendChild(l)
-
-        const container = document.createElement("div")
-        container.classList.add("input-arquivo-container")
-
-        const input = document.createElement("input")
-        input.type = "file"
-        input.id = id
-        input.name = id
-        input.accept = "image/*"
-        input.style.display = "none"
-
-        const botao_upload = document.createElement("button")
-        botao_upload.type = "button"
-        const icone = document.createElement("span")
-        icone.classList.add("material-symbols-outlined")
-        icone.textContent = "upload_file"
-        botao_upload.appendChild(icone)
-        const texto = document.createElement("span")
-        texto.textContent = "Escolher imagem"
-        botao_upload.appendChild(texto)
-
-        botao_upload.onclick = () => input.click()
-
-        const preview_container = document.createElement("div")
-        preview_container.classList.add("preview-container")
-        preview_container.style.display = "none"
-
-        const preview_img = document.createElement("img")
-        preview_img.classList.add("preview-imagem")
-        preview_container.appendChild(preview_img)
-
-        const nome_arquivo = document.createElement("span")
-        nome_arquivo.classList.add("nome-arquivo")
-        preview_container.appendChild(nome_arquivo)
-
-        input.onchange = () => {
-          if (input.files.length > 0) {
-            const file = input.files[0]
-            nome_arquivo.textContent = file.name
-            preview_img.src = URL.createObjectURL(file)
-            preview_container.style.display = "flex"
-          } else {
-            preview_container.style.display = "none"
-          }
-        }
-
-        container.appendChild(input)
-        container.appendChild(botao_upload)
-        container.appendChild(preview_container)
-        div.appendChild(container)
-        return div
-      }
-
-      const criar_campo = (label, tipo, id, attributes = {}) => {
-        const div = document.createElement("div")
-        div.classList.add("form-campo")
-        const l = document.createElement("label")
-        l.textContent = label
-        l.htmlFor = id
-        div.appendChild(l)
-        let input
-        if (tipo === "textarea") {
-          input = document.createElement("textarea")
-        } else {
-          input = document.createElement("input")
-          input.type = tipo
-        }
-        input.id = id
-        input.name = id
-        Object.assign(input, attributes)
-        div.appendChild(input)
-        return div
-      }
-
-      form.appendChild(criar_campo_arquivo("Capa", "capa"))
-      form.appendChild(criar_campo_arquivo("Foto de Perfil", "foto"))
-      form.appendChild(criar_campo("Nome", "text", "nome", { required: true }))
-      form.appendChild(criar_campo("Bio", "textarea", "bio"))
-
-      const botao = document.createElement("button")
-      const span_ícone = document.createElement("span")
-      span_ícone.classList.add("material-symbols-outlined")
-      span_ícone.textContent = "save"
-      botao.appendChild(span_ícone)
-      const span_texto = document.createElement("span")
-      span_texto.textContent = "Salvar Perfil"
-      botao.appendChild(span_texto)
-      botao.type = "submit"
-      botao.setAttribute("aria-live", "polite")
-      form.appendChild(botao)
-
-      const mensagem_erro = document.createElement("p")
-      mensagem_erro.setAttribute("role", "alert")
-      form.appendChild(mensagem_erro)
-
-      const sugerir_nome_arquivo_dados = (nome) => {
-        const nome_arquivo = nome.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
-        return `${nome_arquivo || "kapivatar"}.kapivatar`
-      }
-
-      form.onsubmit = async (e) => {
-        e.preventDefault()
-        botao.disabled = true
-        span_texto.textContent = "Salvando..."
-        mensagem_erro.textContent = ""
-
-        try {
-          let diretorio
-          if (criar_arquivo_dados) {
-            await criar_arquivo_sqlite(sugerir_nome_arquivo_dados(form.nome.value))
-            diretorio = await obter_diretorio()
-          } else {
-            diretorio = await obter_diretorio()
-          }
-          if (!diretorio) throw new Error("Não foi possível acessar o arquivo de dados.")
-
-          // Gerar chaves para o novo perfil
-          const chaves = await gerar_chaves()
-          const chave_privada_jwk = await exportar_chave(chaves.privateKey)
-          const chave_publica_jwk = await exportar_chave(chaves.publicKey)
-          const id_perfil = await gerar_id_perfil(chaves.publicKey)
-
-        const dados = {
-          nome: form.nome.value,
-          bio: form.bio.value,
-          id: id_perfil,
-          chave_privada: chave_privada_jwk,
-          chave_publica: chave_publica_jwk,
-        }
-
-        const salvar_imagem = async (input) => {
-          if (input.files.length > 0) {
-            const file = input.files[0]
-            const buffer = await file.arrayBuffer()
-            const hash = await gerar_hash(buffer)
-            await escrever_arquivo(diretorio, hash, buffer)
-            return hash
-          }
-          return null
-        }
-
-        const hash_capa = await salvar_imagem(form.capa)
-        if (hash_capa) dados.capa = hash_capa
-
-        const hash_foto = await salvar_imagem(form.foto)
-        if (hash_foto) dados.foto = hash_foto
-
-        const conteudo_perfil = JSON.stringify(dados)
-        const hash_perfil = await gerar_hash(conteudo_perfil)
-        await escrever_arquivo(diretorio, hash_perfil, conteudo_perfil)
-
-        // Aponta o ID do perfil para a versão mais recente
-        await escrever_arquivo(diretorio, id_perfil, hash_perfil)
-
-        // Atualizar lista de perfis
-        const arquivo_perfis = await ler_arquivo(diretorio, "perfis")
-        const hash_lista_anterior = arquivo_perfis ? await arquivo_perfis.text() : null
-
-        let nova_lista = {
-          perfis: [id_perfil],
-          data: new Date().toISOString()
-        }
-
-        if (hash_lista_anterior) {
-          const arquivo_lista_anterior = await ler_arquivo(diretorio, hash_lista_anterior)
-          if (arquivo_lista_anterior) {
-            const lista_anterior = JSON.parse(await arquivo_lista_anterior.text())
-            nova_lista.perfis = [...lista_anterior.perfis, id_perfil]
-            nova_lista.anterior = hash_lista_anterior
-          }
-        }
-
-        const conteudo_lista = JSON.stringify(nova_lista)
-        const hash_nova_lista = await gerar_hash(conteudo_lista)
-        await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista)
-        await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
-
-        navegar("/perfis")
-        } catch (err) {
-          if (err?.name !== "AbortError") {
-            console.error("Erro ao salvar perfil:", err)
-            mensagem_erro.textContent = "Não foi possível salvar o perfil. Tente novamente."
-          }
-          botao.disabled = false
-          span_texto.textContent = "Salvar Perfil"
-        }
-      }
-
-      conteudo.appendChild(form)
-    }
+    render: (conteudo, params, route_params, sinal_rota, criar_arquivo_dados = false) => mount(CriarPerfil, {
+      target: conteudo,
+      props: {
+        criar_arquivo_dados,
+        criar_arquivo_sqlite,
+        obter_diretorio,
+        gerar_chaves,
+        exportar_chave,
+        gerar_id_perfil,
+        gerar_hash,
+        escrever_arquivo,
+        ler_arquivo,
+        navegar,
+      },
+    })
   },
   {
     nome: "Arquivo",
@@ -3260,6 +3079,10 @@ const rotear = async () => {
     unmount(tela_inicial_montada)
     tela_inicial_montada = null
   }
+  if (componente_página_montado) {
+    unmount(componente_página_montado)
+    componente_página_montado = null
+  }
 
   const path = decodeURIComponent(location.pathname)
   const params = new URLSearchParams(location.search)
@@ -3531,7 +3354,7 @@ const rotear = async () => {
       const instrução = document.createElement("p")
       instrução.textContent = "Ao salvar, escolha onde criar o arquivo de dados SQLite deste perfil."
       container.append(título, instrução)
-      await página_criar_perfil.render(container, params, {}, sinal_rota, true)
+      componente_página_montado = await página_criar_perfil.render(container, params, {}, sinal_rota, true)
       if (id_rota !== id_rota_atual) return
       document.body.appendChild(container)
       return
