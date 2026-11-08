@@ -8,7 +8,7 @@
 </script>
 
 <script>
-  let { arquivo_nome, dispositivos_pareados, sair, navegar } = $props()
+  let { arquivo_nome, nome_dispositivo, dispositivos_pareados, sair, navegar } = $props()
   let dialogo_confirmacao_sair
 
   const confirmar_sair = () => {
@@ -17,25 +17,28 @@
   }
 </script>
 
-<ul class="dispositivos-lista">
-  <li class="dispositivo-card">
-    <h2>Este dispositivo</h2>
-    <p class="dispositivo-arquivo">
-      <span class="material-symbols-outlined" role="img" aria-label="Arquivo de dados">
-        database
-      </span>
-      <strong>{arquivo_nome}</strong>
-    </p>
-    <button
-      class="botao-sair-dispositivo"
-      type="button"
-      aria-label="Sair deste dispositivo"
-      onclick={() => dialogo_confirmacao_sair.showModal()}
-    >
-      <span class="material-symbols-outlined" aria-hidden="true">logout</span>
-    </button>
-  </li>
-</ul>
+<section class="dispositivo-local">
+  <h2>Este dispositivo</h2>
+  <ul class="dispositivos-lista">
+    <li class="dispositivo-card">
+      <h2>{nome_dispositivo}</h2>
+      <p class="dispositivo-arquivo">
+        <span class="material-symbols-outlined" role="img" aria-label="Arquivo de dados">
+          database
+        </span>
+        <strong>{arquivo_nome}</strong>
+      </p>
+      <button
+        class="botao-sair-dispositivo"
+        type="button"
+        aria-label="Sair deste dispositivo"
+        onclick={() => dialogo_confirmacao_sair.showModal()}
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">logout</span>
+      </button>
+    </li>
+  </ul>
+</section>
 
 <dialog bind:this={dialogo_confirmacao_sair} aria-labelledby="titulo-confirmacao-sair">
   <h2 id="titulo-confirmacao-sair">Sair deste dispositivo?</h2>

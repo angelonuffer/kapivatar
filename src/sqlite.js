@@ -143,8 +143,8 @@ export const listar_dados_sqlite = async () => {
 
   const linhas = []
   db.exec({
-    sql: "SELECT chave, tipo, valor FROM kapivatar_dados WHERE chave != ?",
-    bind: ["arquivo_sqlite"],
+    sql: "SELECT chave, tipo, valor FROM kapivatar_dados WHERE chave NOT IN (?, ?)",
+    bind: ["arquivo_sqlite", "kapivatar.dispositivo.nome"],
     rowMode: "array",
     resultRows: linhas,
   })

@@ -86,6 +86,7 @@ const banco_kapivatar = banco({
 let diretorio_selecionado = null
 let sincronizacao_iniciada = false
 let banco_sqlite_aberto = false
+let nome_dispositivo_local_promise = null
 let gerador_descricao_imagem
 let carregamento_gerador_descricao_imagem
 let tradutor_descricao_imagem
@@ -307,6 +308,7 @@ const vfs_remover = async (key) => {
     diretorio_selecionado = null
     sincronizacao_iniciada = false
     banco_sqlite_aberto = false
+    nome_dispositivo_local_promise = null
     await fechar_banco_sqlite()
     return
   }
@@ -443,6 +445,7 @@ const abrir_arquivo_sqlite = async () => {
   })
   await handle.requestPermission({ mode: "readwrite" })
   await abrir_banco_sqlite(handle)
+  nome_dispositivo_local_promise = null
   await gravar_handle_salvo(handle)
   diretorio_selecionado = handle
 }
@@ -457,6 +460,7 @@ const criar_arquivo_sqlite = async () => {
   })
   await handle.requestPermission({ mode: "readwrite" })
   await abrir_banco_sqlite(handle)
+  nome_dispositivo_local_promise = null
   await gravar_handle_salvo(handle)
   diretorio_selecionado = handle
 }
@@ -738,14 +742,40 @@ const decodificar_chave_pareamento = (chave) => {
   return bytes
 }
 
-const obter_dispositivo_local = () => {
+const obter_id_dispositivo_local = () => {
   let id = localStorage.getItem(chave_storage_id_dispositivo)
   if (!id) {
     id = crypto.randomUUID()
     localStorage.setItem(chave_storage_id_dispositivo, id)
   }
-  return { id, nome: `Dispositivo ${id.slice(0, 8)}` }
+  return id
 }
+
+const obter_nome_dispositivo_local = () => {
+  if (!nome_dispositivo_local_promise) {
+    nome_dispositivo_local_promise = (async () => {
+      const chave = "kapivatar.dispositivo.nome"
+      let nome = await ler_dado_sqlite(chave)
+      if (nome === undefined) {
+        nome = `Dispositivo ${crypto.randomUUID().slice(0, 8)}`
+        await gravar_dado_sqlite(chave, nome)
+      }
+      if (typeof nome !== "string" || !nome) {
+        throw new Error("O nome do dispositivo salvo no arquivo de dados é inválido.")
+      }
+      return nome
+    })()
+    nome_dispositivo_local_promise.catch(() => {
+      nome_dispositivo_local_promise = null
+    })
+  }
+  return nome_dispositivo_local_promise
+}
+
+const obter_dispositivo_local = async () => ({
+  id: obter_id_dispositivo_local(),
+  nome: await obter_nome_dispositivo_local(),
+})
 
 const carregar_dispositivos_pareados = () => {
   const salvos = localStorage.getItem(chave_storage_dispositivos_pareados)
@@ -872,7 +902,7 @@ const nova_versao_sincronizacao = (chave, operacao = "gravar") => {
   const anterior = ler_versoes_sincronizacao()[chave]
   const versao = {
     instante: Math.max(Date.now(), (anterior?.instante || 0) + 1),
-    dispositivo: obter_dispositivo_local().id,
+    dispositivo: obter_id_dispositivo_local(),
     operacao,
   }
   salvar_versao_sincronizacao(chave, versao)
@@ -912,7 +942,7 @@ const publicar_registro_sincronizacao = async (topico, chave_secreta, chave, reg
       versao: 1,
       tipo: "sincronizacao",
       criado_em: Date.now(),
-      dispositivo_id: obter_dispositivo_local().id,
+      dispositivo_id: obter_id_dispositivo_local(),
       chave,
       operacao: registro.operacao || "gravar",
       versao_dado: registro.versao,
@@ -963,7 +993,7 @@ const solicitar_sincronizacao_dispositivo = async (topico, chave_secreta) => {
     versao: 1,
     tipo: "sincronizacao_solicitar",
     criado_em: Date.now(),
-    dispositivo_id: obter_dispositivo_local().id,
+    dispositivo_id: obter_id_dispositivo_local(),
   })
   cliente_mqtt.publish(topico, JSON.stringify(solicitação))
 }
@@ -1145,7 +1175,7 @@ const processar_mensagem_pareamento = async (topico, envelope) => {
   }
 
   if (mensagem.tipo === "solicitacao") {
-    const dispositivo_local = obter_dispositivo_local()
+    const dispositivo_local = await obter_dispositivo_local()
     if (mensagem.dispositivo?.id === dispositivo_local.id) return
     const dispositivo_remoto = validar_dispositivo_pareado(mensagem.dispositivo)
 
@@ -1190,7 +1220,7 @@ const iniciar_pareamento = async (chave_informada, botao, status) => {
     tipo: "solicitacao",
     solicitacao_id,
     criado_em: Date.now(),
-    dispositivo: obter_dispositivo_local(),
+    dispositivo: await obter_dispositivo_local(),
   })
 
   cliente_mqtt.subscribe(topico)
@@ -1762,10 +1792,11 @@ const páginas = [
   página_inicial,
   {
     ...metadados_dispositivos,
-    render: (conteudo) => mount(Dispositivos, {
+    render: async (conteudo) => mount(Dispositivos, {
       target: conteudo,
       props: {
         arquivo_nome: diretorio_selecionado.name,
+        nome_dispositivo: await obter_nome_dispositivo_local(),
         dispositivos_pareados: carregar_dispositivos_pareados(),
         sair,
         navegar,
