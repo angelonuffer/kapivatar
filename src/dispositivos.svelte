@@ -26,9 +26,11 @@
 <section class="dispositivos-pareados">
   <h2>Dispositivos pareados</h2>
   {#if dispositivos_pareados.length}
-    <ul>
+    <ul class="dispositivos-lista">
       {#each dispositivos_pareados as dispositivo (dispositivo.id)}
-        <li>{dispositivo.nome}</li>
+        <li class="dispositivo-card">
+          <h2>{dispositivo.nome}</h2>
+        </li>
       {/each}
     </ul>
   {:else}
@@ -38,6 +40,8 @@
 
 <style lang="scss">
   .dispositivos-lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
     gap: 1.5em;
     list-style: none;
     margin: 0;
