@@ -12,6 +12,7 @@ import { mount, unmount } from "svelte"
 import TelaInicial from "./entrar.svelte"
 import BaseHorizontal from "./base-horizontal.svelte"
 import BaseVertical from "./base-vertical.svelte"
+import Assobios from "./assobios.svelte"
 
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
 const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
@@ -55,6 +56,7 @@ const aguardar_rota = (promessa, sinal) => {
 let tela_inicial_montada
 let base_horizontal_montada
 let base_vertical_montada
+let componente_página_montado
 const renderizar_tela_inicial = (props) => {
   if (tela_inicial_montada) {
     unmount(tela_inicial_montada)
@@ -1686,80 +1688,20 @@ const arquivar_assobio = async (id, arquivar) => {
 
 const renderizar_lista_assobios = async (conteudo, chave_lista, sinal_rota) => {
   const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-  const lista = await carregar_lista_assobios(diretorio, chave_lista)
-  if (!lista.assobios.length) {
-    conteudo.innerHTML = chave_lista === "assobios_arquivados" ? "<p>Nenhum assobio arquivado.</p>" : "<p>Nenhum assobio encontrado.</p>"
-    return
-  }
-  const ul = document.createElement("ul")
-  ul.classList.add("assobios-lista")
+  const lista = await aguardar_rota(carregar_lista_assobios(diretorio, chave_lista), sinal_rota)
+  const registros = []
   for (const id of lista.assobios) {
-    const item = document.createElement("li")
-    item.classList.add("assobio-card")
-    const registro = await carregar_dados_assobio(diretorio, id)
-    if (!registro) continue
-    const link = document.createElement("a")
-    link.href = `/assobio/${id}`
-    link.classList.add("assobio-card-titulo")
-    link.textContent = `${registro.dados.perfil_nome} — ${registro.dados.data}`
-    item.appendChild(link)
-    const nota = document.createElement("p")
-    nota.classList.add("assobio-card-nota")
-    nota.textContent = registro.dados.nota
-    item.appendChild(nota)
-
-    const menu_container = document.createElement("div")
-    menu_container.classList.add("assobio-menu-container")
-    const botao_menu = document.createElement("button")
-    botao_menu.type = "button"
-    botao_menu.classList.add("assobio-menu-botao")
-    botao_menu.setAttribute("aria-label", `Ações para ${registro.dados.perfil_nome} — ${registro.dados.data}`)
-    botao_menu.setAttribute("aria-expanded", "false")
-    const icone_menu = document.createElement("span")
-    icone_menu.classList.add("material-symbols-outlined")
-    icone_menu.setAttribute("aria-hidden", "true")
-    icone_menu.textContent = "more_vert"
-    botao_menu.appendChild(icone_menu)
-
-    const dropdown = document.createElement("div")
-    dropdown.classList.add("assobio-menu-dropdown")
-    const acao = document.createElement("button")
-    acao.type = "button"
-    acao.classList.add("assobio-menu-item")
-    const icone_acao = document.createElement("span")
-    icone_acao.classList.add("material-symbols-outlined")
-    icone_acao.setAttribute("aria-hidden", "true")
-    icone_acao.textContent = chave_lista === "assobios_arquivados" ? "unarchive" : "archive"
-    const texto_acao = document.createElement("span")
-    texto_acao.textContent = chave_lista === "assobios_arquivados" ? "Restaurar" : "Arquivar"
-    acao.append(icone_acao, texto_acao)
-    acao.onclick = async () => await arquivar_assobio(id, chave_lista !== "assobios_arquivados")
-    dropdown.appendChild(acao)
-    menu_container.append(botao_menu, dropdown)
-    item.appendChild(menu_container)
-
-    botao_menu.onclick = (evento) => {
-      evento.stopPropagation()
-      const ja_aberto = dropdown.classList.contains("aberto")
-      document.querySelectorAll(".assobio-menu-dropdown.aberto").forEach(menu => {
-        menu.classList.remove("aberto")
-        menu.previousElementSibling?.setAttribute("aria-expanded", "false")
-      })
-      if (!ja_aberto) {
-        dropdown.classList.add("aberto")
-        botao_menu.setAttribute("aria-expanded", "true")
-        const fechar = () => {
-          dropdown.classList.remove("aberto")
-          botao_menu.setAttribute("aria-expanded", "false")
-          document.removeEventListener("click", fechar)
-        }
-        setTimeout(() => document.addEventListener("click", fechar), 0)
-      }
-    }
-
-    ul.appendChild(item)
+    const registro = await aguardar_rota(carregar_dados_assobio(diretorio, id), sinal_rota)
+    if (registro) registros.push({ id, ...registro.dados })
   }
-  conteudo.appendChild(ul)
+  return mount(Assobios, {
+    target: conteudo,
+    props: {
+      registros,
+      somente_arquivados: chave_lista === "assobios_arquivados",
+      ao_arquivar: arquivar_assobio,
+    },
+  })
 }
 
 const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
@@ -2656,7 +2598,7 @@ const páginas = [
       { nome: "Arquivo", url: "/assobios/arquivo", ícone: "archive" },
     ],
     render: async (conteudo, params, route_params, sinal_rota) => {
-      await renderizar_lista_assobios(conteudo, "assobios", sinal_rota)
+      return renderizar_lista_assobios(conteudo, "assobios", sinal_rota)
     }
   },
   {
@@ -2675,7 +2617,7 @@ const páginas = [
     ocultar_no_menu: true,
     ações: [{ nome: "Voltar aos assobios", url: "/assobios", ícone: "campaign" }],
     render: async (conteudo, params, route_params, sinal_rota) => {
-      await renderizar_lista_assobios(conteudo, "assobios_arquivados", sinal_rota)
+      return renderizar_lista_assobios(conteudo, "assobios_arquivados", sinal_rota)
     }
   },
   {
@@ -3381,18 +3323,26 @@ const renderizar_página = async (página, params, route_params, id_rota, sinal_
   })
 
   // Atualiza Conteúdo
+  if (componente_página_montado) {
+    unmount(componente_página_montado)
+    componente_página_montado = null
+  }
   conteudo.innerHTML = ""
   if (página.render) {
     const conteudo_renderizado = document.createElement("div")
+    let componente_renderizado
     try {
-      await página.render(conteudo_renderizado, params, route_params, sinal_rota)
+      componente_renderizado = await página.render(conteudo_renderizado, params, route_params, sinal_rota)
     } catch (erro) {
       if (sinal_rota.aborted) return
       throw erro
     }
-    if (sinal_rota.aborted) return
-    if (id_rota !== id_rota_atual) return
+    if (sinal_rota.aborted || id_rota !== id_rota_atual) {
+      if (componente_renderizado) unmount(componente_renderizado)
+      return
+    }
     conteudo.replaceChildren(...conteudo_renderizado.childNodes)
+    componente_página_montado = componente_renderizado
   }
 }
 
