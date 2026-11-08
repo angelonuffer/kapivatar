@@ -88,6 +88,13 @@ test('Deve realizar o logout', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Sair deste dispositivo' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Sair deste dispositivo' }).click();
+  const dialogo_confirmacao = page.getByRole('dialog');
+  await expect(dialogo_confirmacao).toBeVisible();
+  await dialogo_confirmacao.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(page.locator('.dispositivo-card')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Sair deste dispositivo' }).click();
+  await dialogo_confirmacao.getByRole('button', { name: 'Sair', exact: true }).click();
   await expect(page.getByRole('button', { name: /Abrir arquivo SQLite/ })).toBeVisible();
 });
 

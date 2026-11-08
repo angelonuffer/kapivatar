@@ -1,5 +1,11 @@
 <script>
   let { arquivo_nome, dispositivos_pareados, sair, navegar } = $props()
+  let dialogo_confirmacao_sair
+
+  const confirmar_sair = () => {
+    dialogo_confirmacao_sair.close()
+    sair()
+  }
 </script>
 
 <ul class="dispositivos-lista">
@@ -11,12 +17,25 @@
       </span>
       <strong>{arquivo_nome}</strong>
     </p>
-    <button type="button" onclick={sair}>
-      <span class="material-symbols-outlined">logout</span>
-      Sair deste dispositivo
+    <button
+      class="botao-sair-dispositivo"
+      type="button"
+      aria-label="Sair deste dispositivo"
+      onclick={() => dialogo_confirmacao_sair.showModal()}
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">logout</span>
     </button>
   </li>
 </ul>
+
+<dialog bind:this={dialogo_confirmacao_sair} aria-labelledby="titulo-confirmacao-sair">
+  <h2 id="titulo-confirmacao-sair">Sair deste dispositivo?</h2>
+  <p>Você precisará abrir novamente o arquivo de dados para entrar.</p>
+  <div class="acoes-confirmacao-sair">
+    <button type="button" onclick={() => dialogo_confirmacao_sair.close()}>Cancelar</button>
+    <button type="button" onclick={confirmar_sair}>Sair</button>
+  </div>
+</dialog>
 
 <button type="button" onclick={() => navegar("/dispositivos/parear")}>
   <span class="material-symbols-outlined">sync_alt</span>
@@ -55,6 +74,7 @@
   }
 
   .dispositivo-card {
+    position: relative;
     box-sizing: border-box;
     align-items: flex-start;
     gap: 1em;
@@ -67,11 +87,40 @@
     }
   }
 
+  .botao-sair-dispositivo {
+    position: absolute;
+    top: 1em;
+    right: 1em;
+    padding: 0.5em;
+  }
+
   .dispositivo-arquivo {
     align-items: center;
     flex-direction: row;
     margin: 0;
     gap: 0.25em;
+  }
+
+  dialog {
+    max-width: min(24em, calc(100% - 4em));
+    border: 0;
+    border-radius: 1em;
+    background-color: #333;
+    color: #eee;
+
+    h2 {
+      margin-top: 0;
+    }
+
+    &::backdrop {
+      background-color: rgb(0 0 0 / 70%);
+    }
+  }
+
+  .acoes-confirmacao-sair {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5em;
   }
 
   .dispositivos-pareados {
