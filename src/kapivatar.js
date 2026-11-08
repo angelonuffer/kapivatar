@@ -91,6 +91,8 @@ let gerador_descricao_imagem
 let carregamento_gerador_descricao_imagem
 let tradutor_descricao_imagem
 let carregamento_tradutor_descricao_imagem
+let gerador_postagem
+let carregamento_gerador_postagem
 
 const gerar_hash = async (conteudo) => {
   const buffer = typeof conteudo === "string" ? new TextEncoder().encode(conteudo) : conteudo
@@ -130,7 +132,21 @@ const descrever_imagem = async (imagem) => {
     })
     const descricao_traduzida = resultado_traducao?.[0]?.translation_text?.trim()
     if (!descricao_traduzida) throw new Error("O modelo não traduziu a descrição para português.")
-    return descricao_traduzida
+    if (!gerador_postagem) {
+      carregamento_gerador_postagem ??= import("@huggingface/transformers")
+        .then(({ pipeline }) => pipeline("text2text-generation", "Xenova/flan-t5-small", { dtype: "q8" }))
+      try {
+        gerador_postagem = await carregamento_gerador_postagem
+      } catch (erro) {
+        carregamento_gerador_postagem = null
+        throw erro
+      }
+    }
+    const prompt = `Transforme a descrição de imagem abaixo em uma postagem curta e natural para rede social, em português brasileiro. Use somente informações da descrição, sem inventar detalhes. Retorne apenas o texto da postagem e, se couber, até duas hashtags.\n\nDescrição: ${descricao_traduzida}\nPostagem:`
+    const resultado_postagem = await gerador_postagem(prompt, { max_new_tokens: 96 })
+    const postagem = resultado_postagem?.[0]?.generated_text?.trim()
+    if (!postagem) throw new Error("O modelo não gerou uma postagem para esta imagem.")
+    return postagem
   } finally {
     URL.revokeObjectURL(url_imagem)
   }
