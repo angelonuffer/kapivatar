@@ -1,5 +1,5 @@
 <script>
-  import { itens_navegacao } from "./seções"
+  import BarraNavegacao from "./barra-navegação.svelte"
 
   let { navegar, abrir_sidebar } = $props()
   let botao_menu_acoes
@@ -46,21 +46,7 @@
 
   <div class="linha conteudo-pagina"></div>
 
-  <nav class="navegacao-inferior" aria-label="Navegação principal">
-    {#each itens_navegacao as item}
-      <button
-        type="button"
-        class="navegacao-inferior-item"
-        aria-label={item.nome}
-        data-url={item.url}
-        data-rotas={item.rotas.join(" ")}
-        onclick={() => navegar(item.url)}
-      >
-        <span class="material-symbols-outlined" aria-hidden="true">{item.icone}</span>
-        <span>{item.nome}</span>
-      </button>
-    {/each}
-  </nav>
+  <BarraNavegacao tipo="inferior" {navegar} />
 </div>
 
 <style lang="scss">
@@ -209,42 +195,4 @@
     }
   }
 
-  .navegacao-inferior {
-    display: none;
-
-    @media (max-width: 767px) {
-      position: static;
-      z-index: 100;
-      box-sizing: border-box;
-      flex: 0 0 4.5rem;
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      width: 100%;
-      height: 4.5rem;
-      min-height: 4.5rem;
-      padding: 0.4em 0 calc(0.4em + env(safe-area-inset-bottom));
-      border-top: 1px solid #333;
-      background-color: #111;
-    }
-  }
-
-  .navegacao-inferior-item {
-    @media (max-width: 767px) {
-      min-width: 0;
-      flex-direction: column;
-      justify-content: center;
-      gap: 0.15em;
-      padding: 0.35em 0.1em;
-      background: transparent;
-      font-size: 0.75em;
-
-      .material-symbols-outlined {
-        font-size: 1.7em;
-      }
-
-      &:global(.ativo) {
-        background-color: var(--cor-primaria);
-      }
-    }
-  }
 </style>

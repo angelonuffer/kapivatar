@@ -1,5 +1,5 @@
 <script>
-  import { itens_navegacao } from "./seções"
+  import BarraNavegacao from "./barra-navegação.svelte"
 
   let { url_logo, navegar, fechar_sidebar } = $props()
 </script>
@@ -25,22 +25,7 @@
     </button>
   </div>
 
-  <div class="coluna menu">
-    {#each itens_navegacao as item}
-      <a
-        href={item.url}
-        data-url={item.url}
-        data-rotas={item.rotas.join(" ")}
-        onclick={(evento) => {
-          evento.preventDefault()
-          navegar(item.url)
-        }}
-      >
-        <span class="material-symbols-outlined" aria-hidden="true">{item.icone}</span>
-        <span>{item.nome}</span>
-      </a>
-    {/each}
-  </div>
+  <BarraNavegacao tipo="lateral" {navegar} />
 
   <div class="coluna sidebar-rodape">
     <div class="perfil-selecionado-sidebar"></div>
@@ -95,34 +80,6 @@
     display: none;
     background: none;
     padding: 0.5em;
-  }
-
-  .menu {
-    box-sizing: border-box;
-    flex: 1;
-    align-items: center;
-    gap: 0.5rem;
-    overflow-y: auto;
-    padding: 0.5rem 0.25rem;
-  }
-
-  .menu a {
-    box-sizing: border-box;
-    min-width: 0;
-    width: 3.5rem;
-    height: 3.5rem;
-    flex: 0 0 3.5rem;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.15em;
-    padding: 0.35em 0.1em;
-    font-size: 0.75em;
-    text-align: center;
-  }
-
-  .menu a .material-symbols-outlined {
-    font-size: 1.7em;
   }
 
   .sidebar-rodape {
