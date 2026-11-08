@@ -52,9 +52,9 @@
   const gerar_descricao = async () => {
     if (!imagem_atual) return
     gerando_descricao = true
-    status_descricao = "Gerando a descrição e a postagem com IA local…"
+    status_descricao = "Preparando os modelos locais…"
     try {
-      nota = await descrever_imagem(imagem_atual)
+      nota = await descrever_imagem(imagem_atual, mensagem => status_descricao = mensagem)
       input_nota.value = nota
       atualizar_validade_nota()
       status_descricao = "Postagem gerada com IA local e adicionada à nota."
