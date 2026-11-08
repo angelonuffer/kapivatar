@@ -9,7 +9,8 @@ test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
   await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
   expect(await page.evaluate(() => window._databasePickerType)).toBe('open');
-  expect(await page.evaluate(() => window._databasePickerOptions.types[0].accept['application/vnd.sqlite3'])).toEqual(['.sqlite']);
+  expect(await page.evaluate(() => window._databasePickerOptions.types[0].accept['application/vnd.sqlite3']))
+    .toEqual(['.sqlite', '.kapivatar']);
   await expect.poll(() => page.evaluate(() => window._databasePermissionRequests)).toBe(1);
 
   // 2. Verificar se está na página Início
@@ -30,6 +31,21 @@ test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
   // 3. Navegação: Perfis (via link de seleção na sidebar quando nenhum perfil está selecionado)
   await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();
   await expect(page.locator('.conteudo-pagina')).toBeVisible();
+});
+
+test('Deve criar um perfil diretamente pela tela inicial em um arquivo próprio', async ({ page }) => {
+  await page.getByRole('button', { name: 'Criar perfil' }).click();
+  await expect(page).toHaveURL(/\/perfis\/criar$/);
+  await expect(page.getByText('Ao salvar, escolha onde criar o arquivo de dados SQLite deste perfil.')).toBeVisible();
+
+  await page.getByLabel('Nome').fill('Lia Nunes');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
+
+  await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
+  expect(await page.evaluate(() => window._databasePickerType)).toBe('save');
+  expect(await page.evaluate(() => window._databasePickerOptions.suggestedName)).toBe('Lia Nunes.kapivatar');
+  await expect(page).toHaveURL(/\/perfis$/);
+  await expect(page.getByText('Lia Nunes')).toBeVisible();
 });
 
 test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {

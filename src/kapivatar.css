@@ -14,6 +14,17 @@ body {
   margin: 0;
 }
 
+body.criar-perfil-inicial-body {
+  flex-direction: column;
+  justify-content: center;
+  padding: 2em;
+  box-sizing: border-box;
+}
+
+.criar-perfil-inicial {
+  width: 100%;
+}
+
 h1, h2, h3 {
   color: var(--cor-primaria);
 }

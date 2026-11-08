@@ -72,6 +72,7 @@ const renderizar_tela_inicial = (props) => {
     base_vertical_montada = null
   }
   document.body.replaceChildren()
+  document.body.className = ""
   tela_inicial_montada = mount(TelaInicial, { target: document.body, props })
 }
 
@@ -432,7 +433,7 @@ const obter_diretorio = async (sinal_rota) => {
 }
 
 const opcoes_selecao_sqlite = {
-  types: [{ description: "Banco de dados SQLite", accept: { "application/vnd.sqlite3": [".sqlite"] } }],
+  types: [{ description: "Banco de dados SQLite", accept: { "application/vnd.sqlite3": [".sqlite", ".kapivatar"] } }],
 }
 
 const abrir_arquivo_sqlite = async () => {
@@ -450,12 +451,12 @@ const abrir_arquivo_sqlite = async () => {
   diretorio_selecionado = handle
 }
 
-const criar_arquivo_sqlite = async () => {
+const criar_arquivo_sqlite = async (nome_sugerido = "kapivatar.sqlite") => {
   if (typeof window.showSaveFilePicker !== "function") {
     throw new Error("Este navegador não oferece suporte à criação de arquivos.")
   }
   const handle = await window.showSaveFilePicker({
-    suggestedName: "kapivatar.sqlite",
+    suggestedName: nome_sugerido,
     ...opcoes_selecao_sqlite,
   })
   await handle.requestPermission({ mode: "readwrite" })
@@ -1942,7 +1943,7 @@ const páginas = [
     url: "/perfis/criar",
     ícone: "person_add",
     ocultar_no_menu: true,
-    render: (conteudo) => {
+    render: (conteudo, params, route_params, sinal_rota, criar_arquivo_dados = false) => {
       const form = document.createElement("form")
       form.classList.add("form-perfil")
 
@@ -2044,13 +2045,30 @@ const páginas = [
       botao.setAttribute("aria-live", "polite")
       form.appendChild(botao)
 
-        form.onsubmit = async (e) => {
+      const mensagem_erro = document.createElement("p")
+      mensagem_erro.setAttribute("role", "alert")
+      form.appendChild(mensagem_erro)
+
+      const sugerir_nome_arquivo_dados = (nome) => {
+        const nome_arquivo = nome.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+        return `${nome_arquivo || "kapivatar"}.kapivatar`
+      }
+
+      form.onsubmit = async (e) => {
         e.preventDefault()
         botao.disabled = true
         span_texto.textContent = "Salvando..."
+        mensagem_erro.textContent = ""
 
         try {
-          const diretorio = await obter_diretorio()
+          let diretorio
+          if (criar_arquivo_dados) {
+            await criar_arquivo_sqlite(sugerir_nome_arquivo_dados(form.nome.value))
+            diretorio = await obter_diretorio()
+          } else {
+            diretorio = await obter_diretorio()
+          }
+          if (!diretorio) throw new Error("Não foi possível acessar o arquivo de dados.")
 
           // Gerar chaves para o novo perfil
           const chaves = await gerar_chaves()
@@ -2115,7 +2133,12 @@ const páginas = [
 
         navegar("/perfis")
         } catch (err) {
-          console.error("Erro ao salvar perfil:", err)
+          if (err?.name !== "AbortError") {
+            console.error("Erro ao salvar perfil:", err)
+            mensagem_erro.textContent = "Não foi possível salvar o perfil. Tente novamente."
+          }
+          botao.disabled = false
+          span_texto.textContent = "Salvar Perfil"
         }
       }
 
@@ -3019,6 +3042,7 @@ let sidebar_objetos_url = []
 
 const carregar_layout = () => {
   document.body.innerHTML = ""
+  document.body.classList.remove("criar-perfil-inicial-body")
   document.body.classList.add("app-logado")
 
   base_horizontal_montada = mount(BaseHorizontal, {
@@ -3495,6 +3519,23 @@ const rotear = async () => {
 
   if (!diretorio) {
     layout_referencias = null
+    if (path === "/perfis/criar") {
+      const página_criar_perfil = páginas.find((p) => p.url === path)
+      document.body.className = "criar-perfil-inicial-body"
+      document.body.replaceChildren()
+
+      const container = document.createElement("main")
+      container.classList.add("criar-perfil-inicial")
+      const título = document.createElement("h1")
+      título.textContent = "Criar perfil"
+      const instrução = document.createElement("p")
+      instrução.textContent = "Ao salvar, escolha onde criar o arquivo de dados SQLite deste perfil."
+      container.append(título, instrução)
+      await página_criar_perfil.render(container, params, {}, sinal_rota, true)
+      if (id_rota !== id_rota_atual) return
+      document.body.appendChild(container)
+      return
+    }
     renderizar_tela_inicial({ url_logo, url_capivara, abrir_arquivo_sqlite, criar_arquivo_sqlite, navegar })
     return
   }

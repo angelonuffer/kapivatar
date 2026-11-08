@@ -38,6 +38,10 @@
     <span class="material-symbols-outlined">database</span>
     <span>Criar arquivo SQLite</span>
   </button>
+  <button onclick={() => navegar("/perfis/criar")}>
+    <span class="material-symbols-outlined">person_add</span>
+    <span>Criar perfil</span>
+  </button>
   {#if erro_selecao}
     <p role="alert">{erro_selecao}</p>
   {/if}
