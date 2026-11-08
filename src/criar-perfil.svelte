@@ -91,29 +91,9 @@
 
       await escrever_arquivo(diretorio, id_perfil, hash_perfil)
 
-      const arquivo_perfis = await ler_arquivo(diretorio, "perfis")
-      const hash_lista_anterior = arquivo_perfis ? await arquivo_perfis.text() : null
+      await escrever_arquivo(diretorio, "perfil", id_perfil)
 
-      let nova_lista = {
-        perfis: [id_perfil],
-        data: new Date().toISOString(),
-      }
-
-      if (hash_lista_anterior) {
-        const arquivo_lista_anterior = await ler_arquivo(diretorio, hash_lista_anterior)
-        if (arquivo_lista_anterior) {
-          const lista_anterior = JSON.parse(await arquivo_lista_anterior.text())
-          nova_lista.perfis = [...lista_anterior.perfis, id_perfil]
-          nova_lista.anterior = hash_lista_anterior
-        }
-      }
-
-      const conteudo_lista = JSON.stringify(nova_lista)
-      const hash_nova_lista = await gerar_hash(conteudo_lista)
-      await escrever_arquivo(diretorio, hash_nova_lista, conteudo_lista)
-      await escrever_arquivo(diretorio, "perfis", hash_nova_lista)
-
-      navegar("/perfis")
+      navegar("/perfil")
     } catch (erro) {
       if (erro?.name !== "AbortError") {
         console.error("Erro ao salvar perfil:", erro)

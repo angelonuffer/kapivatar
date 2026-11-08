@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
 
 test('Deve realizar o fluxo de autenticação e comunicação via postMessage', async ({ page }) => {
   // 1. Criar perfil
-  await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();
+  await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   await page.getByLabel('Nome').fill('Capivara Autorizada');
@@ -24,11 +24,7 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage', 
   await fotoInput.setInputFiles(filePath);
 
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
-
-  // Selecionar o perfil criado
-  const card = page.locator('.perfil-card').first();
-  await card.locator('.perfil-menu-botao').click();
-  await page.getByRole('button', { name: 'Selecionar perfil' }).click();
+  await expect.poll(() => page.evaluate(() => window.obter_id_perfil_selecionado())).not.toBeNull();
 
   // 2. Navegar para /perfil-autenticado sem autorização prévia usando window.navegar
   await page.evaluate(() => {

@@ -28,14 +28,14 @@ test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
     [...itens_sidebar.map((item) => item.top)].sort((a, b) => a - b)
   );
 
-  // 3. Navegação: Perfis (via link de seleção na sidebar quando nenhum perfil está selecionado)
-  await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();
+  // 3. Navegação: Perfil (sem perfil criado ainda)
+  await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await expect(page.locator('.conteudo-pagina')).toBeVisible();
 });
 
 test('Deve criar um perfil diretamente pela tela inicial em um arquivo próprio', async ({ page }) => {
   await page.getByRole('button', { name: 'Criar perfil' }).click();
-  await expect(page).toHaveURL(/\/perfis\/criar$/);
+  await expect(page).toHaveURL(/\/perfil\/criar$/);
   await expect(page.getByText('Ao salvar, escolha onde criar o arquivo de dados SQLite deste perfil.')).toBeVisible();
 
   await page.getByLabel('Nome').fill('Lia Nunes');
@@ -44,8 +44,8 @@ test('Deve criar um perfil diretamente pela tela inicial em um arquivo próprio'
   await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
   expect(await page.evaluate(() => window._databasePickerType)).toBe('save');
   expect(await page.evaluate(() => window._databasePickerOptions.suggestedName)).toBe('Lia Nunes.kapivatar');
-  await expect(page).toHaveURL(/\/perfis$/);
-  await expect(page.getByText('Lia Nunes')).toBeVisible();
+  await expect(page).toHaveURL(/\/perfil$/);
+  await expect(page.getByRole('heading', { name: 'Lia Nunes' })).toBeVisible();
 });
 
 test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
@@ -56,8 +56,8 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await expect(navegacao).toBeVisible();
   expect(await navegacao.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(5);
   expect(await navegacao.getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label'))))
-    .toEqual(['Início', 'Assobios', 'Perfis', 'Contatos', 'Dispositivos']);
-  await expect(navegacao.locator('.navegacao-inferior-item > span:nth-child(2)')).toHaveText(['Início', 'Assobios', 'Perfis', 'Contatos', 'Dispositivos']);
+    .toEqual(['Início', 'Assobios', 'Perfil', 'Contatos', 'Dispositivos']);
+  await expect(navegacao.locator('.navegacao-inferior-item > span:nth-child(2)')).toHaveText(['Início', 'Assobios', 'Perfil', 'Contatos', 'Dispositivos']);
   await expect(page.locator('.sidebar')).not.toBeVisible();
   await expect(page.locator('.botao-menu')).not.toBeVisible();
   await expect(page.getByRole('button', { name: 'Mais opções' })).not.toBeVisible();
@@ -76,8 +76,8 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await expect(page).toHaveURL(/\/assobio\/teste$/);
   await expect(navegacao.getByRole('button', { name: 'Assobios' })).toHaveClass(/ativo/);
 
-  await navegacao.getByRole('button', { name: 'Perfis' }).click();
-  await expect(page).toHaveURL(/\/perfis$/);
+  await navegacao.getByRole('button', { name: 'Perfil' }).click();
+  await expect(page).toHaveURL(/\/perfil$/);
 
   const menu_acoes = page.getByRole('button', { name: 'Mais opções' });
   await expect(menu_acoes).toBeVisible();
@@ -85,7 +85,7 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await menu_acoes.click();
   await expect(page.getByRole('button', { name: 'Criar perfil' })).toBeVisible();
   await page.getByRole('button', { name: 'Criar perfil' }).click();
-  await expect(page).toHaveURL(/\/perfis\/criar$/);
+  await expect(page).toHaveURL(/\/perfil\/criar$/);
 
   await navegacao.getByRole('button', { name: 'Dispositivos' }).click();
   await expect(page).toHaveURL(/\/dispositivos$/);
@@ -330,8 +330,8 @@ test('Deve sincronizar uma vez ao abrir o banco, sem repetir em cada navegação
 
   await page.evaluate(() => window.navegar('/dispositivos'));
   await expect(page).toHaveURL(/\/dispositivos$/);
-  await page.evaluate(() => window.navegar('/perfis'));
-  await expect(page).toHaveURL(/\/perfis$/);
+  await page.evaluate(() => window.navegar('/perfil'));
+  await expect(page).toHaveURL(/\/perfil$/);
   expect(await page.evaluate(() =>
     window._publishedMessages.filter(({ message }) => message.uso === 'sincronizacao-v1').length
   )).toBe(1);

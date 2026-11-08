@@ -21,17 +21,13 @@ test('Deve realizar fluxo de solicitação, retentativa e confirmação ao receb
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
 
   // 1. Criar perfil
-  await page.getByRole('link', { name: /Selecionar perfil/, exact: true }).click();
+  await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   await page.getByLabel('Nome').fill('Meu Perfil');
   await page.getByLabel('Bio', { exact: true }).fill('Minha bio');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
-
-  // Selecionar o perfil criado
-  const card = page.locator('.perfil-card').first();
-  await card.locator('.perfil-menu-botao').click();
-  await page.getByRole('button', { name: 'Selecionar perfil' }).click();
+  await expect.poll(() => page.evaluate(() => window.obter_id_perfil_selecionado())).not.toBeNull();
 
   // Navegar para Contatos -> Adicionar
   await page.getByRole('link', { name: /Contatos/, exact: true }).click();
