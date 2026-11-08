@@ -13,6 +13,7 @@ import TelaInicial from "./entrar.svelte"
 import BaseHorizontal from "./base-horizontal.svelte"
 import BaseVertical from "./base-vertical.svelte"
 import Assobios from "./assobios.svelte"
+import Assobiar from "./assobiar.svelte"
 
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
 const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
@@ -1706,199 +1707,54 @@ const renderizar_lista_assobios = async (conteudo, chave_lista, sinal_rota) => {
 
 const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
   const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-  const perfis = await carregar_lista_perfis(diretorio, "perfis")
-  const form = document.createElement("form")
-  form.classList.add("form-perfil", "form-assobio")
-
-  const campo_perfil = document.createElement("div")
-  campo_perfil.classList.add("form-campo")
-  const label_perfil = document.createElement("label")
-  label_perfil.textContent = "Perfil"
-  label_perfil.htmlFor = "perfil"
-  const select = document.createElement("select")
-  select.id = "perfil"
-  select.name = "perfil"
-  select.required = true
-  for (const id of perfis.perfis) {
+  const lista_perfis = await aguardar_rota(carregar_lista_perfis(diretorio, "perfis"), sinal_rota)
+  const perfis = []
+  for (const id of lista_perfis.perfis) {
     const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
     if (!arquivo_id) continue
     const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, await arquivo_id.text()), sinal_rota)
     if (!arquivo_perfil) continue
     const dados_perfil = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
-    const option = document.createElement("option")
-    option.value = id
-    option.textContent = dados_perfil.nome
-    option.selected = registro?.dados.perfil === id
-    select.appendChild(option)
+    perfis.push({ id, nome: dados_perfil.nome })
   }
-  if (!registro && select.options.length) {
-    const selecionado = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
-    const option = Array.from(select.options).find(item => item.value === selecionado)
-    if (option) option.selected = true
+  let perfil_selecionado = registro?.dados.perfil
+  if (!registro) {
+    perfil_selecionado = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
   }
-  campo_perfil.append(label_perfil, select)
-  form.appendChild(campo_perfil)
-  const criar_campo = (nome, tipo, valor = "") => {
-    const campo = document.createElement("div")
-    campo.classList.add("form-campo")
-    const label = document.createElement("label")
-    label.textContent = nome
-    label.htmlFor = nome.toLowerCase()
-    const input = document.createElement(tipo === "textarea" ? "textarea" : "input")
-    if (tipo !== "textarea") input.type = tipo
-    input.id = nome.toLowerCase()
-    input.name = nome.toLowerCase()
-    input.value = valor
-    input.required = true
-    campo.append(label, input)
-    return campo
-  }
-  const data_atual = new Date()
-  data_atual.setMinutes(data_atual.getMinutes() - data_atual.getTimezoneOffset())
-  const data_registro = registro?.dados.data
-  const valor_data = data_registro
-    ? /^\d{4}-\d{2}-\d{2}$/.test(data_registro) ? `${data_registro}T00:00` : data_registro.slice(0, 16)
-    : data_atual.toISOString().slice(0, 16)
-  form.appendChild(criar_campo("Data", "datetime-local", valor_data))
-  const campo_imagem = document.createElement("div")
-  campo_imagem.classList.add("form-campo")
-  const label_imagem = document.createElement("label")
-  label_imagem.textContent = "Imagem"
-  label_imagem.htmlFor = "imagem"
-  const container_imagem = document.createElement("div")
-  container_imagem.classList.add("input-arquivo-container")
-  const input_imagem = document.createElement("input")
-  input_imagem.type = "file"
-  input_imagem.id = "imagem"
-  input_imagem.name = "imagem"
-  input_imagem.accept = "image/*"
-  input_imagem.style.display = "none"
-  const botao_imagem = document.createElement("button")
-  botao_imagem.type = "button"
-  botao_imagem.textContent = "Escolher imagem"
-  botao_imagem.onclick = () => input_imagem.click()
-  const preview_imagem = document.createElement("div")
-  preview_imagem.classList.add("preview-container")
-  const img = document.createElement("img")
-  img.classList.add("preview-imagem")
-  img.alt = "Pré-visualização da imagem do assobio"
-  preview_imagem.appendChild(img)
-  const nome_imagem = document.createElement("span")
-  nome_imagem.classList.add("nome-arquivo")
-  preview_imagem.appendChild(nome_imagem)
-  let imagem_atual = null
-  if (registro?.dados.imagem) {
-    const arquivo_imagem = await aguardar_rota(ler_arquivo(diretorio, registro.dados.imagem), sinal_rota)
-    if (arquivo_imagem) {
-      imagem_atual = arquivo_imagem
-      img.src = URL.createObjectURL(arquivo_imagem)
-      preview_imagem.style.display = "flex"
-    }
-  } else {
-    preview_imagem.style.display = "none"
-  }
-  const campo_nota = criar_campo("Nota", "textarea", registro?.dados.nota || "")
-  const input_nota = campo_nota.querySelector("textarea")
-  const container_nota = document.createElement("div")
-  container_nota.classList.add("campo-nota-container")
-  const botao_descricao = document.createElement("button")
-  botao_descricao.type = "button"
-  botao_descricao.classList.add("botao-descricao-imagem")
-  botao_descricao.setAttribute("aria-label", "Gerar descrição da imagem")
-  botao_descricao.title = "Gerar descrição da imagem"
-  const icone_descricao = document.createElement("span")
-  icone_descricao.classList.add("material-symbols-outlined")
-  icone_descricao.setAttribute("aria-hidden", "true")
-  icone_descricao.textContent = "auto_awesome"
-  botao_descricao.appendChild(icone_descricao)
-  botao_descricao.style.display = "none"
-  const status_descricao = document.createElement("span")
-  status_descricao.classList.add("status-descricao-imagem")
-  status_descricao.setAttribute("aria-live", "polite")
-  container_nota.append(input_nota, botao_descricao)
-  campo_nota.appendChild(container_nota)
-  campo_nota.appendChild(status_descricao)
-  const atualizar_botao_descricao = () => {
-    botao_descricao.style.display = imagem_atual ? "inline-flex" : "none"
-  }
-  atualizar_botao_descricao()
-  botao_descricao.onclick = async () => {
-    if (!imagem_atual) return
-    botao_descricao.disabled = true
-    status_descricao.textContent = "Gerando e traduzindo a descrição para português localmente…"
-    try {
-      input_nota.value = await descrever_imagem(imagem_atual)
-      atualizar_validade_nota()
-      status_descricao.textContent = "Descrição em português adicionada à nota."
-    } catch (erro) {
-      console.error("Erro ao gerar descrição da imagem:", erro)
-      status_descricao.textContent = "Não foi possível gerar a descrição. Tente novamente."
-    } finally {
-      botao_descricao.disabled = false
-    }
-  }
-  input_imagem.onchange = () => {
-    const arquivo = input_imagem.files?.[0]
-    if (!arquivo) return
-    imagem_atual = arquivo
-    atualizar_botao_descricao()
-    atualizar_validade_nota()
-    img.src = URL.createObjectURL(arquivo)
-    nome_imagem.textContent = arquivo.name
-    preview_imagem.style.display = "flex"
-  }
-  container_imagem.append(input_imagem, botao_imagem, preview_imagem)
-  campo_imagem.append(label_imagem, container_imagem)
-  form.appendChild(campo_imagem)
-  form.appendChild(campo_nota)
-  const atualizar_validade_nota = () => {
-    const tem_imagem = Boolean(input_imagem.files?.length || registro?.dados.imagem)
-    input_nota.required = false
-    input_nota.setCustomValidity(!input_nota.value.trim() && !tem_imagem ? "Informe uma nota ou anexe uma imagem." : "")
-  }
-  input_nota.oninput = atualizar_validade_nota
-  atualizar_validade_nota()
-  const botao = document.createElement("button")
-  botao.type = "submit"
-  botao.textContent = "Salvar Assobio"
-  form.appendChild(botao)
-  form.onsubmit = async (evento) => {
-    evento.preventDefault()
-    atualizar_validade_nota()
-    const nota = form.elements.namedItem("nota")
-    if (!nota.validity.valid) {
-      nota.reportValidity()
-      return
-    }
-    const arquivo_imagem = form.elements.namedItem("imagem").files?.[0]
-    botao.disabled = true
-    try {
-      const option = select.selectedOptions[0]
-      const dados = {
-        perfil: select.value,
-        perfil_nome: option.textContent,
-        data: form.elements.namedItem("data").value,
-        nota: form.elements.namedItem("nota").value,
-        imagem: registro?.dados.imagem,
-      }
-      if (arquivo_imagem) {
-        const bytes = await arquivo_imagem.arrayBuffer()
-        dados.imagem = await gerar_hash(bytes)
-        await escrever_arquivo(diretorio, dados.imagem, bytes)
-      }
-      const id = registro?.id || crypto.randomUUID()
-      await salvar_assobio(diretorio, id, dados, registro?.hash)
-      if (!registro) {
-        const ativos = await carregar_lista_assobios(diretorio, "assobios")
-        await salvar_lista_assobios(diretorio, "assobios", [...ativos.assobios, id])
-      }
-      navegar(`/assobio/${id}`)
-    } catch (erro) {
-      console.error("Erro ao salvar assobio:", erro)
-      botao.disabled = false
-    }
-  }
-  conteudo.appendChild(form)
+  const imagem_existente = registro?.dados.imagem
+    ? await aguardar_rota(ler_arquivo(diretorio, registro.dados.imagem), sinal_rota)
+    : null
+  return mount(Assobiar, {
+    target: conteudo,
+    props: {
+      perfis,
+      perfil_selecionado,
+      registro,
+      imagem_existente,
+      descrever_imagem,
+      ao_salvar: async ({ perfil, perfil_nome, data, nota, arquivo_imagem }) => {
+        const dados = {
+          perfil,
+          perfil_nome,
+          data,
+          nota,
+          imagem: registro?.dados.imagem,
+        }
+        if (arquivo_imagem) {
+          const bytes = await arquivo_imagem.arrayBuffer()
+          dados.imagem = await gerar_hash(bytes)
+          await escrever_arquivo(diretorio, dados.imagem, bytes)
+        }
+        const id = registro?.id || crypto.randomUUID()
+        await salvar_assobio(diretorio, id, dados, registro?.hash)
+        if (!registro) {
+          const ativos = await carregar_lista_assobios(diretorio, "assobios")
+          await salvar_lista_assobios(diretorio, "assobios", [...ativos.assobios, id])
+        }
+        navegar(`/assobio/${id}`)
+      },
+    },
+  })
 }
 
 const páginas = [
@@ -2607,7 +2463,7 @@ const páginas = [
     ícone: "add",
     ocultar_no_menu: true,
     render: async (conteudo, params, route_params, sinal_rota) => {
-      await criar_formulario_assobio(conteudo, null, sinal_rota)
+      return criar_formulario_assobio(conteudo, null, sinal_rota)
     }
   },
   {
@@ -2674,7 +2530,7 @@ const páginas = [
         conteudo.innerHTML = "<p>Assobio não encontrado.</p>"
         return
       }
-      await criar_formulario_assobio(conteudo, { ...atual, id: route_params.id }, sinal_rota)
+      return criar_formulario_assobio(conteudo, { ...atual, id: route_params.id }, sinal_rota)
     }
   },
   {
