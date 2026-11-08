@@ -9,7 +9,7 @@ import {
   listar_dados_sqlite,
 } from "./sqlite.js"
 import { mount, unmount } from "svelte"
-import TelaInicial from "./início.svelte"
+import TelaInicial from "./entrar.svelte"
 import BaseHorizontal from "./base-horizontal.svelte"
 import BaseVertical from "./base-vertical.svelte"
 
