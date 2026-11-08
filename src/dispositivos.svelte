@@ -6,7 +6,9 @@
   <li class="dispositivo-card">
     <h2>Este dispositivo</h2>
     <p class="dispositivo-arquivo">
-      <span>Arquivo de dados</span>
+      <span class="material-symbols-outlined" role="img" aria-label="Arquivo de dados">
+        database
+      </span>
       <strong>{arquivo_nome}</strong>
     </p>
     <button type="button" onclick={sair}>
@@ -36,8 +38,6 @@
 
 <style lang="scss">
   .dispositivos-lista {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 24rem));
     gap: 1.5em;
     list-style: none;
     margin: 0;
@@ -64,6 +64,8 @@
   }
 
   .dispositivo-arquivo {
+    align-items: center;
+    flex-direction: row;
     margin: 0;
     gap: 0.25em;
   }
