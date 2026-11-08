@@ -56,8 +56,8 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await expect(navegacao).toBeVisible();
   expect(await navegacao.evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(5);
   expect(await navegacao.getByRole('button').evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label'))))
-    .toEqual(['Início', 'Assobios', 'Perfil', 'Contatos', 'Dispositivos']);
-  await expect(navegacao.locator('.navegacao-inferior-item > span:nth-child(2)')).toHaveText(['Início', 'Assobios', 'Perfil', 'Contatos', 'Dispositivos']);
+    .toEqual(['Início', 'Assobios', 'Contatos', 'Dispositivos', 'Perfil']);
+  await expect(navegacao.locator('.navegacao-inferior-item > span:nth-child(2)')).toHaveText(['Início', 'Assobios', 'Contatos', 'Dispositivos', 'Perfil']);
   await expect(page.locator('.sidebar')).not.toBeVisible();
   await expect(page.locator('.botao-menu')).not.toBeVisible();
   await expect(page.getByRole('button', { name: 'Mais opções' })).not.toBeVisible();
