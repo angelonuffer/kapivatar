@@ -11,6 +11,7 @@ import {
 import { mount, unmount } from "svelte"
 import TelaInicial from "./entrar.svelte"
 import CriarPerfil from "./criar-perfil.svelte"
+import Perfil from "./perfil.svelte"
 import BaseHorizontal from "./base-horizontal.svelte"
 import BaseVertical from "./base-vertical.svelte"
 import Assobios from "./assobios.svelte"
@@ -1760,40 +1761,17 @@ const páginas = [
       }
 
       const dados = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
+      const imagem_capa = dados.capa
+        ? await aguardar_rota(ler_arquivo(diretorio, dados.capa), sinal_rota)
+        : null
+      const imagem_foto = dados.foto
+        ? await aguardar_rota(ler_arquivo(diretorio, dados.foto), sinal_rota)
+        : null
 
-      const detalhe = document.createElement("div")
-      detalhe.classList.add("perfil-detalhe")
-
-      if (dados.capa) {
-        const img_capa = document.createElement("img")
-        const arquivo_capa = await aguardar_rota(ler_arquivo(diretorio, dados.capa), sinal_rota)
-        if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
-        img_capa.classList.add("perfil-capa-detalhe")
-        detalhe.appendChild(img_capa)
-      }
-
-      const info = document.createElement("div")
-      info.classList.add("perfil-info-detalhe")
-
-      if (dados.foto) {
-        const img_foto = document.createElement("img")
-        const arquivo_foto = await aguardar_rota(ler_arquivo(diretorio, dados.foto), sinal_rota)
-        if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
-        img_foto.classList.add("perfil-foto-detalhe")
-        img_foto.style.marginTop = dados.capa ? "-50px" : "0"
-        info.appendChild(img_foto)
-      }
-
-      const nome = document.createElement("h2")
-      nome.textContent = dados.nome
-      info.appendChild(nome)
-
-      const bio = document.createElement("p")
-      bio.textContent = dados.bio
-      info.appendChild(bio)
-
-      detalhe.appendChild(info)
-      conteudo.appendChild(detalhe)
+      return mount(Perfil, {
+        target: conteudo,
+        props: { modo: "visualizar", dados, imagem_capa, imagem_foto },
+      })
     }
   },
   {
@@ -1817,162 +1795,33 @@ const páginas = [
 
       const hash_perfil_atual = await aguardar_rota(arquivo_id.text(), sinal_rota)
       const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, hash_perfil_atual), sinal_rota)
+      if (!arquivo_perfil) {
+        conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
+        return
+      }
       const dados_atuais = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
+      const imagem_capa = dados_atuais.capa
+        ? await aguardar_rota(ler_arquivo(diretorio, dados_atuais.capa), sinal_rota)
+        : null
+      const imagem_foto = dados_atuais.foto
+        ? await aguardar_rota(ler_arquivo(diretorio, dados_atuais.foto), sinal_rota)
+        : null
 
-      const form = document.createElement("form")
-      form.classList.add("form-perfil")
-
-      const criar_campo_arquivo = (label, id_campo, hash_atual) => {
-        const div = document.createElement("div")
-        div.classList.add("form-campo")
-        const l = document.createElement("label")
-        l.textContent = label
-        l.htmlFor = id_campo
-        div.appendChild(l)
-
-        const container = document.createElement("div")
-        container.classList.add("input-arquivo-container")
-
-        const input = document.createElement("input")
-        input.type = "file"
-        input.id = id_campo
-        input.name = id_campo
-        input.accept = "image/*"
-        input.style.display = "none"
-
-        const botao_upload = document.createElement("button")
-        botao_upload.type = "button"
-        const icone = document.createElement("span")
-        icone.classList.add("material-symbols-outlined")
-        icone.textContent = "upload_file"
-        botao_upload.appendChild(icone)
-        const texto = document.createElement("span")
-        texto.textContent = "Escolher imagem"
-        botao_upload.appendChild(texto)
-
-        botao_upload.onclick = () => input.click()
-
-        const preview_container = document.createElement("div")
-        preview_container.classList.add("preview-container")
-
-        const preview_img = document.createElement("img")
-        preview_img.classList.add("preview-imagem")
-        preview_container.appendChild(preview_img)
-
-        const nome_arquivo = document.createElement("span")
-        nome_arquivo.classList.add("nome-arquivo")
-        preview_container.appendChild(nome_arquivo)
-
-        if (hash_atual) {
-          ler_arquivo(diretorio, hash_atual).then(file => {
-            if (file) {
-              preview_img.src = URL.createObjectURL(file)
-              preview_container.style.display = "flex"
-            }
-          })
-        } else {
-          preview_container.style.display = "none"
-        }
-
-        input.onchange = () => {
-          if (input.files.length > 0) {
-            const file = input.files[0]
-            nome_arquivo.textContent = file.name
-            preview_img.src = URL.createObjectURL(file)
-            preview_container.style.display = "flex"
-          }
-        }
-
-        container.appendChild(input)
-        container.appendChild(botao_upload)
-        container.appendChild(preview_container)
-        div.appendChild(container)
-        return div
-      }
-
-      const criar_campo = (label, tipo, id_campo, valor, attributes = {}) => {
-        const div = document.createElement("div")
-        div.classList.add("form-campo")
-        const l = document.createElement("label")
-        l.textContent = label
-        l.htmlFor = id_campo
-        div.appendChild(l)
-        let input
-        if (tipo === "textarea") {
-          input = document.createElement("textarea")
-          input.textContent = valor || ""
-        } else {
-          input = document.createElement("input")
-          input.type = tipo
-          input.value = valor || ""
-        }
-        input.id = id_campo
-        input.name = id_campo
-        Object.assign(input, attributes)
-        div.appendChild(input)
-        return div
-      }
-
-      form.appendChild(criar_campo_arquivo("Capa", "capa", dados_atuais.capa))
-      form.appendChild(criar_campo_arquivo("Foto de Perfil", "foto", dados_atuais.foto))
-      form.appendChild(criar_campo("Nome", "text", "nome", dados_atuais.nome, { required: true }))
-      form.appendChild(criar_campo("Bio", "textarea", "bio", dados_atuais.bio))
-
-      const botao = document.createElement("button")
-      const span_ícone = document.createElement("span")
-      span_ícone.classList.add("material-symbols-outlined")
-      span_ícone.textContent = "save"
-      botao.appendChild(span_ícone)
-      const span_texto = document.createElement("span")
-      span_texto.textContent = "Salvar Alterações"
-      botao.appendChild(span_texto)
-      botao.type = "submit"
-      form.appendChild(botao)
-
-      form.onsubmit = async (e) => {
-        e.preventDefault()
-        botao.disabled = true
-        span_texto.textContent = "Salvando..."
-
-        try {
-          const dados_novos = {
-            ...dados_atuais,
-            nome: form.nome.value,
-            bio: form.bio.value,
-            anterior: hash_perfil_atual,
-            data: new Date().toISOString()
-          }
-
-          const salvar_imagem = async (input, hash_antigo) => {
-            if (input.files.length > 0) {
-              const file = input.files[0]
-              const buffer = await file.arrayBuffer()
-              const hash = await gerar_hash(buffer)
-              await escrever_arquivo(diretorio, hash, buffer)
-              return hash
-            }
-            return hash_antigo
-          }
-
-          dados_novos.capa = await salvar_imagem(form.capa, dados_atuais.capa)
-          dados_novos.foto = await salvar_imagem(form.foto, dados_atuais.foto)
-
-          const conteudo_perfil = JSON.stringify(dados_novos)
-          const hash_perfil_novo = await gerar_hash(conteudo_perfil)
-          await escrever_arquivo(diretorio, hash_perfil_novo, conteudo_perfil)
-
-          // Atualiza o ponteiro do ID do perfil
-          await escrever_arquivo(diretorio, id, hash_perfil_novo)
-
-          navegar("/perfil")
-        } catch (err) {
-          console.error("Erro ao editar perfil:", err)
-          botao.disabled = false
-          span_texto.textContent = "Salvar Alterações"
-        }
-      }
-
-      conteudo.appendChild(form)
+      return mount(Perfil, {
+        target: conteudo,
+        props: {
+          modo: "editar",
+          dados: dados_atuais,
+          imagem_capa,
+          imagem_foto,
+          hash_perfil_atual,
+          id,
+          diretorio,
+          gerar_hash,
+          escrever_arquivo,
+          navegar,
+        },
+      })
     }
   },
   {
@@ -1995,38 +1844,28 @@ const páginas = [
         return JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
       }
 
-      const secao_historico = document.createElement("div")
-      secao_historico.classList.add("historico")
-      secao_historico.style.marginTop = "0"
-      secao_historico.style.borderTop = "none"
-
-      const lista_historico = document.createElement("ul")
-
       // Começa da versão atual apontada pelo ID
       const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
       let hash_cursor = arquivo_id ? await aguardar_rota(arquivo_id.text(), sinal_rota) : null
+      const historico = []
 
       while (hash_cursor) {
         const dados_versao = await aguardar_rota(carregar_versao(hash_cursor), sinal_rota)
         if (!dados_versao) break
 
-        const item = document.createElement("li")
-        const link = document.createElement("a")
-        const data = window.isScreenshotTest ? new Date('2026-03-30T12:00:00.000Z').toLocaleString() : (dados_versao.data ? new Date(dados_versao.data).toLocaleString() : `Versão: ${hash_cursor}`)
-        link.textContent = data
-        link.href = `/perfil?v=${hash_cursor}`
-        item.appendChild(link)
-        lista_historico.appendChild(item)
-
+        const data = window.isScreenshotTest
+          ? new Date("2026-03-30T12:00:00.000Z").toLocaleString()
+          : dados_versao.data
+            ? new Date(dados_versao.data).toLocaleString()
+            : `Versão: ${hash_cursor}`
+        historico.push({ hash: hash_cursor, data })
         hash_cursor = dados_versao.anterior
       }
 
-      if (lista_historico.children.length > 0) {
-        secao_historico.appendChild(lista_historico)
-        conteudo.appendChild(secao_historico)
-      } else {
-        conteudo.innerHTML = "<p>Nenhum histórico encontrado.</p>"
-      }
+      return mount(Perfil, {
+        target: conteudo,
+        props: { modo: "historico", historico },
+      })
     }
   },
   {
