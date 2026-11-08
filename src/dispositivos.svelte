@@ -34,7 +34,7 @@
   {/if}
 </section>
 
-<style>
+<style lang="scss">
   .dispositivos-lista {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 24rem));
@@ -44,33 +44,35 @@
     padding: 0;
   }
 
-  .dispositivo-card {
-    box-sizing: border-box;
+  .dispositivo-card,
+  .dispositivo-arquivo {
     display: flex;
     flex-direction: column;
+  }
+
+  .dispositivo-card {
+    box-sizing: border-box;
     align-items: flex-start;
     gap: 1em;
     padding: 1.5em;
     border-radius: 1em;
     background-color: #333;
+
+    h2 {
+      margin: 0;
+    }
   }
 
-  .dispositivo-card h2,
   .dispositivo-arquivo {
     margin: 0;
-  }
-
-  .dispositivo-arquivo {
-    display: flex;
-    flex-direction: column;
     gap: 0.25em;
   }
 
   .dispositivos-pareados {
     margin-top: 1em;
-  }
 
-  .dispositivos-pareados h2 {
-    margin-bottom: 0.5em;
+    h2 {
+      margin-bottom: 0.5em;
+    }
   }
 </style>
