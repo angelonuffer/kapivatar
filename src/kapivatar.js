@@ -14,7 +14,7 @@ import BaseHorizontal from "./base-horizontal.svelte"
 import BaseVertical from "./base-vertical.svelte"
 import Assobios from "./assobios.svelte"
 import Assobiar from "./assobiar.svelte"
-import Dispositivos from "./dispositivos.svelte"
+import Dispositivos, { metadados as metadados_dispositivos } from "./dispositivos.svelte"
 
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
 const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
@@ -1761,10 +1761,7 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
 const páginas = [
   página_inicial,
   {
-    nome: "Dispositivos",
-    url: "/dispositivos",
-    ícone: "devices",
-    ações: [{ nome: "Parear dispositivo", url: "/dispositivos/parear", ícone: "sync_alt" }],
+    ...metadados_dispositivos,
     render: (conteudo) => mount(Dispositivos, {
       target: conteudo,
       props: {

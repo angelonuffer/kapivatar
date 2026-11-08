@@ -1,3 +1,12 @@
+<script module>
+  export const metadados = {
+    nome: "Dispositivos",
+    url: "/dispositivos",
+    ícone: "devices",
+    ações: [{ nome: "Parear dispositivo", url: "/dispositivos/parear", ícone: "sync_alt" }],
+  }
+</script>
+
 <script>
   let { arquivo_nome, dispositivos_pareados, sair, navegar } = $props()
   let dialogo_confirmacao_sair
