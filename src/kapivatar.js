@@ -14,6 +14,7 @@ import BaseHorizontal from "./base-horizontal.svelte"
 import BaseVertical from "./base-vertical.svelte"
 import Assobios from "./assobios.svelte"
 import Assobiar from "./assobiar.svelte"
+import Dispositivos from "./dispositivos.svelte"
 
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
 const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
@@ -1763,69 +1764,15 @@ const páginas = [
     nome: "Dispositivos",
     url: "/dispositivos",
     ícone: "devices",
-    render: (conteudo) => {
-      const lista = document.createElement("ul")
-      lista.classList.add("dispositivos-lista")
-
-      const item = document.createElement("li")
-      item.classList.add("dispositivo-card")
-
-      const titulo = document.createElement("h2")
-      titulo.textContent = "Este dispositivo"
-      item.appendChild(titulo)
-
-      const arquivo = document.createElement("p")
-      arquivo.classList.add("dispositivo-arquivo")
-      const rotulo_arquivo = document.createElement("span")
-      rotulo_arquivo.textContent = "Arquivo de dados"
-      const nome_arquivo = document.createElement("strong")
-      nome_arquivo.textContent = diretorio_selecionado.name
-      arquivo.append(rotulo_arquivo, nome_arquivo)
-      item.appendChild(arquivo)
-
-      const botão_sair = document.createElement("button")
-      botão_sair.type = "button"
-      const ícone_sair = document.createElement("span")
-      ícone_sair.classList.add("material-symbols-outlined")
-      ícone_sair.textContent = "logout"
-      botão_sair.appendChild(ícone_sair)
-      botão_sair.appendChild(document.createTextNode("Sair deste dispositivo"))
-      botão_sair.onclick = sair
-      item.appendChild(botão_sair)
-
-      lista.appendChild(item)
-      conteudo.appendChild(lista)
-
-      const botao_parear = document.createElement("button")
-      botao_parear.type = "button"
-      const icone_parear = document.createElement("span")
-      icone_parear.classList.add("material-symbols-outlined")
-      icone_parear.textContent = "sync_alt"
-      botao_parear.append(icone_parear, document.createTextNode("Parear dispositivo"))
-      botao_parear.onclick = () => navegar("/dispositivos/parear")
-      conteudo.appendChild(botao_parear)
-
-      const dispositivos_pareados = carregar_dispositivos_pareados()
-      const secao_pareados = document.createElement("section")
-      secao_pareados.classList.add("dispositivos-pareados")
-      const titulo_pareados = document.createElement("h2")
-      titulo_pareados.textContent = "Dispositivos pareados"
-      secao_pareados.appendChild(titulo_pareados)
-      if (dispositivos_pareados.length) {
-        const lista_pareados = document.createElement("ul")
-        for (const dispositivo of dispositivos_pareados) {
-          const item_pareado = document.createElement("li")
-          item_pareado.textContent = dispositivo.nome
-          lista_pareados.appendChild(item_pareado)
-        }
-        secao_pareados.appendChild(lista_pareados)
-      } else {
-        const vazio = document.createElement("p")
-        vazio.textContent = "Nenhum dispositivo pareado."
-        secao_pareados.appendChild(vazio)
-      }
-      conteudo.appendChild(secao_pareados)
-    }
+    render: (conteudo) => mount(Dispositivos, {
+      target: conteudo,
+      props: {
+        arquivo_nome: diretorio_selecionado.name,
+        dispositivos_pareados: carregar_dispositivos_pareados(),
+        sair,
+        navegar,
+      },
+    })
   },
   {
     nome: "Parear dispositivo",
