@@ -1,5 +1,6 @@
 <script>
   import { onDestroy, onMount } from "svelte"
+  import Assobios from "./assobios.svelte"
 
   let {
     modo,
@@ -13,10 +14,16 @@
     escrever_arquivo,
     navegar,
     historico = [],
+    registros_assobios = [],
+    ao_publicar_assobio,
+    ao_arquivar_assobio,
   } = $props()
 
   let previews = $state({ capa: "", foto: "" })
   let salvando = $state(false)
+  let novo_assobio = $state("")
+  let salvando_assobio = $state(false)
+  let erro_assobio = $state("")
   let mensagem_erro = $state("")
   const urls_preview = new Set()
 
@@ -45,6 +52,24 @@
     remover_preview(previews[campo])
     const arquivo = event.currentTarget.files?.[0]
     previews[campo] = arquivo ? criar_preview(arquivo) : ""
+  }
+
+  const publicar_assobio = async (event) => {
+    event.preventDefault()
+    const nota = novo_assobio.trim()
+    if (!nota) return
+
+    salvando_assobio = true
+    erro_assobio = ""
+    try {
+      await ao_publicar_assobio(nota)
+      novo_assobio = ""
+    } catch (erro) {
+      console.error("Erro ao publicar assobio:", erro)
+      erro_assobio = "Não foi possível publicar o assobio. Tente novamente."
+    } finally {
+      salvando_assobio = false
+    }
   }
 
   const salvar = async (event) => {
@@ -108,6 +133,30 @@
       <p>{dados.bio}</p>
     </div>
   </div>
+  <form class="form-perfil form-assobio" onsubmit={publicar_assobio}>
+    <div class="form-campo">
+      <div class="campo-nota-container">
+        <textarea id="novo-assobio" bind:value={novo_assobio} required></textarea>
+        <button
+          type="submit"
+          class="botao-publicar-assobio"
+          aria-label="Publicar assobio"
+          title="Publicar assobio"
+          disabled={salvando_assobio}
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">send</span>
+        </button>
+      </div>
+    </div>
+    {#if erro_assobio}
+      <p role="alert">{erro_assobio}</p>
+    {/if}
+  </form>
+  <Assobios
+    registros={registros_assobios}
+    somente_arquivados={false}
+    ao_arquivar={ao_arquivar_assobio}
+  />
 {:else if modo === "editar"}
   <form class="form-perfil" onsubmit={salvar}>
     {#each [{ campo: "capa", label: "Capa", arquivo: imagem_capa }, { campo: "foto", label: "Foto de Perfil", arquivo: imagem_foto }] as imagem}
@@ -170,3 +219,12 @@
     <p>Nenhum histórico encontrado.</p>
   {/if}
 {/if}
+
+<style>
+  .botao-publicar-assobio {
+    position: absolute;
+    right: 0.5em;
+    bottom: 0.5em;
+    padding: 0.35em;
+  }
+</style>

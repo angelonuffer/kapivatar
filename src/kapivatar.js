@@ -1767,10 +1767,39 @@ const páginas = [
       const imagem_foto = dados.foto
         ? await aguardar_rota(ler_arquivo(diretorio, dados.foto), sinal_rota)
         : null
+      const lista_assobios = await aguardar_rota(carregar_lista_assobios(diretorio, "assobios"), sinal_rota)
+      const registros_assobios = []
+      for (const id_assobio of lista_assobios.assobios) {
+        const registro = await aguardar_rota(carregar_dados_assobio(diretorio, id_assobio), sinal_rota)
+        if (registro?.dados.perfil === id) {
+          registros_assobios.push({ id: id_assobio, ...registro.dados })
+        }
+      }
+      registros_assobios.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
 
       return mount(Perfil, {
         target: conteudo,
-        props: { modo: "visualizar", dados, imagem_capa, imagem_foto },
+        props: {
+          modo: "visualizar",
+          dados,
+          imagem_capa,
+          imagem_foto,
+          registros_assobios,
+          ao_publicar_assobio: async (nota) => {
+            const id_assobio = crypto.randomUUID()
+            const dados_assobio = {
+              perfil: id,
+              perfil_nome: dados.nome,
+              data: new Date().toISOString(),
+              nota,
+            }
+            await salvar_assobio(diretorio, id_assobio, dados_assobio)
+            const ativos = await carregar_lista_assobios(diretorio, "assobios")
+            await salvar_lista_assobios(diretorio, "assobios", [...ativos.assobios, id_assobio])
+            navegar("/perfil")
+          },
+          ao_arquivar_assobio: arquivar_assobio,
+        },
       })
     }
   },
