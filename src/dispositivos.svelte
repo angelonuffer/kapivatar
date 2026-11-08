@@ -37,11 +37,6 @@
   </div>
 </dialog>
 
-<button type="button" onclick={() => navegar("/dispositivos/parear")}>
-  <span class="material-symbols-outlined">sync_alt</span>
-  Parear dispositivo
-</button>
-
 <section class="dispositivos-pareados">
   <h2>Dispositivos pareados</h2>
   {#if dispositivos_pareados.length}

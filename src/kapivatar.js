@@ -1764,6 +1764,7 @@ const páginas = [
     nome: "Dispositivos",
     url: "/dispositivos",
     ícone: "devices",
+    ações: [{ nome: "Parear dispositivo", url: "/dispositivos/parear", ícone: "sync_alt" }],
     render: (conteudo) => mount(Dispositivos, {
       target: conteudo,
       props: {
