@@ -52,6 +52,13 @@ test('Deve publicar atributos de tipos diferentes no assobio #perfil #assobios',
     await page.getByRole('button', { name: 'Adicionar ao assobio' }).click();
     await page.getByRole('button', { name: 'Atributo', exact: true }).click();
   };
+  const escolher_tipo = async (linha, tipo, icone) => {
+    await linha.getByRole('button', { name: /^Tipo do atributo:/ }).click();
+    await expect(linha.locator('.opcao-tipo-atributo')).toHaveCount(3);
+    await expect(linha.locator('.opcao-tipo-atributo')).toContainText(['Texto', 'Número', 'Lógico']);
+    await linha.getByRole('button', { name: tipo, exact: true }).click();
+    await expect(linha.locator('.botao-tipo-atributo')).toHaveText(icone);
+  };
   await adicionar_atributo();
   const linhas = page.locator('.linha-atributo-assobio');
   await linhas.nth(0).getByLabel('Nome do atributo').fill('Habitat');
@@ -59,12 +66,12 @@ test('Deve publicar atributos de tipos diferentes no assobio #perfil #assobios',
 
   await adicionar_atributo();
   await linhas.nth(1).getByLabel('Nome do atributo').fill('População');
-  await linhas.nth(1).getByLabel('Tipo do atributo').selectOption('numero');
+  await escolher_tipo(linhas.nth(1), 'Número', 'numbers');
   await linhas.nth(1).getByLabel('Valor do atributo').fill('42');
 
   await adicionar_atributo();
   await linhas.nth(2).getByLabel('Nome do atributo').fill('Noturna');
-  await linhas.nth(2).getByLabel('Tipo do atributo').selectOption('logico');
+  await escolher_tipo(linhas.nth(2), 'Lógico', 'toggle_on');
   await linhas.nth(2).getByLabel('Valor do atributo').selectOption('true');
 
   await page.getByRole('button', { name: 'Publicar assobio' }).click();

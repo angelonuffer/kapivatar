@@ -26,12 +26,18 @@
   let arquivo_imagem_assobio = $state(null)
   let preview_imagem_assobio = $state("")
   let menu_adicionar_aberto = $state(false)
+  let menu_tipo_atributo_aberto = $state(null)
   let salvando_assobio = $state(false)
   let erro_assobio = $state("")
   let mensagem_erro = $state("")
   let input_imagem_assobio = $state()
   let container_adicionar_assobio = $state()
   const urls_preview = new Set()
+  const tipos_atributo = [
+    { valor: "texto", nome: "Texto", icone: "text_fields" },
+    { valor: "numero", nome: "Número", icone: "numbers" },
+    { valor: "logico", nome: "Lógico", icone: "toggle_on" },
+  ]
 
   const criar_preview = (arquivo) => {
     const url = URL.createObjectURL(arquivo)
@@ -49,16 +55,24 @@
     if (imagem_capa) previews.capa = criar_preview(imagem_capa)
     if (imagem_foto) previews.foto = criar_preview(imagem_foto)
     document.addEventListener("pointerdown", fechar_menu_adicionar_assobio)
+    document.addEventListener("pointerdown", fechar_menu_tipo_atributo)
   })
 
   onDestroy(() => {
     document.removeEventListener("pointerdown", fechar_menu_adicionar_assobio)
+    document.removeEventListener("pointerdown", fechar_menu_tipo_atributo)
     for (const url of urls_preview) URL.revokeObjectURL(url)
   })
 
   const fechar_menu_adicionar_assobio = (event) => {
     if (!container_adicionar_assobio?.contains(event.target)) {
       menu_adicionar_aberto = false
+    }
+  }
+
+  const fechar_menu_tipo_atributo = (event) => {
+    if (!event.target.closest(".seletor-tipo-atributo")) {
+      menu_tipo_atributo_aberto = null
     }
   }
 
@@ -112,6 +126,12 @@
       valor: "",
     })
     menu_adicionar_aberto = false
+  }
+
+  const selecionar_tipo_atributo = (atributo, tipo) => {
+    if (atributo.tipo !== tipo.valor) atributo.valor = ""
+    atributo.tipo = tipo.valor
+    menu_tipo_atributo_aberto = null
   }
 
   const salvar = async (event) => {
@@ -267,15 +287,38 @@
                     required
                   />
                 {/if}
-                <select
-                  aria-label="Tipo do atributo"
-                  bind:value={atributo.tipo}
-                  onchange={() => atributo.valor = ""}
-                >
-                  <option value="texto">Texto</option>
-                  <option value="numero">Número</option>
-                  <option value="logico">Lógico</option>
-                </select>
+                <div class="seletor-tipo-atributo">
+                  <button
+                    type="button"
+                    class="botao-tipo-atributo"
+                    aria-label={`Tipo do atributo: ${tipos_atributo.find(tipo => tipo.valor === atributo.tipo).nome}`}
+                    title={tipos_atributo.find(tipo => tipo.valor === atributo.tipo).nome}
+                    aria-expanded={menu_tipo_atributo_aberto === atributo.id}
+                    onclick={() => menu_tipo_atributo_aberto = menu_tipo_atributo_aberto === atributo.id
+                      ? null
+                      : atributo.id}
+                  >
+                    <span class="material-symbols-outlined" aria-hidden="true">
+                      {tipos_atributo.find(tipo => tipo.valor === atributo.tipo).icone}
+                    </span>
+                  </button>
+                  {#if menu_tipo_atributo_aberto === atributo.id}
+                    <div class="menu-tipos-atributo">
+                      {#each tipos_atributo as tipo (tipo.valor)}
+                        <button
+                          type="button"
+                          class="opcao-tipo-atributo"
+                          aria-label={tipo.nome}
+                          aria-pressed={atributo.tipo === tipo.valor}
+                          onclick={() => selecionar_tipo_atributo(atributo, tipo)}
+                        >
+                          <span class="material-symbols-outlined" aria-hidden="true">{tipo.icone}</span>
+                          <span>{tipo.nome}</span>
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
               </div>
               <button
                 type="button"
@@ -407,9 +450,48 @@
 
   .valor-atributo-assobio {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) 2.5em;
     gap: 0.35em;
     min-width: 0;
+  }
+
+  .seletor-tipo-atributo {
+    position: relative;
+  }
+
+  .botao-tipo-atributo {
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    padding: 0.25em;
+  }
+
+  .menu-tipos-atributo {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.35em);
+    z-index: 10;
+    min-width: max-content;
+    overflow: hidden;
+    border-radius: 0.5em;
+    background: #444;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+
+  .opcao-tipo-atributo {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.6em;
+    border-radius: 0;
+    background: none;
+    text-align: left;
+  }
+
+  .opcao-tipo-atributo:hover,
+  .opcao-tipo-atributo[aria-pressed="true"] {
+    background: #555;
   }
 
   .remover-atributo-assobio {
