@@ -29,6 +29,7 @@
   let erro_assobio = $state("")
   let mensagem_erro = $state("")
   let input_imagem_assobio = $state()
+  let container_adicionar_assobio = $state()
   const urls_preview = new Set()
 
   const criar_preview = (arquivo) => {
@@ -46,11 +47,19 @@
   onMount(() => {
     if (imagem_capa) previews.capa = criar_preview(imagem_capa)
     if (imagem_foto) previews.foto = criar_preview(imagem_foto)
+    document.addEventListener("pointerdown", fechar_menu_adicionar_assobio)
   })
 
   onDestroy(() => {
+    document.removeEventListener("pointerdown", fechar_menu_adicionar_assobio)
     for (const url of urls_preview) URL.revokeObjectURL(url)
   })
+
+  const fechar_menu_adicionar_assobio = (event) => {
+    if (!container_adicionar_assobio?.contains(event.target)) {
+      menu_adicionar_aberto = false
+    }
+  }
 
   const atualizar_preview = (campo, event) => {
     remover_preview(previews[campo])
@@ -153,7 +162,7 @@
     <div class="form-campo">
       <div class="campo-nota-container">
         <textarea id="novo-assobio" bind:value={novo_assobio}></textarea>
-        <div class="adicionar-assobio-container">
+        <div class="adicionar-assobio-container" bind:this={container_adicionar_assobio}>
           <button
             type="button"
             class="botao-adicionar-assobio"
