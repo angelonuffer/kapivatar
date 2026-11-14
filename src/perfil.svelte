@@ -22,9 +22,13 @@
   let previews = $state({ capa: "", foto: "" })
   let salvando = $state(false)
   let novo_assobio = $state("")
+  let arquivo_imagem_assobio = $state(null)
+  let preview_imagem_assobio = $state("")
+  let menu_adicionar_aberto = $state(false)
   let salvando_assobio = $state(false)
   let erro_assobio = $state("")
   let mensagem_erro = $state("")
+  let input_imagem_assobio = $state()
   const urls_preview = new Set()
 
   const criar_preview = (arquivo) => {
@@ -57,19 +61,31 @@
   const publicar_assobio = async (event) => {
     event.preventDefault()
     const nota = novo_assobio.trim()
-    if (!nota) return
+    if (!nota && !arquivo_imagem_assobio) return
 
     salvando_assobio = true
     erro_assobio = ""
     try {
-      await ao_publicar_assobio(nota)
+      await ao_publicar_assobio(nota, arquivo_imagem_assobio)
       novo_assobio = ""
+      arquivo_imagem_assobio = null
+      remover_preview(preview_imagem_assobio)
+      preview_imagem_assobio = ""
+      if (input_imagem_assobio) input_imagem_assobio.value = ""
     } catch (erro) {
       console.error("Erro ao publicar assobio:", erro)
       erro_assobio = "Não foi possível publicar o assobio. Tente novamente."
     } finally {
       salvando_assobio = false
     }
+  }
+
+  const selecionar_imagem_assobio = (event) => {
+    const arquivo = event.currentTarget.files?.[0]
+    if (!arquivo) return
+    remover_preview(preview_imagem_assobio)
+    arquivo_imagem_assobio = arquivo
+    preview_imagem_assobio = criar_preview(arquivo)
   }
 
   const salvar = async (event) => {
@@ -136,7 +152,50 @@
   <form class="form-perfil form-assobio" onsubmit={publicar_assobio}>
     <div class="form-campo">
       <div class="campo-nota-container">
-        <textarea id="novo-assobio" bind:value={novo_assobio} required></textarea>
+        <textarea id="novo-assobio" bind:value={novo_assobio}></textarea>
+        <div class="adicionar-assobio-container">
+          <button
+            type="button"
+            class="botao-adicionar-assobio"
+            aria-label="Adicionar ao assobio"
+            aria-expanded={menu_adicionar_aberto}
+            aria-controls="menu-adicionar-assobio"
+            title="Adicionar ao assobio"
+            onclick={() => menu_adicionar_aberto = !menu_adicionar_aberto}
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">add</span>
+          </button>
+          {#if menu_adicionar_aberto}
+            <div class="menu-adicionar-assobio" id="menu-adicionar-assobio">
+              <button
+                type="button"
+                class="item-menu-adicionar-assobio"
+                onclick={() => {
+                  menu_adicionar_aberto = false
+                  input_imagem_assobio.click()
+                }}
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">photo_camera</span>
+                <span>Tirar foto</span>
+              </button>
+            </div>
+          {/if}
+          <input
+            bind:this={input_imagem_assobio}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onchange={selecionar_imagem_assobio}
+          />
+        </div>
+        {#if preview_imagem_assobio}
+          <img
+            class="preview-imagem-assobio"
+            src={preview_imagem_assobio}
+            alt="Pré-visualização da foto do assobio"
+          />
+        {/if}
         <button
           type="submit"
           class="botao-publicar-assobio"
@@ -221,6 +280,42 @@
 {/if}
 
 <style>
+  .adicionar-assobio-container {
+    position: absolute;
+    bottom: 0.5em;
+    left: 0.5em;
+  }
+
+  .botao-adicionar-assobio {
+    padding: 0.35em;
+  }
+
+  .menu-adicionar-assobio {
+    position: absolute;
+    bottom: calc(100% + 0.5em);
+    left: 0;
+    min-width: 150px;
+    overflow: hidden;
+    background: #444;
+    border-radius: 0.5em;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+  }
+
+  .item-menu-adicionar-assobio {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 0;
+  }
+
+  .preview-imagem-assobio {
+    display: block;
+    max-width: 100%;
+    max-height: 240px;
+    margin-top: 0.5em;
+    object-fit: contain;
+  }
+
   .botao-publicar-assobio {
     position: absolute;
     right: 0.5em;
