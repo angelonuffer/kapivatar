@@ -22,15 +22,22 @@
   let previews = $state({ capa: "", foto: "" })
   let salvando = $state(false)
   let novo_assobio = $state("")
+  let atributos_assobio = $state([])
   let arquivo_imagem_assobio = $state(null)
   let preview_imagem_assobio = $state("")
   let menu_adicionar_aberto = $state(false)
+  let menu_tipo_atributo_aberto = $state(null)
   let salvando_assobio = $state(false)
   let erro_assobio = $state("")
   let mensagem_erro = $state("")
   let input_imagem_assobio = $state()
   let container_adicionar_assobio = $state()
   const urls_preview = new Set()
+  const tipos_atributo = [
+    { valor: "texto", nome: "Texto", icone: "text_fields" },
+    { valor: "numero", nome: "Número", icone: "numbers" },
+    { valor: "logico", nome: "Lógico", icone: "toggle_on" },
+  ]
 
   const criar_preview = (arquivo) => {
     const url = URL.createObjectURL(arquivo)
@@ -48,16 +55,24 @@
     if (imagem_capa) previews.capa = criar_preview(imagem_capa)
     if (imagem_foto) previews.foto = criar_preview(imagem_foto)
     document.addEventListener("pointerdown", fechar_menu_adicionar_assobio)
+    document.addEventListener("pointerdown", fechar_menu_tipo_atributo)
   })
 
   onDestroy(() => {
     document.removeEventListener("pointerdown", fechar_menu_adicionar_assobio)
+    document.removeEventListener("pointerdown", fechar_menu_tipo_atributo)
     for (const url of urls_preview) URL.revokeObjectURL(url)
   })
 
   const fechar_menu_adicionar_assobio = (event) => {
     if (!container_adicionar_assobio?.contains(event.target)) {
       menu_adicionar_aberto = false
+    }
+  }
+
+  const fechar_menu_tipo_atributo = (event) => {
+    if (!event.target.closest(".seletor-tipo-atributo")) {
+      menu_tipo_atributo_aberto = null
     }
   }
 
@@ -70,13 +85,19 @@
   const publicar_assobio = async (event) => {
     event.preventDefault()
     const nota = novo_assobio.trim()
-    if (!nota && !arquivo_imagem_assobio) return
+    if (!nota && !arquivo_imagem_assobio && !atributos_assobio.length) return
 
     salvando_assobio = true
     erro_assobio = ""
     try {
-      await ao_publicar_assobio(nota, arquivo_imagem_assobio)
+      const atributos = atributos_assobio.map(({ nome, tipo, valor }) => ({
+        nome: nome.trim(),
+        tipo,
+        valor: tipo === "numero" ? Number(valor) : tipo === "logico" ? valor === "true" : valor,
+      }))
+      await ao_publicar_assobio(nota, arquivo_imagem_assobio, atributos)
       novo_assobio = ""
+      atributos_assobio = []
       arquivo_imagem_assobio = null
       remover_preview(preview_imagem_assobio)
       preview_imagem_assobio = ""
@@ -95,6 +116,22 @@
     remover_preview(preview_imagem_assobio)
     arquivo_imagem_assobio = arquivo
     preview_imagem_assobio = criar_preview(arquivo)
+  }
+
+  const adicionar_atributo_assobio = () => {
+    atributos_assobio.push({
+      id: crypto.randomUUID(),
+      nome: "",
+      tipo: "texto",
+      valor: "",
+    })
+    menu_adicionar_aberto = false
+  }
+
+  const selecionar_tipo_atributo = (atributo, tipo) => {
+    if (atributo.tipo !== tipo.valor) atributo.valor = ""
+    atributo.tipo = tipo.valor
+    menu_tipo_atributo_aberto = null
   }
 
   const salvar = async (event) => {
@@ -187,6 +224,14 @@
                 <span class="material-symbols-outlined" aria-hidden="true">photo_camera</span>
                 <span>Tirar foto</span>
               </button>
+              <button
+                type="button"
+                class="item-menu-adicionar-assobio"
+                onclick={adicionar_atributo_assobio}
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">label</span>
+                <span>Atributo</span>
+              </button>
             </div>
           {/if}
           <input
@@ -215,6 +260,78 @@
           <span class="material-symbols-outlined" aria-hidden="true">send</span>
         </button>
       </div>
+      {#if atributos_assobio.length}
+        <div class="atributos-assobio">
+          {#each atributos_assobio as atributo (atributo.id)}
+            <div class="linha-atributo-assobio">
+              <input
+                type="text"
+                aria-label="Nome do atributo"
+                placeholder="Nome"
+                bind:value={atributo.nome}
+                required
+              />
+              <div class="valor-atributo-assobio">
+                {#if atributo.tipo === "logico"}
+                  <select aria-label="Valor do atributo" bind:value={atributo.valor} required>
+                    <option value="">Selecione</option>
+                    <option value="true">Verdadeiro</option>
+                    <option value="false">Falso</option>
+                  </select>
+                {:else}
+                  <input
+                    type={atributo.tipo === "numero" ? "number" : "text"}
+                    aria-label="Valor do atributo"
+                    placeholder="Valor"
+                    bind:value={atributo.valor}
+                    required
+                  />
+                {/if}
+                <div class="seletor-tipo-atributo">
+                  <button
+                    type="button"
+                    class="botao-tipo-atributo"
+                    aria-label={`Tipo do atributo: ${tipos_atributo.find(tipo => tipo.valor === atributo.tipo).nome}`}
+                    title={tipos_atributo.find(tipo => tipo.valor === atributo.tipo).nome}
+                    aria-expanded={menu_tipo_atributo_aberto === atributo.id}
+                    onclick={() => menu_tipo_atributo_aberto = menu_tipo_atributo_aberto === atributo.id
+                      ? null
+                      : atributo.id}
+                  >
+                    <span class="material-symbols-outlined" aria-hidden="true">
+                      {tipos_atributo.find(tipo => tipo.valor === atributo.tipo).icone}
+                    </span>
+                  </button>
+                  {#if menu_tipo_atributo_aberto === atributo.id}
+                    <div class="menu-tipos-atributo">
+                      {#each tipos_atributo as tipo (tipo.valor)}
+                        <button
+                          type="button"
+                          class="opcao-tipo-atributo"
+                          aria-label={tipo.nome}
+                          aria-pressed={atributo.tipo === tipo.valor}
+                          onclick={() => selecionar_tipo_atributo(atributo, tipo)}
+                        >
+                          <span class="material-symbols-outlined" aria-hidden="true">{tipo.icone}</span>
+                          <span>{tipo.nome}</span>
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              </div>
+              <button
+                type="button"
+                class="remover-atributo-assobio"
+                aria-label="Remover atributo"
+                onclick={() => atributos_assobio = atributos_assobio.filter(item => item.id !== atributo.id)}
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+              </button>
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
     {#if erro_assobio}
       <p role="alert">{erro_assobio}</p>
@@ -315,6 +432,70 @@
     width: 100%;
     justify-content: flex-start;
     border-radius: 0;
+  }
+
+  .atributos-assobio {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+    margin-top: 0.75em;
+  }
+
+  .linha-atributo-assobio {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 0.5em;
+    align-items: center;
+  }
+
+  .valor-atributo-assobio {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.5em;
+    gap: 0.35em;
+    min-width: 0;
+  }
+
+  .seletor-tipo-atributo {
+    position: relative;
+  }
+
+  .botao-tipo-atributo {
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    padding: 0.25em;
+  }
+
+  .menu-tipos-atributo {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.35em);
+    z-index: 10;
+    min-width: max-content;
+    overflow: hidden;
+    border-radius: 0.5em;
+    background: #444;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+
+  .opcao-tipo-atributo {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.6em;
+    border-radius: 0;
+    background: none;
+    text-align: left;
+  }
+
+  .opcao-tipo-atributo:hover,
+  .opcao-tipo-atributo[aria-pressed="true"] {
+    background: #555;
+  }
+
+  .remover-atributo-assobio {
+    padding: 0.3em;
   }
 
   .preview-imagem-assobio {

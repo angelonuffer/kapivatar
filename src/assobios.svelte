@@ -20,6 +20,18 @@
           {registro.perfil_nome} — {registro.data}
         </a>
         <p class="assobio-card-nota">{registro.nota}</p>
+        {#if registro.atributos?.length}
+          <div class="assobio-atributos">
+            {#each registro.atributos as atributo}
+              <div class="assobio-atributo">
+                <span>{atributo.nome}</span>
+                <span>{typeof atributo.valor === "boolean"
+                  ? atributo.valor ? "Verdadeiro" : "Falso"
+                  : atributo.valor}</span>
+              </div>
+            {/each}
+          </div>
+        {/if}
         <div class="assobio-menu-container">
           <button
             type="button"

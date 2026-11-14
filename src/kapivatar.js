@@ -1835,13 +1835,14 @@ const páginas = [
           imagem_capa,
           imagem_foto,
           registros_assobios,
-          ao_publicar_assobio: async (nota, arquivo_imagem) => {
+          ao_publicar_assobio: async (nota, arquivo_imagem, atributos) => {
             const id_assobio = crypto.randomUUID()
             const dados_assobio = {
               perfil: id,
               perfil_nome: dados.nome,
               data: new Date().toISOString(),
               nota,
+              ...(atributos.length ? { atributos } : {}),
             }
             if (arquivo_imagem) {
               const bytes = await arquivo_imagem.arrayBuffer()
@@ -2021,6 +2022,23 @@ const páginas = [
         const nota = document.createElement("p")
         nota.textContent = dados.nota
         elementos.push(nota)
+      }
+      if (dados.atributos?.length) {
+        const atributos = document.createElement("div")
+        atributos.className = "assobio-atributos"
+        for (const atributo of dados.atributos) {
+          const linha = document.createElement("div")
+          linha.className = "assobio-atributo"
+          const nome = document.createElement("span")
+          nome.textContent = atributo.nome
+          const valor = document.createElement("span")
+          valor.textContent = typeof atributo.valor === "boolean"
+            ? atributo.valor ? "Verdadeiro" : "Falso"
+            : atributo.valor
+          linha.append(nome, valor)
+          atributos.append(linha)
+        }
+        elementos.push(atributos)
       }
       conteudo.append(...elementos)
     }

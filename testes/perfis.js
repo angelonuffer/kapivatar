@@ -42,6 +42,60 @@ test('Deve publicar assobios no perfil em ordem decrescente de data #perfil #ass
   await expect(cartoes).toHaveText(['Assobio mais recente', 'Assobio mais antigo']);
 });
 
+test('Deve publicar atributos de tipos diferentes no assobio #perfil #assobios', async ({ page }) => {
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill('Perfil com Atributos');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
+  await expect(page.getByRole('heading', { name: 'Perfil com Atributos' })).toBeVisible();
+
+  const adicionar_atributo = async () => {
+    await page.getByRole('button', { name: 'Adicionar ao assobio' }).click();
+    await page.getByRole('button', { name: 'Atributo', exact: true }).click();
+  };
+  const escolher_tipo = async (linha, tipo, icone) => {
+    await linha.getByRole('button', { name: /^Tipo do atributo:/ }).click();
+    await expect(linha.locator('.opcao-tipo-atributo')).toHaveCount(3);
+    await expect(linha.locator('.opcao-tipo-atributo')).toContainText(['Texto', 'Número', 'Lógico']);
+    await linha.getByRole('button', { name: tipo, exact: true }).click();
+    await expect(linha.locator('.botao-tipo-atributo')).toHaveText(icone);
+  };
+  await adicionar_atributo();
+  const linhas = page.locator('.linha-atributo-assobio');
+  await linhas.nth(0).getByLabel('Nome do atributo').fill('Habitat');
+  await linhas.nth(0).getByLabel('Valor do atributo').fill('Floresta');
+
+  await adicionar_atributo();
+  await linhas.nth(1).getByLabel('Nome do atributo').fill('População');
+  await escolher_tipo(linhas.nth(1), 'Número', 'numbers');
+  await linhas.nth(1).getByLabel('Valor do atributo').fill('42');
+
+  await adicionar_atributo();
+  await linhas.nth(2).getByLabel('Nome do atributo').fill('Noturna');
+  await escolher_tipo(linhas.nth(2), 'Lógico', 'toggle_on');
+  await linhas.nth(2).getByLabel('Valor do atributo').selectOption('true');
+
+  await page.getByRole('button', { name: 'Publicar assobio' }).click();
+  await expect(page.locator('.assobio-atributo span')).toHaveText([
+    'Habitat',
+    'Floresta',
+    'População',
+    '42',
+    'Noturna',
+    'Verdadeiro',
+  ]);
+
+  await page.goto('/assobios');
+  await page.locator('.assobio-card-titulo').click();
+  await expect(page.locator('.assobio-atributo span')).toHaveText([
+    'Habitat',
+    'Floresta',
+    'População',
+    '42',
+    'Noturna',
+    'Verdadeiro',
+  ]);
+});
+
 test('Deve fechar o menu de adição ao interagir fora dele #perfil', async ({ page }) => {
   await page.getByRole('button', { name: /Criar perfil/ }).click();
   await page.getByLabel('Nome').fill('Perfil com Menu');
