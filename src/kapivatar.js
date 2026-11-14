@@ -9,6 +9,7 @@ import {
   listar_dados_sqlite,
 } from "./sqlite.js"
 import { mount, unmount } from "svelte"
+import "material-symbols/outlined.css"
 import TelaInicial from "./entrar.svelte"
 import CriarPerfil from "./criar-perfil.svelte"
 import Perfil from "./perfil.svelte"
@@ -3044,4 +3045,8 @@ document.addEventListener("click", (e) => {
   }
 })
 
-onload = rotear
+document.fonts.load('24px "Material Symbols Outlined"', 'home')
+  .then(() => rotear())
+  .catch((erro) => {
+    console.error("Não foi possível iniciar o app com a fonte Material Symbols.", erro)
+  })
