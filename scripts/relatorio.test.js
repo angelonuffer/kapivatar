@@ -31,7 +31,10 @@ test('gera passos, capturas e tentativas sem inserir HTML executável #relatorio
   const { entrada, saida } = await fixture(t);
   const frame = Uint8Array.from([1, 2, 3]);
   const trace = zipSync({
-    '1-trace.trace': strToU8(JSON.stringify({ type: 'screencast-frame', timestamp: 2, file: 'screencast/frame.jpeg' })),
+    '1-trace.trace': strToU8([
+      { type: 'context-options', wallTime: 1700000000000, monotonicTime: 0 },
+      { type: 'screencast-frame', timestamp: 2, file: 'screencast/frame.jpeg' },
+    ].map((evento) => JSON.stringify(evento)).join('\n')),
     'screencast/frame.jpeg': frame,
   });
   await writeFile(path.join(entrada, 'data', 'trace.zip'), trace);
@@ -39,7 +42,7 @@ test('gera passos, capturas e tentativas sem inserir HTML executável #relatorio
   await escreverRelatorio(entrada, [{
     testId: 'id', title: '</script><script>alert(1)</script> #fixture #xss', projectName: 'chromium', path: [], outcome: 'flaky',
     results: [
-      { retry: 0, status: 'failed', steps: [{ title: 'passo', steps: [{ title: 'subpasso' }] }], errors: [{ message: 'falhou' }], attachments: [{ name: 'trace', path: 'data/trace.zip' }, { name: 'anexo', contentType: 'image/png', path: 'data/anexo.png' }] },
+      { retry: 0, status: 'failed', steps: [{ title: 'passo', startTime: '2023-11-14T22:13:20.001Z', duration: 10, attachments: [1], steps: [{ title: 'subpasso' }] }], errors: [{ message: 'falhou' }], attachments: [{ name: 'trace', path: 'data/trace.zip' }, { name: 'anexo', contentType: 'image/png', path: 'data/anexo.png' }] },
       { retry: 1, status: 'passed', steps: [], attachments: [] },
     ],
   }, { testId: 'ignorado', title: 'ignorado', outcome: 'skipped', results: [] }]);
@@ -51,8 +54,11 @@ test('gera passos, capturas e tentativas sem inserir HTML executável #relatorio
   assert.equal(dados.testes[0].titulo, '</script><script>alert(1)</script>');
   assert.deepEqual(dados.testes[0].hashtags, ['#fixture', '#xss']);
   assert.equal(dados.testes[0].resultados[0].steps[0].steps[0].title, 'subpasso');
+  assert.equal(dados.testes[0].resultados[0].steps[0].imagens[0].titulo, 'anexo');
+  assert.equal(dados.testes[0].resultados[0].steps[0].imagens[1].titulo, 'Captura 1');
   assert.equal(dados.testes[0].resultados[0].errors[0].message, 'falhou');
   assert.equal(dados.testes[0].resultados[0].imagens.length, 2);
+  assert.equal(dados.testes[0].resultados[0].imagensSemPasso.length, 0);
   assert.equal(dados.testes[0].resultados[1].retry, 1);
   assert.equal(dados.testes[1].resultados.length, 0);
   for (const imagem of dados.testes[0].resultados[0].imagens) {
