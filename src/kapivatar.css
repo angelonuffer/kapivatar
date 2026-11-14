@@ -494,6 +494,28 @@ a.ativo {
   height: auto;
 }
 
+.assobio-atributos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35em;
+  margin-top: 0.75em;
+}
+
+.assobio-atributo {
+  display: flex;
+  justify-content: space-between;
+  gap: 1em;
+  line-height: 1.5;
+}
+
+.assobio-atributo span {
+  overflow-wrap: anywhere;
+}
+
+.assobio-atributo span:last-child {
+  text-align: right;
+}
+
 .nome-arquivo {
   font-size: 0.9em;
   color: #bbb;

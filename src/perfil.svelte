@@ -22,6 +22,7 @@
   let previews = $state({ capa: "", foto: "" })
   let salvando = $state(false)
   let novo_assobio = $state("")
+  let atributos_assobio = $state([])
   let arquivo_imagem_assobio = $state(null)
   let preview_imagem_assobio = $state("")
   let menu_adicionar_aberto = $state(false)
@@ -70,13 +71,19 @@
   const publicar_assobio = async (event) => {
     event.preventDefault()
     const nota = novo_assobio.trim()
-    if (!nota && !arquivo_imagem_assobio) return
+    if (!nota && !arquivo_imagem_assobio && !atributos_assobio.length) return
 
     salvando_assobio = true
     erro_assobio = ""
     try {
-      await ao_publicar_assobio(nota, arquivo_imagem_assobio)
+      const atributos = atributos_assobio.map(({ nome, tipo, valor }) => ({
+        nome: nome.trim(),
+        tipo,
+        valor: tipo === "numero" ? Number(valor) : tipo === "logico" ? valor === "true" : valor,
+      }))
+      await ao_publicar_assobio(nota, arquivo_imagem_assobio, atributos)
       novo_assobio = ""
+      atributos_assobio = []
       arquivo_imagem_assobio = null
       remover_preview(preview_imagem_assobio)
       preview_imagem_assobio = ""
@@ -95,6 +102,16 @@
     remover_preview(preview_imagem_assobio)
     arquivo_imagem_assobio = arquivo
     preview_imagem_assobio = criar_preview(arquivo)
+  }
+
+  const adicionar_atributo_assobio = () => {
+    atributos_assobio.push({
+      id: crypto.randomUUID(),
+      nome: "",
+      tipo: "texto",
+      valor: "",
+    })
+    menu_adicionar_aberto = false
   }
 
   const salvar = async (event) => {
@@ -187,6 +204,14 @@
                 <span class="material-symbols-outlined" aria-hidden="true">photo_camera</span>
                 <span>Tirar foto</span>
               </button>
+              <button
+                type="button"
+                class="item-menu-adicionar-assobio"
+                onclick={adicionar_atributo_assobio}
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">label</span>
+                <span>Atributo</span>
+              </button>
             </div>
           {/if}
           <input
@@ -215,6 +240,55 @@
           <span class="material-symbols-outlined" aria-hidden="true">send</span>
         </button>
       </div>
+      {#if atributos_assobio.length}
+        <div class="atributos-assobio">
+          {#each atributos_assobio as atributo (atributo.id)}
+            <div class="linha-atributo-assobio">
+              <input
+                type="text"
+                aria-label="Nome do atributo"
+                placeholder="Nome"
+                bind:value={atributo.nome}
+                required
+              />
+              <div class="valor-atributo-assobio">
+                {#if atributo.tipo === "logico"}
+                  <select aria-label="Valor do atributo" bind:value={atributo.valor} required>
+                    <option value="">Selecione</option>
+                    <option value="true">Verdadeiro</option>
+                    <option value="false">Falso</option>
+                  </select>
+                {:else}
+                  <input
+                    type={atributo.tipo === "numero" ? "number" : "text"}
+                    aria-label="Valor do atributo"
+                    placeholder="Valor"
+                    bind:value={atributo.valor}
+                    required
+                  />
+                {/if}
+                <select
+                  aria-label="Tipo do atributo"
+                  bind:value={atributo.tipo}
+                  onchange={() => atributo.valor = ""}
+                >
+                  <option value="texto">Texto</option>
+                  <option value="numero">Número</option>
+                  <option value="logico">Lógico</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                class="remover-atributo-assobio"
+                aria-label="Remover atributo"
+                onclick={() => atributos_assobio = atributos_assobio.filter(item => item.id !== atributo.id)}
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+              </button>
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
     {#if erro_assobio}
       <p role="alert">{erro_assobio}</p>
@@ -315,6 +389,31 @@
     width: 100%;
     justify-content: flex-start;
     border-radius: 0;
+  }
+
+  .atributos-assobio {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+    margin-top: 0.75em;
+  }
+
+  .linha-atributo-assobio {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 0.5em;
+    align-items: center;
+  }
+
+  .valor-atributo-assobio {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.35em;
+    min-width: 0;
+  }
+
+  .remover-atributo-assobio {
+    padding: 0.3em;
   }
 
   .preview-imagem-assobio {
