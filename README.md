@@ -105,7 +105,7 @@ Para verificar os tipos e diagnósticos do projeto, use:
 npm run check
 ```
 
-No GitHub Actions, cada execução disponibiliza o relatório Playwright original e a página gerada como artefato quando gerados. O relatório da branch principal é publicado em `https://angelonuffer.github.io/kapivatar/latest/`. PRs do próprio repositório também publicam um preview público em `https://angelonuffer.github.io/kapivatar/previews/pr-<número>/`; o preview é removido quando o PR é fechado. PRs de forks continuam executando os testes e disponibilizando o artefato, mas não publicam no Pages. Esses relatórios e suas capturas são públicos: não inclua dados sensíveis nos testes.
+No GitHub Actions, cada execução disponibiliza o relatório Playwright original e a página gerada como artefato quando gerados. O relatório da branch principal é publicado em `https://angelonuffer.github.io/kapivatar/latest/`. PRs do próprio repositório também publicam um preview público em `https://angelonuffer.github.io/kapivatar/previews/pr-<número>/`; o índice mantém apenas previews de PRs abertos e os relatórios são removidos quando os PRs são fechados ou mergeados. PRs de forks continuam executando os testes e disponibilizando o artefato, mas não publicam no Pages. Esses relatórios e suas capturas são públicos: não inclua dados sensíveis nos testes.
 
 ## 📄 Licença
 
