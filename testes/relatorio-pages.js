@@ -56,3 +56,32 @@ test('filtra a lista por hashtag #relatorio #filtro', async ({ page }) => {
   await filtro.selectOption('');
   await expect(page.locator('#lista .teste')).toHaveCount(2);
 });
+
+test('exibe capturas junto ao passo ao qual pertencem #relatorio #capturas', async ({ page }) => {
+  const relatorio = {
+    testes: [{
+      titulo: 'Teste com captura',
+      hashtags: [],
+      caminho: 'teste.js',
+      projeto: 'chromium',
+      outcome: 'expected',
+      resultados: [{
+        retry: 0,
+        status: 'passed',
+        duration: 10,
+        errors: [],
+        steps: [{ title: 'Abre a página', imagens: [{ titulo: 'Página inicial', url: 'data:image/png;base64,AA==' }] }],
+        imagens: [{ titulo: 'Página inicial', url: 'data:image/png;base64,AA==' }],
+        imagensSemPasso: [],
+      }],
+    }],
+    startTime: null,
+  };
+  const html = modelo.replace('/* DADOS_DO_RELATORIO */', `const relatorio = ${JSON.stringify(relatorio)};`);
+
+  await page.setContent(html);
+  await page.getByRole('link', { name: /Teste com captura/ }).click();
+  const passo = page.locator('#detalhes li').filter({ hasText: 'Abre a página' });
+  await expect(passo.locator('img')).toHaveAttribute('alt', 'Página inicial');
+  await expect(page.getByRole('heading', { name: 'Capturas de tela' })).toHaveCount(0);
+});
