@@ -27,7 +27,7 @@ async function escreverRelatorio(entrada, testes, arquivosExtras = []) {
   await writeFile(path.join(entrada, 'index.html'), `<template id="playwrightReportBase64">data:application/zip;base64,${Buffer.from(zip).toString('base64')}</template>`);
 }
 
-test('gera passos, capturas e tentativas sem inserir HTML executável', async (t) => {
+test('gera passos, capturas e tentativas sem inserir HTML executável #relatorio', async (t) => {
   const { entrada, saida } = await fixture(t);
   const frame = Uint8Array.from([1, 2, 3]);
   const trace = zipSync({
@@ -37,7 +37,7 @@ test('gera passos, capturas e tentativas sem inserir HTML executável', async (t
   await writeFile(path.join(entrada, 'data', 'trace.zip'), trace);
   await writeFile(path.join(entrada, 'data', 'anexo.png'), frame);
   await escreverRelatorio(entrada, [{
-    testId: 'id', title: '</script><script>alert(1)</script>', projectName: 'chromium', path: [], outcome: 'flaky',
+    testId: 'id', title: '</script><script>alert(1)</script> #fixture #xss', projectName: 'chromium', path: [], outcome: 'flaky',
     results: [
       { retry: 0, status: 'failed', steps: [{ title: 'passo', steps: [{ title: 'subpasso' }] }], errors: [{ message: 'falhou' }], attachments: [{ name: 'trace', path: 'data/trace.zip' }, { name: 'anexo', contentType: 'image/png', path: 'data/anexo.png' }] },
       { retry: 1, status: 'passed', steps: [], attachments: [] },
@@ -49,6 +49,7 @@ test('gera passos, capturas e tentativas sem inserir HTML executável', async (t
   const dados = JSON.parse(html.match(/const relatorio = (.*);/)[1]);
   assert.equal(dados.testes.length, 2);
   assert.equal(dados.testes[0].titulo, '</script><script>alert(1)</script>');
+  assert.deepEqual(dados.testes[0].hashtags, ['#fixture', '#xss']);
   assert.equal(dados.testes[0].resultados[0].steps[0].steps[0].title, 'subpasso');
   assert.equal(dados.testes[0].resultados[0].errors[0].message, 'falhou');
   assert.equal(dados.testes[0].resultados[0].imagens.length, 2);
@@ -59,7 +60,7 @@ test('gera passos, capturas e tentativas sem inserir HTML executável', async (t
   }
 });
 
-test('falha explicitamente para relatório inválido e anexos fora da pasta', async (t) => {
+test('falha explicitamente para relatório inválido e anexos fora da pasta #relatorio #validacao', async (t) => {
   const { pasta, entrada, saida } = await fixture(t);
   await writeFile(path.join(entrada, 'index.html'), 'inválido');
   let resultado = spawnSync(process.execPath, [script, entrada, saida], { encoding: 'utf8' });
@@ -75,7 +76,7 @@ test('falha explicitamente para relatório inválido e anexos fora da pasta', as
   assert.match(resultado.stderr, /Anexo fora do relatório/);
 });
 
-test('marca e prioriza testes de arquivos novos ou modificados no PR', async (t) => {
+test('marca e prioriza testes de arquivos novos ou modificados no PR #relatorio #pull-request', async (t) => {
   const { entrada, saida, pasta } = await fixture(t);
   await escreverRelatorio(entrada, [
     { testId: 'modificado', title: 'Teste modificado', outcome: 'expected', results: [] },

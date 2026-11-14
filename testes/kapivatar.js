@@ -4,7 +4,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
+test('Deve realizar o login e navegar entre as páginas #autenticacao #navegacao', async ({ page }) => {
   // 1. Login
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
   await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
@@ -33,7 +33,7 @@ test('Deve realizar o login e navegar entre as páginas', async ({ page }) => {
   await expect(page.locator('.conteudo-pagina')).toBeVisible();
 });
 
-test('Deve criar um perfil diretamente pela tela inicial em um arquivo próprio', async ({ page }) => {
+test('Deve criar um perfil diretamente pela tela inicial em um arquivo próprio #perfil #arquivo', async ({ page }) => {
   await page.getByRole('button', { name: 'Criar perfil' }).click();
   await expect(page).toHaveURL(/\/perfil\/criar$/);
   await expect(page.getByText('Ao salvar, escolha onde criar o arquivo de dados SQLite deste perfil.')).toBeVisible();
@@ -48,7 +48,7 @@ test('Deve criar um perfil diretamente pela tela inicial em um arquivo próprio'
   await expect(page.getByRole('heading', { name: 'Lia Nunes' })).toBeVisible();
 });
 
-test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
+test('Deve mostrar a navegação inferior em mobile #navegacao #mobile', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
 
@@ -92,7 +92,7 @@ test('Deve mostrar a navegação inferior em mobile', async ({ page }) => {
   await expect(page.locator('.dispositivo-card')).toHaveCount(1);
 });
 
-test('Deve realizar o logout', async ({ page }) => {
+test('Deve realizar o logout #autenticacao', async ({ page }) => {
   // Realizar login primeiro
   await page.evaluate(() => { window._databasePickerSelectedName = 'arquivo-pessoal.sqlite'; });
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
@@ -116,7 +116,7 @@ test('Deve realizar o logout', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Abrir arquivo SQLite/ })).toBeVisible();
 });
 
-test('Deve parear dispositivos pelo MQTT sem publicar a chave secreta', async ({ page }) => {
+test('Deve parear dispositivos pelo MQTT sem publicar a chave secreta #dispositivos #mqtt #seguranca', async ({ page }) => {
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
   await page.getByRole('link', { name: 'Dispositivos' }).click();
   await page.getByRole('button', { name: 'Parear dispositivo' }).click();
@@ -300,7 +300,7 @@ test('Deve parear dispositivos pelo MQTT sem publicar a chave secreta', async ({
   )).toBe('recebido com segurança');
 });
 
-test('Deve criar um novo arquivo de dados com nome escolhido pelo usuário', async ({ page }) => {
+test('Deve criar um novo arquivo de dados com nome escolhido pelo usuário #arquivo #dispositivos', async ({ page }) => {
   await page.evaluate(() => { window._databasePickerSelectedName = 'meus-dados.sqlite'; });
   await page.getByRole('button', { name: /Criar arquivo SQLite/ }).click();
 
@@ -313,7 +313,7 @@ test('Deve criar um novo arquivo de dados com nome escolhido pelo usuário', asy
   await expect(page.locator('.conteudo-principal')).toBeVisible();
 });
 
-test('Deve sincronizar uma vez ao abrir o banco, sem repetir em cada navegação', async ({ page }) => {
+test('Deve sincronizar uma vez ao abrir o banco, sem repetir em cada navegação #sincronizacao #navegacao', async ({ page }) => {
   await page.evaluate(() => {
     localStorage.setItem('kapivatar.dispositivos.pareados', JSON.stringify([{
       id: crypto.randomUUID(),

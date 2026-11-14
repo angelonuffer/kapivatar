@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
 });
 
-test('Deve criar e exibir o perfil único do arquivo de dados', async ({ page }) => {
+test('Deve criar e exibir o perfil único do arquivo de dados #perfil #arquivo', async ({ page }) => {
   await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await expect(page).toHaveURL(/\/perfil$/);
 
@@ -27,7 +27,7 @@ test('Deve criar e exibir o perfil único do arquivo de dados', async ({ page })
   await expect(page.getByRole('heading', { name: 'Capivara de Teste' })).toBeVisible();
 });
 
-test('Deve publicar assobios no perfil em ordem decrescente de data', async ({ page }) => {
+test('Deve publicar assobios no perfil em ordem decrescente de data #perfil #assobios', async ({ page }) => {
   await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await page.getByRole('button', { name: 'Criar perfil' }).click();
   await page.getByLabel('Nome').fill('Perfil de Assobios');

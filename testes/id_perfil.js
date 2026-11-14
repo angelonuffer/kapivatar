@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
 });
 
-test('Deve criar, visualizar, editar e ver histórico de um perfil', async ({ page }) => {
+test('Deve criar, visualizar, editar e ver histórico de um perfil #perfil', async ({ page }) => {
   // 1. Criar perfil
   await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();

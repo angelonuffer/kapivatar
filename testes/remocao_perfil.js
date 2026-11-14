@@ -5,7 +5,7 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
 });
 
-test('Não deve permitir criar mais de um perfil no mesmo arquivo', async ({ page }) => {
+test('Não deve permitir criar mais de um perfil no mesmo arquivo #perfil #validacao', async ({ page }) => {
   await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await page.getByRole('button', { name: 'Criar perfil' }).click();
   await page.getByLabel('Nome').fill('Perfil Único');
