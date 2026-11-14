@@ -14,15 +14,15 @@ O Kapivatar é uma rede social descentralizada que coloca o usuário no controle
 
 O projeto baseia-se na premissa de que a soberania digital é um direito. Ao utilizar o poder das APIs modernas dos navegadores, o Kapivatar permite que você:
 - **Autentique-se sem senhas centrais:** Utilizando sua própria estrutura de dados.
-- **Armazenamento Local:** Seus dados são guardados em um arquivo SQLite escolhido no seu computador através da File System Access API. `kapivatar.sqlite` é apenas o nome sugerido ao criar um arquivo.
+- **Armazenamento Local:** Cada perfil é guardado em seu próprio arquivo SQLite escolhido no computador através da File System Access API. O arquivo sugerido usa a extensão `.kapivatar`.
 - **Privacidade por Padrão:** O que é seu, permanece com você.
 
 ## 🛠 Tecnologias
 
 - **Frontend:** HTML5, CSS3 e JavaScript, com [Vite](https://vite.dev/) para desenvolvimento e build.
-- **Persistência de Dados:** Os dados são armazenados em um banco SQLite no arquivo escolhido; o [IndexedDB](https://developer.mozilla.org/pt-BR/docs/Web/API/IndexedDB_API) persiste apenas o acesso ao arquivo.
+- **Persistência de Dados:** Os dados de um único perfil são armazenados no arquivo SQLite escolhido; o [IndexedDB](https://developer.mozilla.org/pt-BR/docs/Web/API/IndexedDB_API) persiste apenas o acesso ao arquivo.
 - **Banco de Dados:** [SQLite WASM oficial](https://sqlite.org/wasm/doc/trunk/index.md) para leitura e gravação do arquivo SQLite no frontend.
-- **Acesso ao Sistema de Arquivos:** [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API) para seleção e armazenamento do arquivo de dados.
+- **Acesso ao Sistema de Arquivos:** [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API) para selecionar ou criar o arquivo do perfil.
 - **Infraestrutura:** [Cloudflare Workers](https://workers.cloudflare.com/) para entrega de assets.
 - **Testes:** [Playwright](https://playwright.dev/) para testes de ponta a ponta (E2E).
 

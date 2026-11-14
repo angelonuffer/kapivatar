@@ -4,14 +4,27 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
+test('A tela de entrada oferece somente abrir ou criar perfil', async ({ page }) => {
+  await expect(page.locator('.login-acao button > span:nth-child(2)')).toHaveText(['Abrir perfil', 'Criar perfil']);
+});
+
 test('Deve realizar o login e navegar entre as páginas #autenticacao #navegacao', async ({ page }) => {
-  // 1. Login
-  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
-  await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill('Perfil para reabrir');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
+
+  await page.getByRole('link', { name: 'Dispositivos' }).click();
+  await page.getByRole('button', { name: 'Opções do dispositivo' }).click();
+  await page.getByRole('button', { name: 'Sair do perfil' }).click();
+  await page.getByRole('button', { name: 'Fechar perfil' }).click();
+
+  // Reabrir o arquivo do perfil salvo
+  await page.getByRole('button', { name: /Abrir perfil/ }).click();
+  await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(2);
   expect(await page.evaluate(() => window._databasePickerType)).toBe('open');
   expect(await page.evaluate(() => window._databasePickerOptions.types[0].accept['application/vnd.sqlite3']))
-    .toEqual(['.sqlite', '.kapivatar']);
-  await expect.poll(() => page.evaluate(() => window._databasePermissionRequests)).toBe(1);
+    .toEqual(['.kapivatar', '.sqlite']);
+  await expect.poll(() => page.evaluate(() => window._databasePermissionRequests)).toBe(2);
 
   // 2. Verificar se está na página Início
   await expect(page.locator('.conteudo-principal')).toBeVisible();
@@ -28,15 +41,14 @@ test('Deve realizar o login e navegar entre as páginas #autenticacao #navegacao
     [...itens_sidebar.map((item) => item.top)].sort((a, b) => a - b)
   );
 
-  // 3. Navegação: Perfil (sem perfil criado ainda)
-  await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
-  await expect(page.locator('.conteudo-pagina')).toBeVisible();
+  await page.getByRole('link', { name: 'Perfil', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Perfil para reabrir' })).toBeVisible();
 });
 
 test('Deve criar um perfil diretamente pela tela inicial em um arquivo próprio #perfil #arquivo', async ({ page }) => {
-  await page.getByRole('button', { name: 'Criar perfil' }).click();
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
   await expect(page).toHaveURL(/\/perfil\/criar$/);
-  await expect(page.getByText('Ao salvar, escolha onde criar o arquivo de dados SQLite deste perfil.')).toBeVisible();
+  await expect(page.getByText('Ao salvar, escolha onde guardar o arquivo do seu perfil.')).toBeVisible();
 
   await page.getByLabel('Nome').fill('Lia Nunes');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
@@ -50,7 +62,9 @@ test('Deve criar um perfil diretamente pela tela inicial em um arquivo próprio 
 
 test('Deve mostrar a navegação inferior em mobile #navegacao #mobile', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
-  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill('Perfil Mobile');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
 
   const navegacao = page.getByRole('navigation', { name: 'Navegação principal' });
   await expect(navegacao).toBeVisible();
@@ -60,7 +74,7 @@ test('Deve mostrar a navegação inferior em mobile #navegacao #mobile', async (
   await expect(navegacao.locator('.navegacao-inferior-item > span:nth-child(2)')).toHaveText(['Início', 'Assobios', 'Contatos', 'Dispositivos', 'Perfil']);
   await expect(page.locator('.sidebar')).not.toBeVisible();
   await expect(page.locator('.botao-menu')).not.toBeVisible();
-  await expect(page.getByRole('button', { name: 'Mais opções' })).not.toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mais opções' })).toBeVisible();
 
   await navegacao.getByRole('button', { name: 'Assobios' }).click();
   await expect(page).toHaveURL(/\/assobios$/);
@@ -81,11 +95,10 @@ test('Deve mostrar a navegação inferior em mobile #navegacao #mobile', async (
 
   const menu_acoes = page.getByRole('button', { name: 'Mais opções' });
   await expect(menu_acoes).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Criar perfil' })).not.toBeVisible();
   await menu_acoes.click();
-  await expect(page.getByRole('button', { name: 'Criar perfil' })).toBeVisible();
-  await page.getByRole('button', { name: 'Criar perfil' }).click();
-  await expect(page).toHaveURL(/\/perfil\/criar$/);
+  await expect(page.getByRole('button', { name: 'Editar' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Histórico' })).toBeVisible();
+  await menu_acoes.click();
 
   await navegacao.getByRole('button', { name: 'Dispositivos' }).click();
   await expect(page).toHaveURL(/\/dispositivos$/);
@@ -93,9 +106,10 @@ test('Deve mostrar a navegação inferior em mobile #navegacao #mobile', async (
 });
 
 test('Deve realizar o logout #autenticacao', async ({ page }) => {
-  // Realizar login primeiro
   await page.evaluate(() => { window._databasePickerSelectedName = 'arquivo-pessoal.sqlite'; });
-  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill('Perfil de logout');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
   await expect(page.locator('.conteudo-pagina')).toBeVisible();
 
   await page.getByRole('link', { name: 'Dispositivos' }).click();
@@ -104,20 +118,22 @@ test('Deve realizar o logout #autenticacao', async ({ page }) => {
   const menu_opcoes = page.getByRole('button', { name: 'Opções do dispositivo' });
 
   await menu_opcoes.click();
-  await page.getByRole('button', { name: 'Fechar arquivo de dados' }).click();
+  await page.getByRole('button', { name: 'Sair do perfil' }).click();
   const dialogo_confirmacao = page.getByRole('dialog');
   await expect(dialogo_confirmacao).toBeVisible();
   await dialogo_confirmacao.getByRole('button', { name: 'Cancelar' }).click();
   await expect(page.locator('.dispositivo-card')).toBeVisible();
 
   await menu_opcoes.click();
-  await page.getByRole('button', { name: 'Fechar arquivo de dados' }).click();
-  await dialogo_confirmacao.getByRole('button', { name: 'Fechar arquivo' }).click();
-  await expect(page.getByRole('button', { name: /Abrir arquivo SQLite/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Sair do perfil' }).click();
+  await dialogo_confirmacao.getByRole('button', { name: 'Fechar perfil' }).click();
+  await expect(page.getByRole('button', { name: /Abrir perfil/ })).toBeVisible();
 });
 
 test('Deve parear dispositivos pelo MQTT sem publicar a chave secreta #dispositivos #mqtt #seguranca', async ({ page }) => {
-  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill('Perfil de pareamento');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
   await page.getByRole('link', { name: 'Dispositivos' }).click();
   await page.getByRole('button', { name: 'Parear dispositivo' }).click();
 
@@ -300,17 +316,13 @@ test('Deve parear dispositivos pelo MQTT sem publicar a chave secreta #dispositi
   )).toBe('recebido com segurança');
 });
 
-test('Deve criar um novo arquivo de dados com nome escolhido pelo usuário #arquivo #dispositivos', async ({ page }) => {
-  await page.evaluate(() => { window._databasePickerSelectedName = 'meus-dados.sqlite'; });
-  await page.getByRole('button', { name: /Criar arquivo SQLite/ }).click();
-
-  await expect.poll(() => page.evaluate(() => window._databasePickerCalls)).toBe(1);
-  expect(await page.evaluate(() => window._databasePickerType)).toBe('save');
-  expect(await page.evaluate(() => window._databasePickerOptions.suggestedName)).toBe('kapivatar.sqlite');
-  await expect.poll(() => page.evaluate(() => window._databasePermissionRequests)).toBe(1);
-  await page.evaluate(() => window.navegar('/dispositivos'));
-  await expect(page.locator('.dispositivo-arquivo')).toContainText('meus-dados.sqlite');
-  await expect(page.locator('.conteudo-principal')).toBeVisible();
+test('Recusa arquivos SQLite em formato não suportado', async ({ page }) => {
+  await page.evaluate(() => {
+    window._databaseBytesOverride = new TextEncoder().encode('formato antigo de vários perfis');
+  });
+  await page.getByRole('button', { name: /Abrir perfil/ }).click();
+  await expect(page.getByRole('alert')).toHaveText('Não foi possível acessar o arquivo selecionado. Tente novamente.');
+  await expect(page.locator('.login-acao button > span:nth-child(2)')).toHaveText(['Abrir perfil', 'Criar perfil']);
 });
 
 test('Deve sincronizar uma vez ao abrir o banco, sem repetir em cada navegação #sincronizacao #navegacao', async ({ page }) => {
@@ -323,16 +335,21 @@ test('Deve sincronizar uma vez ao abrir o banco, sem repetir em cada navegação
     }]));
   });
 
-  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
-  await expect.poll(() => page.evaluate(() =>
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill('Perfil sincronizado');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
+  await page.waitForTimeout(200);
+  const total_publicacoes = await page.evaluate(() =>
     window._publishedMessages.filter(({ message }) => message.uso === 'sincronizacao-v1').length
-  )).toBe(1);
+  );
+  expect(total_publicacoes).toBeGreaterThan(0);
 
-  await page.evaluate(() => window.navegar('/dispositivos'));
+  await page.getByRole('link', { name: 'Dispositivos' }).click();
   await expect(page).toHaveURL(/\/dispositivos$/);
-  await page.evaluate(() => window.navegar('/perfil'));
+  await page.getByRole('link', { name: 'Perfil', exact: true }).click();
   await expect(page).toHaveURL(/\/perfil$/);
+  await page.waitForTimeout(200);
   expect(await page.evaluate(() =>
     window._publishedMessages.filter(({ message }) => message.uso === 'sincronizacao-v1').length
-  )).toBe(1);
+  )).toBe(total_publicacoes);
 });

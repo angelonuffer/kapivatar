@@ -7,11 +7,9 @@ const __dirname = path.dirname(__filename);
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
 });
 
 test('Deve exibir o formulário de criação de perfil estilizado #perfil #formulario', async ({ page }) => {
-  await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   // Verifica se o formulário está visível e centralizado

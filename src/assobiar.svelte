@@ -1,15 +1,13 @@
 <script>
   import { onDestroy } from "svelte"
 
-  let { perfis, perfil_selecionado, registro, imagem_existente, descrever_imagem, ao_salvar } = $props()
+  let { perfil_nome, registro, imagem_existente, descrever_imagem, ao_salvar } = $props()
 
   const obter_valores_iniciais = () => {
     const data_registro = registro?.dados.data
     const data_atual = new Date()
     data_atual.setMinutes(data_atual.getMinutes() - data_atual.getTimezoneOffset())
     return {
-      perfil: registro?.dados.perfil ??
-        (perfis.some(item => item.id === perfil_selecionado) ? perfil_selecionado : perfis[0]?.id ?? ""),
       data: data_registro
         ? /^\d{4}-\d{2}-\d{2}$/.test(data_registro) ? `${data_registro}T00:00` : data_registro.slice(0, 16)
         : data_atual.toISOString().slice(0, 16),
@@ -18,7 +16,6 @@
     }
   }
   const valores_iniciais = obter_valores_iniciais()
-  let perfil = $state(valores_iniciais.perfil)
   let data = $state(valores_iniciais.data)
   let nota = $state(valores_iniciais.nota)
   let arquivo_selecionado = $state(null)
@@ -76,8 +73,6 @@
     salvando = true
     try {
       await ao_salvar({
-        perfil,
-        perfil_nome: perfis.find(item => item.id === perfil).nome,
         data,
         nota,
         arquivo_imagem: arquivo_selecionado,
@@ -95,12 +90,8 @@
 
 <form class="form-perfil form-assobio" onsubmit={enviar}>
   <div class="form-campo">
-    <label for="perfil">Perfil</label>
-    <select id="perfil" name="perfil" bind:value={perfil} required>
-      {#each perfis as item (item.id)}
-        <option value={item.id}>{item.nome}</option>
-      {/each}
-    </select>
+    <span>Perfil</span>
+    <p>{perfil_nome}</p>
   </div>
 
   <div class="form-campo">

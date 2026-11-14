@@ -18,10 +18,8 @@ test('Deve realizar fluxo de solicitação, retentativa e confirmação ao receb
   });
   await page.clock.setFixedTime(new Date('2026-01-15T12:00:00.000Z'));
   await page.goto('/');
-  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
 
   // 1. Criar perfil
-  await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   await page.getByLabel('Nome').fill('Meu Perfil');

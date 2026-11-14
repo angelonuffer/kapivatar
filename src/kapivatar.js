@@ -6,6 +6,7 @@ import {
   gravar_dado_sqlite,
   remover_dado_sqlite,
   existe_dado_sqlite,
+  listar_referencias_texto_sqlite,
   listar_dados_sqlite,
 } from "./sqlite.js"
 import { mount, unmount } from "svelte"
@@ -439,35 +440,96 @@ const obter_diretorio = async (sinal_rota) => {
   return new VirtualDirectoryHandle(handle.name, "", handle)
 }
 
-const opcoes_selecao_sqlite = {
-  types: [{ description: "Banco de dados SQLite", accept: { "application/vnd.sqlite3": [".sqlite", ".kapivatar"] } }],
+const opcoes_selecao_perfil = {
+  types: [{ description: "Perfil Kapivatar", accept: { "application/vnd.sqlite3": [".kapivatar", ".sqlite"] } }],
 }
 
-const abrir_arquivo_sqlite = async () => {
+const validar_perfil_unico = async () => {
+  const id = await ler_dado_sqlite("perfil")
+  if (typeof id !== "string" || !/^[a-f0-9]{64}$/.test(id)) {
+    throw new Error("Formato de arquivo de perfil não suportado.")
+  }
+  const hash = await ler_dado_sqlite(id)
+  if (typeof hash !== "string" || !/^[a-f0-9]{64}$/.test(hash)) {
+    throw new Error("Formato de arquivo de perfil não suportado.")
+  }
+  const conteúdo = await ler_dado_sqlite(hash)
+  if (typeof conteúdo !== "string") {
+    throw new Error("Formato de arquivo de perfil não suportado.")
+  }
+  let perfil
+  try {
+    perfil = JSON.parse(conteúdo)
+  } catch {
+    throw new Error("Formato de arquivo de perfil não suportado.")
+  }
+  if (
+    !perfil ||
+    perfil.id !== id ||
+    typeof perfil.nome !== "string" ||
+    typeof perfil.chave_publica !== "object" ||
+    !perfil.chave_publica ||
+    typeof perfil.chave_privada !== "object" ||
+    !perfil.chave_privada
+  ) {
+    throw new Error("Formato de arquivo de perfil não suportado.")
+  }
+  const referências = await listar_referencias_texto_sqlite()
+  const ids_de_perfis = referências.flatMap(([chave, texto_perfil]) => {
+    try {
+      const possível_perfil = JSON.parse(texto_perfil)
+      return possível_perfil?.id === chave &&
+        typeof possível_perfil.chave_publica === "object" &&
+        possível_perfil.chave_publica &&
+        typeof possível_perfil.chave_privada === "object" &&
+        possível_perfil.chave_privada
+        ? [chave]
+        : []
+    } catch {
+      return []
+    }
+  })
+  if (ids_de_perfis.length !== 1 || ids_de_perfis[0] !== id) {
+    throw new Error("Formato de arquivo de perfil não suportado.")
+  }
+}
+
+const abrir_perfil = async () => {
   if (typeof window.showOpenFilePicker !== "function") {
     throw new Error("Este navegador não oferece suporte à seleção de arquivos.")
   }
   const [handle] = await window.showOpenFilePicker({
-    ...opcoes_selecao_sqlite,
+    ...opcoes_selecao_perfil,
     multiple: false,
   })
   await handle.requestPermission({ mode: "readwrite" })
+  const diretorio_anterior = diretorio_selecionado
   await abrir_banco_sqlite(handle)
+  try {
+    await validar_perfil_unico()
+  } catch (erro) {
+    if (diretorio_anterior) {
+      await abrir_banco_sqlite(diretorio_anterior)
+    } else {
+      await fechar_banco_sqlite()
+    }
+    throw erro
+  }
   nome_dispositivo_local_promise = null
   await gravar_handle_salvo(handle)
   diretorio_selecionado = handle
 }
 
-const criar_arquivo_sqlite = async (nome_sugerido = "kapivatar.sqlite") => {
+const criar_arquivo_perfil = async (nome_sugerido = "kapivatar.kapivatar") => {
   if (typeof window.showSaveFilePicker !== "function") {
     throw new Error("Este navegador não oferece suporte à criação de arquivos.")
   }
   const handle = await window.showSaveFilePicker({
     suggestedName: nome_sugerido,
-    ...opcoes_selecao_sqlite,
+    ...opcoes_selecao_perfil,
   })
   await handle.requestPermission({ mode: "readwrite" })
-  await abrir_banco_sqlite(handle)
+  await abrir_banco_sqlite(handle, { criar: true })
   nome_dispositivo_local_promise = null
   await gravar_handle_salvo(handle)
   diretorio_selecionado = handle
@@ -1334,7 +1396,7 @@ window.processar_mensagem_mqtt = async (dados) => {
   const id_perfil = await obter_id_perfil_selecionado()
   if (!id_perfil) return
 
-  // 1. Verificar se é uma solicitação para um dos meus perfis
+  // 1. Verificar se é uma solicitação para o meu perfil
   if (dados.adicionar_contato_id && dados.meu_perfil) {
     if (id_perfil === dados.adicionar_contato_id) {
       // Verificar se o id corresponde à chave pública
@@ -1357,7 +1419,7 @@ window.processar_mensagem_mqtt = async (dados) => {
   // 2. Verificar se é uma resposta para mim
   if (dados.id_destino && dados.mensagem_criptografada) {
     if (id_perfil === dados.id_destino) {
-      // Tentar descriptografar com a chave privada de cada um dos meus perfis (ou apenas do id_destino)
+      // Descriptografar somente com a chave privada do perfil selecionado.
       const arquivo_id = await ler_arquivo(diretorio, dados.id_destino)
       if (arquivo_id) {
         const hash_perfil = await arquivo_id.text()
@@ -1520,37 +1582,29 @@ const renderizar_lista_assobios = async (conteudo, chave_lista, sinal_rota) => {
 
 const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
   const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-  const perfis = []
   const id = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
-  if (id) {
-    const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
-    if (arquivo_id) {
-      const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, await arquivo_id.text()), sinal_rota)
-      if (arquivo_perfil) {
-        const dados_perfil = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
-        perfis.push({ id, nome: dados_perfil.nome })
-      }
-    }
-  }
-  let perfil_selecionado = registro?.dados.perfil
-  if (!registro) {
-    perfil_selecionado = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
-  }
+  const arquivo_id = id ? await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota) : null
+  const arquivo_perfil = arquivo_id
+    ? await aguardar_rota(ler_arquivo(diretorio, await arquivo_id.text()), sinal_rota)
+    : null
+  const dados_perfil = arquivo_perfil
+    ? JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
+    : null
+  if (!dados_perfil) throw new Error("Nenhum perfil encontrado no arquivo de dados.")
   const imagem_existente = registro?.dados.imagem
     ? await aguardar_rota(ler_arquivo(diretorio, registro.dados.imagem), sinal_rota)
     : null
   return mount(Assobiar, {
     target: conteudo,
     props: {
-      perfis,
-      perfil_selecionado,
+      perfil_nome: dados_perfil.nome,
       registro,
       imagem_existente,
       descrever_imagem,
-      ao_salvar: async ({ perfil, perfil_nome, data, nota, arquivo_imagem }) => {
+      ao_salvar: async ({ data, nota, arquivo_imagem }) => {
         const dados = {
-          perfil,
-          perfil_nome,
+          perfil: id,
+          perfil_nome: dados_perfil.nome,
           data,
           nota,
           imagem: registro?.dados.imagem,
@@ -1560,13 +1614,13 @@ const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
           dados.imagem = await gerar_hash(bytes)
           await escrever_arquivo(diretorio, dados.imagem, bytes)
         }
-        const id = registro?.id || crypto.randomUUID()
-        await salvar_assobio(diretorio, id, dados, registro?.hash)
+        const id_assobio = registro?.id || crypto.randomUUID()
+        await salvar_assobio(diretorio, id_assobio, dados, registro?.hash)
         if (!registro) {
           const ativos = await carregar_lista_assobios(diretorio, "assobios")
-          await salvar_lista_assobios(diretorio, "assobios", [...ativos.assobios, id])
+          await salvar_lista_assobios(diretorio, "assobios", [...ativos.assobios, id_assobio])
         }
-        navegar(`/assobio/${id}`)
+        navegar(`/assobio/${id_assobio}`)
       },
     },
   })
@@ -1583,12 +1637,8 @@ const páginas = [
         nome_dispositivo: await obter_nome_dispositivo_local(),
         dispositivos_pareados: carregar_dispositivos_pareados(),
         renomear_dispositivo: renomear_dispositivo_local,
-        abrir_arquivo_sqlite: async () => {
-          await abrir_arquivo_sqlite()
-          navegar("/")
-        },
-        criar_arquivo_sqlite: async () => {
-          await criar_arquivo_sqlite()
+        abrir_perfil: async () => {
+          await abrir_perfil()
           navegar("/")
         },
         sair,
@@ -1700,16 +1750,15 @@ const páginas = [
     url: "/perfil/criar",
     ícone: "person_add",
     ocultar_no_menu: true,
-    render: async (conteudo, params, route_params, sinal_rota, criar_arquivo_dados = false) => {
+    render: async (conteudo, params, route_params, sinal_rota) => {
       if (await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)) {
-        conteudo.innerHTML = '<p>Este arquivo de dados já contém um perfil. <a href="/perfil">Abrir perfil</a></p>'
+        conteudo.innerHTML = '<p>Este arquivo já contém um perfil. <a href="/perfil">Abrir perfil</a></p>'
         return
       }
       return mount(CriarPerfil, {
         target: conteudo,
         props: {
-          criar_arquivo_dados,
-          criar_arquivo_sqlite,
+          criar_arquivo_perfil,
           obter_diretorio,
           gerar_chaves,
           exportar_chave,
@@ -2436,7 +2485,7 @@ const carregar_tela_permissao = async (diretorio) => {
   coluna_1.appendChild(img)
   const p_1 = document.createElement("p")
   p_1.classList.add("login-descricao")
-  p_1.textContent = "O Kapivatar precisa de permissão para ler e escrever no arquivo de dados selecionado para que você possa acessar seus perfis e mensagens."
+  p_1.textContent = "O Kapivatar precisa de permissão para ler e escrever no arquivo do perfil selecionado para que você possa acessar seus dados e mensagens."
   coluna_1.appendChild(p_1)
   document.body.appendChild(coluna_1)
   const coluna_2 = document.createElement("div")
@@ -2468,7 +2517,7 @@ const carregar_tela_permissao = async (diretorio) => {
   icone_sair.textContent = "logout"
   botão_sair.appendChild(icone_sair)
   const texto_sair = document.createElement("span")
-  texto_sair.textContent = "Sair e trocar arquivo"
+  texto_sair.textContent = "Sair e trocar perfil"
   botão_sair.appendChild(texto_sair)
   botão_sair.onclick = async () => {
     await vfs_remover("arquivo_sqlite")
@@ -2820,7 +2869,7 @@ const rotear = async () => {
       const diretorio = await obter_diretorio()
       if (!diretorio) {
         layout_referencias = null
-        renderizar_tela_inicial({ url_logo, url_capivara, abrir_arquivo_sqlite, criar_arquivo_sqlite, navegar })
+        renderizar_tela_inicial({ url_logo, url_capivara, abrir_perfil, navegar })
         return
       }
 
@@ -2970,14 +3019,14 @@ const rotear = async () => {
       const título = document.createElement("h1")
       título.textContent = "Criar perfil"
       const instrução = document.createElement("p")
-      instrução.textContent = "Ao salvar, escolha onde criar o arquivo de dados SQLite deste perfil."
+      instrução.textContent = "Ao salvar, escolha onde guardar o arquivo do seu perfil."
       container.append(título, instrução)
-      componente_página_montado = await página_criar_perfil.render(container, params, {}, sinal_rota, true)
+      componente_página_montado = await página_criar_perfil.render(container, params, {}, sinal_rota)
       if (id_rota !== id_rota_atual) return
       document.body.appendChild(container)
       return
     }
-    renderizar_tela_inicial({ url_logo, url_capivara, abrir_arquivo_sqlite, criar_arquivo_sqlite, navegar })
+    renderizar_tela_inicial({ url_logo, url_capivara, abrir_perfil, navegar })
     return
   }
 
