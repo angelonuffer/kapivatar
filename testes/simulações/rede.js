@@ -3,7 +3,11 @@ import { test as base } from '@playwright/test';
 export const test = base.extend({
   externalRequests: [async ({ page }, use) => {
     await page.route(/^https?:\/\//, async (route) => {
-      if (new URL(route.request().url()).origin === 'http://127.0.0.1:3000') {
+      const url = new URL(route.request().url());
+      if (
+        url.origin === 'http://127.0.0.1:3000'
+        || ['fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname)
+      ) {
         await route.continue();
       } else {
         const contentType = route.request().resourceType() === 'stylesheet'
