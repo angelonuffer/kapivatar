@@ -98,6 +98,8 @@ let gerador_descricao_imagem
 let carregamento_gerador_descricao_imagem
 let tradutor_descricao_imagem
 let carregamento_tradutor_descricao_imagem
+let gerador_postagem
+let carregamento_gerador_postagem
 
 const gerar_hash = async (conteudo) => {
   const buffer = typeof conteudo === "string" ? new TextEncoder().encode(conteudo) : conteudo
@@ -105,8 +107,9 @@ const gerar_hash = async (conteudo) => {
   return Array.from(new Uint8Array(hash_buffer)).map((b) => b.toString(16).padStart(2, "0")).join("")
 }
 
-const descrever_imagem = async (imagem) => {
+const descrever_imagem = async (imagem, atualizar_status = () => {}) => {
   if (!gerador_descricao_imagem) {
+    atualizar_status("Carregando o modelo para descrever a imagem…")
     carregamento_gerador_descricao_imagem ??= import("@huggingface/transformers")
       .then(({ pipeline }) => pipeline("image-to-text", "Xenova/vit-gpt2-image-captioning"))
     try {
@@ -118,10 +121,37 @@ const descrever_imagem = async (imagem) => {
   }
   const url_imagem = URL.createObjectURL(imagem)
   try {
+    atualizar_status("Descrevendo a imagem…")
     const resultado = await gerador_descricao_imagem(url_imagem)
     const descricao = resultado?.[0]?.generated_text?.trim()
     if (!descricao) throw new Error("O modelo não gerou uma descrição para esta imagem.")
+    if (!gerador_postagem) {
+      atualizar_status("Carregando o Llama 3B para redigir a postagem…")
+      carregamento_gerador_postagem ??= import("@huggingface/transformers")
+        .then(({ pipeline }) => pipeline(
+          "text-generation",
+          "onnx-community/Llama-3.2-3B-Instruct-ONNX",
+          { dtype: "q4" }
+        ))
+      try {
+        gerador_postagem = await carregamento_gerador_postagem
+      } catch (erro) {
+        carregamento_gerador_postagem = null
+        throw erro
+      }
+    }
+    atualizar_status("Redigindo a postagem em inglês com o Llama 3B…")
+    const resultado_postagem = await gerador_postagem([
+      {
+        role: "system",
+        content: "Write one concise, natural social media post in English based only on the user's image description. Do not repeat these instructions, add labels, or invent any details. Return only the post text, with at most two relevant hashtags.",
+      },
+      { role: "user", content: `Image description: ${descricao}` },
+    ], { max_new_tokens: 80, do_sample: false })
+    const postagem = resultado_postagem?.[0]?.generated_text?.at(-1)?.content?.trim()
+    if (!postagem) throw new Error("The model did not generate a post for this image.")
     if (!tradutor_descricao_imagem) {
+      atualizar_status("Carregando o modelo de tradução…")
       carregamento_tradutor_descricao_imagem ??= import("@huggingface/transformers")
         .then(({ pipeline }) => pipeline("translation", "Xenova/nllb-200-distilled-600M"))
       try {
@@ -131,13 +161,14 @@ const descrever_imagem = async (imagem) => {
         throw erro
       }
     }
-    const resultado_traducao = await tradutor_descricao_imagem(descricao, {
+    atualizar_status("Traduzindo a postagem para português…")
+    const resultado_traducao = await tradutor_descricao_imagem(postagem, {
       src_lang: "eng_Latn",
       tgt_lang: "por_Latn",
     })
-    const descricao_traduzida = resultado_traducao?.[0]?.translation_text?.trim()
-    if (!descricao_traduzida) throw new Error("O modelo não traduziu a descrição para português.")
-    return descricao_traduzida
+    const postagem_traduzida = resultado_traducao?.[0]?.translation_text?.trim()
+    if (!postagem_traduzida) throw new Error("O modelo não traduziu a postagem para português.")
+    return postagem_traduzida
   } finally {
     URL.revokeObjectURL(url_imagem)
   }

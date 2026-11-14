@@ -52,12 +52,12 @@
   const gerar_descricao = async () => {
     if (!imagem_atual) return
     gerando_descricao = true
-    status_descricao = "Gerando e traduzindo a descrição para português localmente…"
+    status_descricao = "Preparando os modelos locais…"
     try {
-      nota = await descrever_imagem(imagem_atual)
+      nota = await descrever_imagem(imagem_atual, mensagem => status_descricao = mensagem)
       input_nota.value = nota
       atualizar_validade_nota()
-      status_descricao = "Descrição em português adicionada à nota."
+      status_descricao = "Postagem gerada com IA local e adicionada à nota."
     } catch (erro) {
       console.error("Erro ao gerar descrição da imagem:", erro)
       status_descricao = "Não foi possível gerar a descrição. Tente novamente."
@@ -144,8 +144,8 @@
         <button
           type="button"
           class="botao-descricao-imagem"
-          aria-label="Gerar descrição da imagem"
-          title="Gerar descrição da imagem"
+          aria-label="Gerar postagem com a imagem"
+          title="Gerar postagem com a imagem"
           disabled={gerando_descricao}
           onclick={gerar_descricao}
         >
