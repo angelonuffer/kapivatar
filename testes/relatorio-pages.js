@@ -20,6 +20,7 @@ test('abre um teste em sua própria página e permite voltar à lista #relatorio
 
   await page.setContent(html);
   await expect(page.locator('#pagina-lista')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Voltar para a lista de PRs' })).toHaveAttribute('href', '../../');
   await page.getByRole('link', { name: /Teste de exemplo/ }).click();
   await expect(page).toHaveURL(/#teste=0$/);
   await expect(page.locator('#pagina-teste')).toBeVisible();

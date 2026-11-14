@@ -13,7 +13,7 @@
     header p { margin: 0; color: #dce5f7; }
     main { max-width: 1100px; margin: auto; padding: 1rem; }
     .panel { background: white; border-radius: .6rem; padding: 1rem; box-shadow: 0 2px 8px #17203312; min-width: 0; }
-    .voltar { display: inline-block; margin-bottom: 1rem; padding: 0; color: #315aa9; background: none; border: 0; text-decoration: underline; }
+    .voltar { display: inline-block; margin-bottom: 1rem; padding: .55rem .8rem; color: white; background: #315aa9; border: 0; border-radius: .35rem; text-decoration: none; }
     h2 { font-size: 1.2rem; margin: 0 0 1rem; overflow-wrap: anywhere; }
     h3 { margin: 1.3rem 0 .5rem; }
     .lista { display: grid; gap: .5rem; }
@@ -46,6 +46,7 @@
   <header><h1>Relatório de testes</h1><p id="resumo"></p></header>
   <main>
     <section class="panel" id="pagina-lista">
+      <a class="voltar" href="../../">Voltar para a lista de PRs</a>
       <h2>Testes</h2>
       <div class="filtros"><label for="filtro-hashtag">Filtrar por hashtag</label><select id="filtro-hashtag"><option value="">Todas as hashtags</option></select></div>
       <div class="lista" id="lista"></div>
