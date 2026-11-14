@@ -1,11 +1,11 @@
 <script>
-  let { url_logo, url_capivara, abrir_arquivo_sqlite, criar_arquivo_sqlite, navegar } = $props()
+  let { url_logo, url_capivara, abrir_perfil, navegar } = $props()
   let erro_selecao = $state("")
 
-  const escolher_arquivo = async (selecionar) => {
+  const escolher_arquivo = async () => {
     erro_selecao = ""
     try {
-      await selecionar()
+      await abrir_perfil()
       navegar("/")
     } catch (erro) {
       if (erro?.name !== "AbortError") {
@@ -30,13 +30,9 @@
 
 <div class="coluna login-acao">
   <p>Entrar no Kapivatar</p>
-  <button onclick={() => escolher_arquivo(abrir_arquivo_sqlite)}>
-    <span class="material-symbols-outlined">database</span>
-    <span>Abrir arquivo SQLite</span>
-  </button>
-  <button onclick={() => escolher_arquivo(criar_arquivo_sqlite)}>
-    <span class="material-symbols-outlined">database</span>
-    <span>Criar arquivo SQLite</span>
+  <button onclick={escolher_arquivo}>
+    <span class="material-symbols-outlined">person</span>
+    <span>Abrir perfil</span>
   </button>
   <button onclick={() => navegar("/perfil/criar")}>
     <span class="material-symbols-outlined">person_add</span>

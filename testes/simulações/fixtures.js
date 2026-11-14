@@ -14,3 +14,11 @@ test.beforeEach(async ({ page }) => {
 });
 
 export { expect };
+
+export const criar_perfil_teste = async (page, nome = 'Perfil de Teste') => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill(nome);
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
+  await expect(page.getByRole('heading', { name: nome })).toBeVisible();
+};

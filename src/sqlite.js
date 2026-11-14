@@ -26,14 +26,49 @@ const enfileirar_gravacao = (operacao) => {
   return atual
 }
 
-const abrir_banco_sqlite_interno = async (handle) => {
+const validar_formato_sqlite = (novo_db) => {
+  const colunas = []
+  novo_db.exec({
+    sql: "PRAGMA table_info(kapivatar_dados)",
+    rowMode: "array",
+    resultRows: colunas,
+  })
+  if (
+    colunas.length !== 3 ||
+    colunas[0][1] !== "chave" ||
+    colunas[0][2]?.toLowerCase() !== "text" ||
+    colunas[0][5] !== 1 ||
+    colunas[1][1] !== "tipo" ||
+    colunas[1][2]?.toLowerCase() !== "text" ||
+    colunas[1][3] !== 1 ||
+    colunas[2][1] !== "valor" ||
+    colunas[2][2]?.toLowerCase() !== "blob" ||
+    colunas[2][3] !== 1
+  ) {
+    throw new Error("Formato de arquivo de perfil não suportado.")
+  }
+  const tabelas = novo_db.selectValue(
+    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+  )
+  if (tabelas !== 1) throw new Error("Formato de arquivo de perfil não suportado.")
+  const dados_invalidos = novo_db.selectValue(
+    "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave IS NULL OR tipo NOT IN ('texto', 'json', 'blob') OR valor IS NULL)",
+  )
+  if (dados_invalidos) throw new Error("Formato de arquivo de perfil não suportado.")
+}
+
+const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
   if (db && arquivo_selecionado === handle) return
   const sqlite = await obter_sqlite()
   const arquivo = await handle.getFile()
   const novo_db = new sqlite.oo1.DB()
 
   try {
-    if (arquivo.size > 0) {
+    if (arquivo.size === 0) {
+      if (!criar) throw new Error("Formato de arquivo de perfil não suportado.")
+      novo_db.exec("CREATE TABLE kapivatar_dados (chave TEXT PRIMARY KEY, tipo TEXT NOT NULL, valor BLOB NOT NULL)")
+    } else {
+      if (criar) throw new Error("Escolha um arquivo novo para criar o perfil.")
       const bytes = new Uint8Array(await arquivo.arrayBuffer())
       const ponteiro = sqlite.wasm.allocFromTypedArray(bytes)
       const resultado = sqlite.capi.sqlite3_deserialize(
@@ -45,12 +80,11 @@ const abrir_banco_sqlite_interno = async (handle) => {
         sqlite.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite.capi.SQLITE_DESERIALIZE_RESIZEABLE,
       )
       novo_db.checkRc(resultado)
-    }
-
-    novo_db.exec("CREATE TABLE IF NOT EXISTS kapivatar_dados (chave TEXT PRIMARY KEY, tipo TEXT NOT NULL, valor BLOB NOT NULL)")
-    const integridade = novo_db.selectValue("PRAGMA integrity_check")
-    if (integridade !== "ok") {
-      throw new Error("O arquivo SQLite selecionado está corrompido.")
+      const integridade = novo_db.selectValue("PRAGMA integrity_check")
+      if (integridade !== "ok") {
+        throw new Error("O arquivo SQLite selecionado está corrompido.")
+      }
+      validar_formato_sqlite(novo_db)
     }
   } catch (erro) {
     novo_db.close()
@@ -63,8 +97,8 @@ const abrir_banco_sqlite_interno = async (handle) => {
   if (arquivo.size === 0) await persistir_banco()
 }
 
-export const abrir_banco_sqlite = (handle) => {
-  const atual = fila_abertura.then(() => abrir_banco_sqlite_interno(handle))
+export const abrir_banco_sqlite = (handle, opcoes) => {
+  const atual = fila_abertura.then(() => abrir_banco_sqlite_interno(handle, opcoes))
   fila_abertura = atual.catch(() => {})
   return atual
 }
@@ -135,6 +169,24 @@ export const existe_dado_sqlite = (chave) => {
     "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave = ?)",
     [chave],
   ) === 1
+}
+
+export const listar_referencias_texto_sqlite = async () => {
+  await fila_gravacao
+  if (!db) return []
+
+  const linhas = []
+  db.exec({
+    sql: `SELECT origem.chave, destino.valor
+      FROM kapivatar_dados AS origem
+      JOIN kapivatar_dados AS destino ON destino.chave = origem.valor
+      WHERE origem.tipo = 'texto' AND destino.tipo = 'texto'
+        AND length(origem.chave) = 64 AND origem.chave NOT GLOB '*[^a-f0-9]*'
+        AND length(origem.valor) = 64 AND origem.valor NOT GLOB '*[^a-f0-9]*'`,
+    rowMode: "array",
+    resultRows: linhas,
+  })
+  return linhas
 }
 
 export const listar_dados_sqlite = async () => {

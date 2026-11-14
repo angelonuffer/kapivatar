@@ -7,12 +7,9 @@ const __dirname = path.dirname(__filename);
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
 });
 
 test('Deve realizar o fluxo de autenticação e comunicação via postMessage #autenticacao #perfil', async ({ page }) => {
-  // 1. Criar perfil
-  await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   await page.getByLabel('Nome').fill('Capivara Autorizada');

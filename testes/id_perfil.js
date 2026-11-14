@@ -2,12 +2,9 @@ import { test, expect } from './simulações/fixtures.js';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
 });
 
 test('Deve criar, visualizar, editar e ver histórico de um perfil #perfil', async ({ page }) => {
-  // 1. Criar perfil
-  await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 
   await page.getByLabel('Nome').fill('Capivara Original');

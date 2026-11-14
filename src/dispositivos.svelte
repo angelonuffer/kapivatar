@@ -13,8 +13,7 @@
     nome_dispositivo,
     dispositivos_pareados,
     renomear_dispositivo,
-    abrir_arquivo_sqlite,
-    criar_arquivo_sqlite,
+    abrir_perfil,
     sair,
   } = $props()
   let menu_aberto = $state(false)
@@ -23,7 +22,6 @@
   let erro_operacao = $state("")
   let dialogo_renomear
   let dialogo_abrir_arquivo
-  let dialogo_criar_arquivo
   let dialogo_fechar_arquivo
 
   $effect(() => {
@@ -69,22 +67,12 @@
     dialogo.showModal()
   }
 
-  const confirmar_abrir_arquivo = async () => {
-    if (await executar_operacao(abrir_arquivo_sqlite, "Erro ao abrir arquivo de dados:")) {
-      dialogo_abrir_arquivo.close()
-    }
-  }
-
-  const confirmar_criar_arquivo = async () => {
-    if (await executar_operacao(criar_arquivo_sqlite, "Erro ao criar arquivo de dados:")) {
-      dialogo_criar_arquivo.close()
-    }
+  const confirmar_abrir_perfil = async () => {
+    await executar_operacao(abrir_perfil, "Erro ao abrir perfil:")
   }
 
   const confirmar_fechar_arquivo = async () => {
-    if (await executar_operacao(sair, "Erro ao fechar arquivo de dados:")) {
-      dialogo_fechar_arquivo.close()
-    }
+    await executar_operacao(sair, "Erro ao fechar perfil:")
   }
 </script>
 
@@ -117,15 +105,11 @@
           </button>
           <button type="button" onclick={() => abrir_dialogo_arquivo(dialogo_abrir_arquivo)}>
             <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
-            Abrir outro arquivo de dados
-          </button>
-          <button type="button" onclick={() => abrir_dialogo_arquivo(dialogo_criar_arquivo)}>
-            <span class="material-symbols-outlined" aria-hidden="true">note_add</span>
-            Criar arquivo de dados
+            Abrir outro perfil
           </button>
           <button type="button" onclick={() => abrir_dialogo_arquivo(dialogo_fechar_arquivo)}>
             <span class="material-symbols-outlined" aria-hidden="true">database_off</span>
-            Fechar arquivo de dados
+            Sair do perfil
           </button>
         </div>
       {/if}
@@ -148,39 +132,27 @@
   </form>
 </dialog>
 
-<dialog bind:this={dialogo_abrir_arquivo} aria-labelledby="titulo-abrir-arquivo">
-  <h2 id="titulo-abrir-arquivo">Abrir outro arquivo de dados?</h2>
-  <p>O arquivo de dados atual será fechado quando você selecionar outro arquivo.</p>
+<dialog bind:this={dialogo_abrir_arquivo} aria-labelledby="titulo-abrir-perfil">
+  <h2 id="titulo-abrir-perfil">Abrir outro perfil?</h2>
+  <p>O perfil atual será fechado quando você selecionar outro perfil.</p>
   {#if erro_operacao}
     <p class="erro-operacao" role="alert">{erro_operacao}</p>
   {/if}
   <div class="acoes-dialogo">
     <button type="button" onclick={() => dialogo_abrir_arquivo.close()}>Cancelar</button>
-    <button type="button" onclick={confirmar_abrir_arquivo}>Continuar</button>
-  </div>
-</dialog>
-
-<dialog bind:this={dialogo_criar_arquivo} aria-labelledby="titulo-criar-arquivo">
-  <h2 id="titulo-criar-arquivo">Criar arquivo de dados?</h2>
-  <p>O arquivo de dados atual será fechado quando você criar o novo arquivo.</p>
-  {#if erro_operacao}
-    <p class="erro-operacao" role="alert">{erro_operacao}</p>
-  {/if}
-  <div class="acoes-dialogo">
-    <button type="button" onclick={() => dialogo_criar_arquivo.close()}>Cancelar</button>
-    <button type="button" onclick={confirmar_criar_arquivo}>Continuar</button>
+    <button type="button" onclick={confirmar_abrir_perfil}>Continuar</button>
   </div>
 </dialog>
 
 <dialog bind:this={dialogo_fechar_arquivo} aria-labelledby="titulo-fechar-arquivo">
-  <h2 id="titulo-fechar-arquivo">Fechar arquivo de dados?</h2>
-  <p>O arquivo será fechado. Para voltar a usar o Kapivatar, você precisará abri-lo novamente.</p>
+  <h2 id="titulo-fechar-arquivo">Fechar perfil?</h2>
+  <p>O perfil será fechado. Para voltar a usar o Kapivatar, você precisará abri-lo novamente.</p>
   {#if erro_operacao}
     <p class="erro-operacao" role="alert">{erro_operacao}</p>
   {/if}
   <div class="acoes-dialogo">
     <button type="button" onclick={() => dialogo_fechar_arquivo.close()}>Cancelar</button>
-    <button type="button" onclick={confirmar_fechar_arquivo}>Fechar arquivo</button>
+    <button type="button" onclick={confirmar_fechar_arquivo}>Fechar perfil</button>
   </div>
 </dialog>
 

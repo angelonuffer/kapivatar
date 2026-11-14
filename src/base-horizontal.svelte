@@ -137,18 +137,6 @@
     text-align: center;
   }
 
-  .perfil-selecionado-sidebar :global(.botao-trocar-perfil) {
-    background: none;
-    padding: 0.2em;
-    border-radius: 0.3em;
-    color: #ccc;
-  }
-
-  .perfil-selecionado-sidebar :global(.botao-trocar-perfil:hover) {
-    background-color: #333;
-    color: #eee;
-  }
-
   .overlay {
     display: none;
     position: fixed;

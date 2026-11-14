@@ -2,8 +2,7 @@
   import { onDestroy } from "svelte"
 
   let {
-    criar_arquivo_dados = false,
-    criar_arquivo_sqlite,
+    criar_arquivo_perfil,
     obter_diretorio,
     gerar_chaves,
     exportar_chave,
@@ -46,14 +45,9 @@
     mensagem_erro = ""
 
     try {
-      let diretorio
-      if (criar_arquivo_dados) {
-        await criar_arquivo_sqlite(sugerir_nome_arquivo_dados(nome))
-        diretorio = await obter_diretorio()
-      } else {
-        diretorio = await obter_diretorio()
-      }
-      if (!diretorio) throw new Error("Não foi possível acessar o arquivo de dados.")
+      await criar_arquivo_perfil(sugerir_nome_arquivo_dados(nome))
+      const diretorio = await obter_diretorio()
+      if (!diretorio) throw new Error("Não foi possível acessar o arquivo do perfil.")
 
       const chaves = await gerar_chaves()
       const chave_privada_jwk = await exportar_chave(chaves.privateKey)

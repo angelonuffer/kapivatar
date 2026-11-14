@@ -2,17 +2,14 @@ import { test, expect } from './simulações/fixtures.js';
 
 test('Deve criar, editar, arquivar e consultar o histórico de um assobio #assobios', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
-  await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
   await page.getByLabel('Nome').fill('Perfil de Assobio');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
   await expect(page.getByRole('heading', { name: 'Perfil de Assobio' })).toBeVisible();
 
   await page.goto('/assobios/criar');
-  await page.locator('#perfil').selectOption({ label: 'Perfil de Assobio' });
   await expect(page.getByLabel('Data')).toHaveAttribute('type', 'datetime-local');
-  await expect(page.locator('.form-assobio label')).toHaveText(['Perfil', 'Data', 'Imagem', 'Nota']);
+  await expect(page.locator('.form-assobio label')).toHaveText(['Data', 'Imagem', 'Nota']);
   await page.getByLabel('Data').fill('2026-11-07T13:45');
   const botao_descricao = page.getByRole('button', { name: 'Gerar descrição da imagem' });
   await expect(botao_descricao).not.toBeVisible();

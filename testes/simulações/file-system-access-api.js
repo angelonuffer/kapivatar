@@ -41,7 +41,7 @@ export const test = base.extend({
           return 'granted';
         }
         async getFile() {
-          return new Blob([databaseBytes() || new Uint8Array()]);
+          return new Blob([window._databaseBytesOverride || databaseBytes() || new Uint8Array()]);
         }
         async createWritable() {
           return new window.MockWritableStream();
