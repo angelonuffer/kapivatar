@@ -95,7 +95,7 @@ Para gerar um relatório estático e responsivo a partir de `playwright-report/`
 npm run report:pages
 ```
 
-O resultado fica em `playwright-pages/` e pode ser aberto pelo `index.html` ou publicado como conteúdo estático. Para escolher as pastas de entrada e saída, execute `npm run report:pages -- <entrada> <saída>`. Opcionalmente, informe um terceiro argumento com um arquivo de texto contendo os caminhos dos arquivos de teste modificados ou criados, um por linha; os testes desses arquivos serão marcados e exibidos no início da lista. O relatório apresenta os passos e as capturas disponíveis em cada execução, incluindo novas tentativas. As capturas do rastreamento dependem de a opção `trace` do Playwright estar habilitada; testes ignorados ou sem capturas podem não apresentar imagens.
+O resultado fica em `playwright-pages/` e pode ser aberto pelo `index.html` ou publicado como conteúdo estático. Para escolher as pastas de entrada e saída, execute `npm run report:pages -- <entrada> <saída>`. Opcionalmente, informe um terceiro argumento com um arquivo de texto contendo os caminhos dos arquivos de teste modificados ou criados, um por linha; os testes desses arquivos serão marcados e exibidos no início da lista. Ao selecionar um teste, o relatório abre uma página própria com seus passos e capturas disponíveis em cada execução, incluindo novas tentativas, e oferece um botão para voltar à lista. As capturas do rastreamento dependem de a opção `trace` do Playwright estar habilitada; testes ignorados ou sem capturas podem não apresentar imagens.
 
 Para testar o próprio gerador, execute `npm run test:report`.
 
