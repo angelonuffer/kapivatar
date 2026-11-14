@@ -41,3 +41,16 @@ test('Deve publicar assobios no perfil em ordem decrescente de data #perfil #ass
   const cartoes = page.locator('.assobio-card-nota');
   await expect(cartoes).toHaveText(['Assobio mais recente', 'Assobio mais antigo']);
 });
+
+test('Deve fechar o menu de adição ao interagir fora dele #perfil', async ({ page }) => {
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill('Perfil com Menu');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
+  await expect(page.getByRole('heading', { name: 'Perfil com Menu' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Adicionar ao assobio' }).click();
+  await expect(page.getByRole('button', { name: 'Tirar foto' })).toBeVisible();
+
+  await page.getByRole('heading', { name: 'Perfil com Menu' }).click();
+  await expect(page.getByRole('button', { name: 'Tirar foto' })).toBeHidden();
+});
