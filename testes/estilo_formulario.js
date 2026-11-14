@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
 });
 
-test('Deve exibir o formulário de criação de perfil estilizado', async ({ page }) => {
+test('Deve exibir o formulário de criação de perfil estilizado #perfil #formulario', async ({ page }) => {
   await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();
 

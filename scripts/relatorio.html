@@ -24,6 +24,10 @@
     .teste strong, .teste small { display: block; }
     .teste small, .muted { color: #59677e; margin-top: .3rem; }
     .teste .alterado { color: #315aa9; font-weight: 600; }
+    .filtros { display: flex; align-items: center; gap: .5rem; margin-bottom: 1rem; }
+    .filtros select { font: inherit; max-width: 100%; }
+    .hashtags { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .4rem; }
+    .hashtag { color: #315aa9; background: #eaf0ff; border-radius: 999px; padding: .1rem .5rem; font-size: .85rem; }
     .status { font-weight: 600; }
     .expected, .passed { color: #147040; }
     .unexpected, .failed, .timedOut, .interrupted { color: #b12232; }
@@ -41,13 +45,18 @@
 <body>
   <header><h1>Relatório de testes</h1><p id="resumo"></p></header>
   <main>
-    <section class="panel" id="pagina-lista"><h2>Testes</h2><div class="lista" id="lista"></div></section>
+    <section class="panel" id="pagina-lista">
+      <h2>Testes</h2>
+      <div class="filtros"><label for="filtro-hashtag">Filtrar por hashtag</label><select id="filtro-hashtag"><option value="">Todas as hashtags</option></select></div>
+      <div class="lista" id="lista"></div>
+    </section>
     <section class="panel" id="pagina-teste" hidden><button class="voltar" id="voltar" type="button">Voltar para a lista de testes</button><div id="detalhes" aria-live="polite"></div></section>
   </main>
   <script>
     /* DADOS_DO_RELATORIO */
     const nomes = { expected: 'Aprovado', unexpected: 'Falhou', flaky: 'Instável', skipped: 'Ignorado', passed: 'Aprovado', failed: 'Falhou', timedOut: 'Tempo esgotado', interrupted: 'Interrompido' };
     const lista = document.getElementById('lista');
+    const filtroHashtag = document.getElementById('filtro-hashtag');
     const paginaLista = document.getElementById('pagina-lista');
     const paginaTeste = document.getElementById('pagina-teste');
     const detalhes = document.getElementById('detalhes');
@@ -59,6 +68,18 @@
       return elemento;
     };
     document.getElementById('resumo').textContent = `${relatorio.testes.length} teste(s)${relatorio.startTime ? ' • ' + new Date(relatorio.startTime).toLocaleString('pt-BR') : ''}`;
+    const hashtags = [...new Set(relatorio.testes.flatMap((teste) => teste.hashtags ?? []))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    for (const hashtag of hashtags) {
+      const option = criar('option', hashtag);
+      option.value = hashtag;
+      filtroHashtag.append(option);
+    }
+    function mostrarHashtags(teste) {
+      if (!teste.hashtags?.length) return null;
+      const etiquetas = criar('div', null, 'hashtags');
+      for (const hashtag of teste.hashtags) etiquetas.append(criar('span', hashtag, 'hashtag'));
+      return etiquetas;
+    }
     function passos(steps) {
       const listaPassos = criar('ol');
       for (const step of steps) {
@@ -69,7 +90,8 @@
       return listaPassos;
     }
     function mostrar(teste) {
-      detalhes.replaceChildren(criar('h2', teste.titulo), criar('p', `${teste.caminho} • ${teste.projeto}`, 'muted'), criar('p', nomes[teste.outcome] ?? teste.outcome, `status ${teste.outcome}`));
+      const etiquetas = mostrarHashtags(teste);
+      detalhes.replaceChildren(criar('h2', teste.titulo), ...(etiquetas ? [etiquetas] : []), criar('p', `${teste.caminho} • ${teste.projeto}`, 'muted'), criar('p', nomes[teste.outcome] ?? teste.outcome, `status ${teste.outcome}`));
       if (!teste.resultados.length) detalhes.append(criar('p', 'Nenhuma execução disponível.'));
       for (const resultado of teste.resultados) {
         detalhes.append(criar('h3', `Execução ${(resultado.retry ?? 0) + 1} — ${nomes[resultado.status] ?? resultado.status} (${Math.round(resultado.duration ?? 0)} ms)`));
@@ -98,15 +120,26 @@
         }
       }
     }
-    for (const [indice, teste] of relatorio.testes.entries()) {
-      const link = criar('a', null, 'teste');
-      link.href = `#teste=${indice}`;
-      link.append(criar('strong', teste.titulo));
-      if (teste.modificadoNoPR) link.append(criar('small', 'Teste novo/modificado neste PR', 'alterado'));
-      link.append(criar('small', `${nomes[teste.outcome] ?? teste.outcome} • ${teste.caminho}`));
-      lista.append(link);
+    function renderizarLista() {
+      lista.replaceChildren();
+      const selecionada = filtroHashtag.value;
+      const testesVisiveis = relatorio.testes
+        .map((teste, indice) => ({ teste, indice }))
+        .filter(({ teste }) => !selecionada || teste.hashtags?.includes(selecionada));
+      for (const { teste, indice } of testesVisiveis) {
+        const link = criar('a', null, 'teste');
+        link.href = `#teste=${indice}`;
+        link.append(criar('strong', teste.titulo));
+        if (teste.modificadoNoPR) link.append(criar('small', 'Teste novo/modificado neste PR', 'alterado'));
+        link.append(criar('small', `${nomes[teste.outcome] ?? teste.outcome} • ${teste.caminho}`));
+        const etiquetas = mostrarHashtags(teste);
+        if (etiquetas) link.append(etiquetas);
+        lista.append(link);
+      }
+      if (!testesVisiveis.length) lista.append(criar('p', relatorio.testes.length ? 'Nenhum teste corresponde a esta hashtag.' : 'Nenhum teste no relatório.', 'muted'));
     }
-    if (!relatorio.testes.length) lista.append(criar('p', 'Nenhum teste no relatório.', 'muted'));
+    filtroHashtag.addEventListener('change', renderizarLista);
+    renderizarLista();
     function atualizarPagina() {
       const rota = location.hash.match(/^#teste=(\d+)$/);
       const teste = rota ? relatorio.testes[Number(rota[1])] : null;
@@ -114,7 +147,7 @@
       paginaTeste.hidden = !teste;
       for (const link of lista.querySelectorAll('a')) link.removeAttribute('aria-current');
       if (teste) {
-        lista.querySelectorAll('a')[Number(rota[1])].setAttribute('aria-current', 'true');
+        lista.querySelector(`a[href="#teste=${Number(rota[1])}"]`)?.setAttribute('aria-current', 'true');
         mostrar(teste);
       }
     }

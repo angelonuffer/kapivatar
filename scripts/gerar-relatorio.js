@@ -92,9 +92,11 @@ async function gerar() {
           imagens,
         });
       }
+      const hashtags = [...new Set([...teste.title.matchAll(/(?:^|\s)(#[\p{L}\p{N}_-]+)/gu)].map(([, hashtag]) => hashtag))];
       testes.push({
         id: teste.testId,
-        titulo: teste.title,
+        titulo: teste.title.replace(/(?:^|\s)#[\p{L}\p{N}_-]+/gu, '').trim(),
+        hashtags,
         caminho: [...(teste.path ?? []), arquivo.fileName].join(' / '),
         projeto: teste.projectName,
         outcome: teste.outcome,

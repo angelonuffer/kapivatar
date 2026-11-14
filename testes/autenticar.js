@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
 });
 
-test('Deve realizar o fluxo de autenticação e comunicação via postMessage', async ({ page }) => {
+test('Deve realizar o fluxo de autenticação e comunicação via postMessage #autenticacao #perfil', async ({ page }) => {
   // 1. Criar perfil
   await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();
   await page.getByRole('button', { name: /Criar perfil/ }).click();

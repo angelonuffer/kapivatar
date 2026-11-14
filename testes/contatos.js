@@ -9,7 +9,7 @@ const test = base.extend({
   }
 });
 
-test('Deve realizar fluxo de solicitação, retentativa e confirmação ao receber retentativa de contato já aceito', async ({ page }) => {
+test('Deve realizar fluxo de solicitação, retentativa e confirmação ao receber retentativa de contato já aceito #contatos #mqtt #sincronizacao', async ({ page }) => {
   await page.addInitScript(() => {
     const nativeSetInterval = window.setInterval.bind(window);
     window.setInterval = (callback, delay, ...args) => (

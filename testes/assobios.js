@@ -1,6 +1,6 @@
 import { test, expect } from './simulações/fixtures.js';
 
-test('Deve criar, editar, arquivar e consultar o histórico de um assobio', async ({ page }) => {
+test('Deve criar, editar, arquivar e consultar o histórico de um assobio #assobios', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
   await page.getByRole('link', { name: /Criar perfil/, exact: true }).click();

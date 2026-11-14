@@ -4,7 +4,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('Deve mostrar tela de permissão quando o arquivo existe mas não tem permissão', async ({ page }) => {
+test('Deve mostrar tela de permissão quando o arquivo existe mas não tem permissão #permissao #arquivo', async ({ page }) => {
   // 1. Selecionar o arquivo e salvar o handle no IndexedDB
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
   await expect(page.locator('.conteudo-principal')).toBeVisible();
@@ -25,7 +25,7 @@ test('Deve mostrar tela de permissão quando o arquivo existe mas não tem permi
   await expect(page.getByText('Bem-vindo ao Kapivatar!')).toBeVisible();
 });
 
-test('Deve permitir sair e limpar o arquivo da tela de permissão', async ({ page }) => {
+test('Deve permitir sair e limpar o arquivo da tela de permissão #permissao #arquivo', async ({ page }) => {
   // 1. Selecionar o banco
   await page.getByRole('button', { name: /Abrir arquivo SQLite/ }).click();
   await expect(page.locator('.conteudo-principal')).toBeVisible();
