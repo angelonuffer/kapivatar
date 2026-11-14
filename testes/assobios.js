@@ -1,5 +1,27 @@
 import { test, expect } from './simulações/fixtures.js';
 
+test('Deve anexar foto pelo menu de adição no perfil #assobios', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill('Perfil com foto');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
+
+  await page.getByRole('button', { name: 'Adicionar ao assobio' }).click();
+  await page.getByRole('button', { name: 'Tirar foto' }).click();
+  await page.locator('.form-assobio input[type="file"]').setInputFiles({
+    name: 'foto.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64'),
+  });
+  await expect(page.getByRole('img', { name: 'Pré-visualização da foto do assobio' })).toBeVisible();
+  await page.getByRole('button', { name: 'Publicar assobio' }).click();
+  await expect(page).toHaveURL(/\/perfil$/);
+
+  await page.goto('/assobios');
+  await page.locator('.assobio-card-titulo').click();
+  await expect(page.getByRole('img', { name: 'Imagem do assobio' })).toBeVisible();
+});
+
 test('Deve criar, editar, arquivar e consultar o histórico de um assobio #assobios', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Criar perfil/ }).click();

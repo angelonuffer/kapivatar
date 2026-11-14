@@ -1835,13 +1835,18 @@ const páginas = [
           imagem_capa,
           imagem_foto,
           registros_assobios,
-          ao_publicar_assobio: async (nota) => {
+          ao_publicar_assobio: async (nota, arquivo_imagem) => {
             const id_assobio = crypto.randomUUID()
             const dados_assobio = {
               perfil: id,
               perfil_nome: dados.nome,
               data: new Date().toISOString(),
               nota,
+            }
+            if (arquivo_imagem) {
+              const bytes = await arquivo_imagem.arrayBuffer()
+              dados_assobio.imagem = await gerar_hash(bytes)
+              await escrever_arquivo(diretorio, dados_assobio.imagem, bytes)
             }
             await salvar_assobio(diretorio, id_assobio, dados_assobio)
             const ativos = await carregar_lista_assobios(diretorio, "assobios")
