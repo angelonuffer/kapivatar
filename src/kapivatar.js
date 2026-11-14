@@ -18,6 +18,10 @@ import Assobios from "./assobios.svelte"
 import Assobiar from "./assobiar.svelte"
 import Dispositivos, { metadados as metadados_dispositivos } from "./dispositivos.svelte"
 
+await document.fonts.load('24px "Material Symbols Outlined"', 'home').catch((erro) => {
+  console.error("Não foi possível carregar a fonte Material Symbols.", erro)
+})
+
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
 const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
 
