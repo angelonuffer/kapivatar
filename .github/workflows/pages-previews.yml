@@ -134,20 +134,7 @@ jobs:
           mkdir -p site/latest
           cp -R playwright-report/pages/. site/latest/
         fi
-        {
-          echo '<!doctype html>'
-          echo '<html lang="en"><meta charset="utf-8"><title>Kapivatar Playwright reports</title>'
-          echo '<h1>Kapivatar Playwright reports</h1><ul>'
-          if [[ -f site/latest/index.html ]]; then
-            echo '<li><a href="latest/">Latest main report</a></li>'
-          fi
-          for preview_dir in site/previews/pr-*; do
-            [[ -d "$preview_dir" ]] || continue
-            pr_number="${preview_dir##*/pr-}"
-            printf '<li><a href="previews/pr-%s/">PR #%s</a></li>\n' "$pr_number" "$pr_number"
-          done
-          echo '</ul></html>'
-        } > site/index.html
+        node scripts/gerar-indice-pages.js site
     - name: Save Pages content branch
       run: |
         git -C site config user.name "github-actions[bot]"

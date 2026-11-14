@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "playwright test",
-    "test:report": "node --test scripts/relatorio.test.js",
+    "test:report": "node --test scripts/relatorio.test.js scripts/indice-pages.test.js",
     "report:pages": "node scripts/gerar-relatorio.js",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
   },
