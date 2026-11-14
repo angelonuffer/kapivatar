@@ -1,7 +1,8 @@
-import { access, mkdir, readdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const raiz = path.resolve(process.argv[2] ?? 'site');
+const prNumbersAbertos = process.env.OPEN_PR_NUMBERS;
 
 async function existe(arquivo) {
   try {
@@ -13,7 +14,31 @@ async function existe(arquivo) {
   }
 }
 
+async function removerPreviewsFechados() {
+  if (prNumbersAbertos === undefined) return;
+
+  const numeros = JSON.parse(prNumbersAbertos);
+  if (!Array.isArray(numeros) || numeros.some((numero) => !Number.isSafeInteger(numero) || numero < 1)) {
+    throw new TypeError('OPEN_PR_NUMBERS deve ser uma lista JSON de números de PR válidos.');
+  }
+
+  const numerosAbertos = new Set(numeros.map(String));
+  const diretorioPreviews = path.join(raiz, 'previews');
+  const previews = await existe(diretorioPreviews)
+    ? await readdir(diretorioPreviews, { withFileTypes: true })
+    : [];
+
+  for (const preview of previews) {
+    const correspondencia = preview.isDirectory() && /^pr-(\d+)$/.exec(preview.name);
+    if (correspondencia && !numerosAbertos.has(correspondencia[1])) {
+      await rm(path.join(diretorioPreviews, preview.name), { recursive: true });
+    }
+  }
+}
+
 async function gerar() {
+  await removerPreviewsFechados();
+
   const temRelatorioPrincipal = await existe(path.join(raiz, 'latest', 'index.html'));
   const diretorioPreviews = path.join(raiz, 'previews');
   const previews = (await existe(diretorioPreviews)

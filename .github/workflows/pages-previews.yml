@@ -18,6 +18,7 @@ jobs:
       publish: ${{ steps.source.outputs.publish }}
       pr_number: ${{ steps.source.outputs.pr_number }}
       pr_state: ${{ steps.source.outputs.pr_state }}
+      open_pr_numbers: ${{ steps.source.outputs.open_pr_numbers }}
     steps:
     - name: Inspect source run and report artifact
       id: source
@@ -62,6 +63,18 @@ jobs:
             }
             prState = pr.state;
           }
+
+          const openPullRequests = await github.paginate(github.rest.pulls.list, {
+            owner,
+            repo,
+            state: 'open',
+            per_page: 100,
+          });
+          core.setOutput('open_pr_numbers', JSON.stringify(
+            openPullRequests
+              .filter(pr => pr.head.repo?.full_name === `${owner}/${repo}`)
+              .map(pr => pr.number),
+          ));
 
           const { data: artifactList } = await github.rest.actions.listWorkflowRunArtifacts({
             owner,
@@ -117,6 +130,7 @@ jobs:
       env:
         PR_NUMBER: ${{ needs.inspect.outputs.pr_number }}
         PR_STATE: ${{ needs.inspect.outputs.pr_state }}
+        OPEN_PR_NUMBERS: ${{ needs.inspect.outputs.open_pr_numbers }}
       run: |
         if [[ -n "$PR_NUMBER" ]]; then
           preview_dir="site/previews/pr-$PR_NUMBER"
