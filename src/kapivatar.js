@@ -9,6 +9,7 @@ import {
   listar_dados_sqlite,
 } from "./sqlite.js"
 import { mount, unmount } from "svelte"
+import "material-symbols/outlined.css"
 import TelaInicial from "./entrar.svelte"
 import CriarPerfil from "./criar-perfil.svelte"
 import Perfil from "./perfil.svelte"
@@ -17,10 +18,6 @@ import BaseVertical from "./base-vertical.svelte"
 import Assobios from "./assobios.svelte"
 import Assobiar from "./assobiar.svelte"
 import Dispositivos, { metadados as metadados_dispositivos } from "./dispositivos.svelte"
-
-await document.fonts.load('24px "Material Symbols Outlined"', 'home').catch((erro) => {
-  console.error("Não foi possível carregar a fonte Material Symbols.", erro)
-})
 
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
 const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
@@ -3048,4 +3045,8 @@ document.addEventListener("click", (e) => {
   }
 })
 
-onload = rotear
+document.fonts.load('24px "Material Symbols Outlined"', 'home')
+  .then(() => rotear())
+  .catch((erro) => {
+    console.error("Não foi possível iniciar o app com a fonte Material Symbols.", erro)
+  })

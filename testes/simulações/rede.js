@@ -4,10 +4,7 @@ export const test = base.extend({
   externalRequests: [async ({ page }, use) => {
     await page.route(/^https?:\/\//, async (route) => {
       const url = new URL(route.request().url());
-      if (
-        url.origin === 'http://127.0.0.1:3000'
-        || ['fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname)
-      ) {
+      if (url.origin === 'http://127.0.0.1:3000') {
         await route.continue();
       } else {
         const contentType = route.request().resourceType() === 'stylesheet'
