@@ -1,4 +1,27 @@
 import { test, expect } from './simulações/fixtures.js';
+import { montar_prompt_estimativa } from '../src/estimativa-atributo.js';
+
+test('Deve montar o contexto da estimativa com os campos preenchidos', async () => {
+  const prompt = montar_prompt_estimativa({
+    nota: 'Pegadas na margem do rio',
+    descricao_imagem: 'Uma capivara perto da água',
+    atributos: [
+      { id: 'habitat', nome: 'Habitat', tipo: 'texto', valor: 'Rio' },
+      { id: 'peso', nome: 'Peso', tipo: 'numero', valor: '' },
+      { id: 'alvo', nome: 'População', tipo: 'numero', valor: '' },
+      { id: 'vazio', nome: '', tipo: 'texto', valor: '' },
+    ],
+    atributo_atual: { id: 'alvo', nome: 'População', tipo: 'numero' },
+  });
+
+  expect(prompt).toContain('Nota: Pegadas na margem do rio');
+  expect(prompt).toContain('Descrição da imagem: Uma capivara perto da água');
+  expect(prompt).toContain('- Habitat (texto): Rio');
+  expect(prompt).toContain('Nome do atributo a estimar: População');
+  expect(prompt).toContain('Tipo esperado: número');
+  expect(prompt).not.toContain('Peso');
+  expect(prompt).not.toContain('alvo');
+});
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');

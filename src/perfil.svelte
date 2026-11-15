@@ -1,6 +1,7 @@
 <script>
   import { onDestroy, onMount } from "svelte"
   import Assobios from "./assobios.svelte"
+  import { estimar_valor_atributo } from "./estimativa-atributo.js"
 
   let {
     modo,
@@ -28,6 +29,8 @@
   let preview_imagem_assobio = $state("")
   let menu_tipo_atributo_aberto = $state(null)
   let salvando_assobio = $state(false)
+  let estimando_atributo = $state(null)
+  let erro_estimativa_atributo = $state({})
   let mostrar_assobios_arquivados = $state(false)
   let erro_assobio = $state("")
   let mensagem_erro = $state("")
@@ -125,6 +128,25 @@
     if (atributo.tipo !== tipo.valor) atributo.valor = ""
     atributo.tipo = tipo.valor
     menu_tipo_atributo_aberto = null
+  }
+
+  const estimar_atributo = async (atributo) => {
+    estimando_atributo = atributo.id
+    erro_estimativa_atributo[atributo.id] = ""
+    try {
+      atributo.valor = await estimar_valor_atributo({
+        nota: novo_assobio,
+        imagem: arquivo_imagem_assobio,
+        atributos: atributos_assobio,
+        atributo_atual: atributo,
+      })
+    } catch (erro) {
+      console.error("Erro ao estimar atributo com IA:", erro)
+      erro_estimativa_atributo[atributo.id] =
+        "Não foi possível estimar este atributo. Verifique a conexão e tente novamente."
+    } finally {
+      estimando_atributo = null
+    }
   }
 
   const salvar = async (event) => {
@@ -305,6 +327,18 @@
                   {/if}
                 </div>
               </div>
+              <button
+                type="button"
+                class="botao-estimar-atributo"
+                disabled={!atributo.nome.trim() || estimando_atributo !== null}
+                onclick={() => estimar_atributo(atributo)}
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span>
+                <span>{estimando_atributo === atributo.id ? "Estimando..." : "Estimar com IA local"}</span>
+              </button>
+              {#if erro_estimativa_atributo[atributo.id]}
+                <p class="erro-estimativa-atributo" role="alert">{erro_estimativa_atributo[atributo.id]}</p>
+              {/if}
               <button
                 type="button"
                 class="remover-atributo-assobio"
@@ -529,5 +563,19 @@
 
   .botao-publicar-assobio {
     justify-content: center;
+  }
+
+  .botao-estimar-atributo {
+    justify-content: flex-start;
+  }
+
+  .botao-estimar-atributo:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .erro-estimativa-atributo {
+    margin: 0;
+    color: #ff9a9a;
   }
 </style>
