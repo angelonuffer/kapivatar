@@ -15,6 +15,7 @@
     navegar,
     historico = [],
     registros_assobios = [],
+    registros_assobios_arquivados = [],
     ao_publicar_assobio,
     ao_arquivar_assobio,
   } = $props()
@@ -28,6 +29,7 @@
   let menu_adicionar_aberto = $state(false)
   let menu_tipo_atributo_aberto = $state(null)
   let salvando_assobio = $state(false)
+  let mostrar_assobios_arquivados = $state(false)
   let erro_assobio = $state("")
   let mensagem_erro = $state("")
   let input_imagem_assobio = $state()
@@ -357,11 +359,22 @@
       <p role="alert">{erro_assobio}</p>
     {/if}
   </form>
-  <Assobios
-    registros={registros_assobios}
-    somente_arquivados={false}
-    ao_arquivar={ao_arquivar_assobio}
-  />
+  <section class="secao-assobios-perfil">
+    <div class="cabecalho-assobios-perfil">
+      <h3>{mostrar_assobios_arquivados ? "Assobios arquivados" : "Assobios"}</h3>
+      <button
+        type="button"
+        onclick={() => mostrar_assobios_arquivados = !mostrar_assobios_arquivados}
+      >
+        {mostrar_assobios_arquivados ? "Ver assobios" : "Ver arquivados"}
+      </button>
+    </div>
+    <Assobios
+      registros={mostrar_assobios_arquivados ? registros_assobios_arquivados : registros_assobios}
+      somente_arquivados={mostrar_assobios_arquivados}
+      ao_arquivar={ao_arquivar_assobio}
+    />
+  </section>
 {:else if modo === "editar"}
   <form class="form-perfil" onsubmit={salvar}>
     {#each [{ campo: "capa", label: "Capa", arquivo: imagem_capa }, { campo: "foto", label: "Foto de Perfil", arquivo: imagem_foto }] as imagem}
@@ -426,6 +439,18 @@
 {/if}
 
 <style>
+  .cabecalho-assobios-perfil {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1em;
+    margin: 1.5em 0 1em;
+  }
+
+  .cabecalho-assobios-perfil h3 {
+    margin: 0;
+  }
+
   .adicionar-assobio-container {
     position: absolute;
     bottom: 0.5em;
