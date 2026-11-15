@@ -250,6 +250,7 @@
             <div class="linha-atributo-assobio">
               <input
                 type="text"
+                class="nome-atributo-assobio"
                 aria-label="Nome do atributo"
                 placeholder="Nome"
                 bind:value={atributo.nome}
@@ -439,6 +440,8 @@
   }
 
   .atributos-assobio {
+    box-sizing: border-box;
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 0.5em;
@@ -446,16 +449,29 @@
   }
 
   .linha-atributo-assobio {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    display: flex;
+    flex-direction: column;
     gap: 0.5em;
-    align-items: center;
+    width: 100%;
+  }
+
+  .form-assobio {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  .nome-atributo-assobio {
+    box-sizing: border-box;
+    width: 100%;
   }
 
   .valor-atributo-assobio {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 2.5em;
     gap: 0.35em;
+    width: 100%;
     min-width: 0;
   }
 
@@ -499,6 +515,7 @@
   }
 
   .remover-atributo-assobio {
+    align-self: flex-end;
     padding: 0.3em;
   }
 
