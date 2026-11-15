@@ -88,6 +88,21 @@ test('Deve publicar atributos de tipos diferentes no assobio #perfil #assobios',
   await escolher_tipo(linhas.nth(2), 'Lógico', 'toggle_on');
   await linhas.nth(2).getByLabel('Valor do atributo').selectOption('true');
 
+  const dimensoes = await page.locator('.form-assobio').evaluate((form) => {
+    const pagina = form.parentElement;
+    const estilo = getComputedStyle(pagina);
+    return {
+      largura_util: pagina.clientWidth - parseFloat(estilo.paddingLeft) - parseFloat(estilo.paddingRight),
+      largura_formulario: form.getBoundingClientRect().width,
+      larguras_campos: [...form.querySelectorAll('.nome-atributo-assobio, .valor-atributo-assobio')]
+        .map((campo) => campo.getBoundingClientRect().width),
+    };
+  });
+  expect(dimensoes.largura_formulario).toBeCloseTo(dimensoes.largura_util, 0);
+  for (const largura of dimensoes.larguras_campos) {
+    expect(largura).toBeCloseTo(dimensoes.largura_formulario, 0);
+  }
+
   await page.getByRole('button', { name: 'Publicar assobio' }).click();
   await expect(page.locator('.assobio-atributo span')).toHaveText([
     'Habitat',
