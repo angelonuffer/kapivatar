@@ -64,7 +64,6 @@ test('Deve publicar atributos de tipos diferentes no assobio #perfil #assobios',
   await page.getByRole('button', { name: 'Assobiar' }).click();
 
   const adicionar_atributo = async () => {
-    await page.getByRole('button', { name: 'Adicionar ao assobio' }).click();
     await page.getByRole('button', { name: 'Atributo', exact: true }).click();
   };
   const escolher_tipo = async (linha, tipo, icone) => {
@@ -110,16 +109,29 @@ test('Deve publicar atributos de tipos diferentes no assobio #perfil #assobios',
   await expect(page.locator('.assobio-card-titulo')).not.toHaveAttribute('href');
 });
 
-test('Deve fechar o menu de adição ao interagir fora dele #perfil', async ({ page }) => {
+test('Deve exibir as ações de assobio em linhas de largura total #perfil', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
   await page.getByRole('button', { name: /Criar perfil/ }).click();
-  await page.getByLabel('Nome').fill('Perfil com Menu');
+  await page.getByLabel('Nome').fill('Perfil com Ações');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
-  await expect(page.getByRole('heading', { name: 'Perfil com Menu' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Perfil com Ações' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mais opções' }).click();
   await page.getByRole('button', { name: 'Assobiar' }).click();
 
-  await page.getByRole('button', { name: 'Adicionar ao assobio' }).click();
-  await expect(page.getByRole('button', { name: 'Tirar foto' })).toBeVisible();
-
-  await page.getByRole('button', { name: 'Publicar assobio' }).click();
-  await expect(page.getByRole('button', { name: 'Tirar foto' })).toBeHidden();
+  const botoes = page.locator('.acoes-assobio button, .botao-publicar-assobio');
+  await expect(botoes).toHaveCount(4);
+  for (const nome of ['Tirar foto', 'Escolher da galeria', 'Atributo', 'Publicar assobio']) {
+    await expect(page.getByRole('button', { name: nome, exact: true })).toBeVisible();
+  }
+  const dimensoes = await page.locator('.form-assobio').evaluate((form) => {
+    const largura_form = form.clientWidth;
+    const botoes = [...form.querySelectorAll('.acoes-assobio button, .botao-publicar-assobio')];
+    return {
+      larguras: botoes.map((botao) => botao.getBoundingClientRect().width),
+      posicoes: botoes.map((botao) => botao.getBoundingClientRect().top),
+      largura_form,
+    };
+  });
+  expect(dimensoes.larguras).toEqual(dimensoes.larguras.map(() => dimensoes.largura_form));
+  expect(dimensoes.posicoes).toEqual([...dimensoes.posicoes].sort((a, b) => a - b));
 });
