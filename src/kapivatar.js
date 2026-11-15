@@ -109,35 +109,52 @@ const gerar_hash = async (conteudo) => {
   return Array.from(new Uint8Array(hash_buffer)).map((b) => b.toString(16).padStart(2, "0")).join("")
 }
 
-const descrever_imagem = async (imagem) => {
-  if (!gerador_descricao_imagem) {
-    carregamento_gerador_descricao_imagem ??= import("@huggingface/transformers")
-      .then(({ pipeline }) => pipeline("image-to-text", "Xenova/vit-gpt2-image-captioning"))
-    try {
-      gerador_descricao_imagem = await carregamento_gerador_descricao_imagem
-    } catch (erro) {
-      carregamento_gerador_descricao_imagem = null
-      throw erro
-    }
-  }
+const descrever_imagem = async (imagem, { signal, registrar_chamada }) => {
   const url_imagem = URL.createObjectURL(imagem)
   try {
-    const resultado = await gerador_descricao_imagem(url_imagem)
+    const resultado = await executar_chamada_transformers({
+      modelo: "Xenova/vit-gpt2-image-captioning",
+      prompt: url_imagem,
+      signal,
+      registrar_chamada,
+      executar: async () => {
+        if (!gerador_descricao_imagem) {
+          carregamento_gerador_descricao_imagem ??= import("@huggingface/transformers")
+            .then(({ pipeline }) => pipeline("image-to-text", "Xenova/vit-gpt2-image-captioning"))
+          try {
+            gerador_descricao_imagem = await carregamento_gerador_descricao_imagem
+          } catch (erro) {
+            carregamento_gerador_descricao_imagem = null
+            throw erro
+          }
+        }
+        return gerador_descricao_imagem(url_imagem, { signal })
+      },
+    })
     const descricao = resultado?.[0]?.generated_text?.trim()
     if (!descricao) throw new Error("O modelo não gerou uma descrição para esta imagem.")
-    if (!tradutor_descricao_imagem) {
-      carregamento_tradutor_descricao_imagem ??= import("@huggingface/transformers")
-        .then(({ pipeline }) => pipeline("translation", "Xenova/nllb-200-distilled-600M"))
-      try {
-        tradutor_descricao_imagem = await carregamento_tradutor_descricao_imagem
-      } catch (erro) {
-        carregamento_tradutor_descricao_imagem = null
-        throw erro
-      }
-    }
-    const resultado_traducao = await tradutor_descricao_imagem(descricao, {
-      src_lang: "eng_Latn",
-      tgt_lang: "por_Latn",
+    const resultado_traducao = await executar_chamada_transformers({
+      modelo: "Xenova/nllb-200-distilled-600M",
+      prompt: descricao,
+      signal,
+      registrar_chamada,
+      executar: async () => {
+        if (!tradutor_descricao_imagem) {
+          carregamento_tradutor_descricao_imagem ??= import("@huggingface/transformers")
+            .then(({ pipeline }) => pipeline("translation", "Xenova/nllb-200-distilled-600M"))
+          try {
+            tradutor_descricao_imagem = await carregamento_tradutor_descricao_imagem
+          } catch (erro) {
+            carregamento_tradutor_descricao_imagem = null
+            throw erro
+          }
+        }
+        return tradutor_descricao_imagem(descricao, {
+          src_lang: "eng_Latn",
+          tgt_lang: "por_Latn",
+          signal,
+        })
+      },
     })
     const descricao_traduzida = resultado_traducao?.[0]?.translation_text?.trim()
     if (!descricao_traduzida) throw new Error("O modelo não traduziu a descrição para português.")
@@ -147,21 +164,32 @@ const descrever_imagem = async (imagem) => {
   }
 }
 
-const estimar_valor_atributo = async ({ nota, imagem, atributos, atributo }) => {
-  const descricao_imagem = imagem ? await descrever_imagem(imagem) : ""
-  if (!gerador_valor_atributo) {
-    carregamento_gerador_valor_atributo ??= import("@huggingface/transformers")
-      .then(({ pipeline, env }) => {
-        env.localModelPath = import.meta.env.BASE_URL
-        return pipeline("text-generation", "modelos/tucano2-qwen-0.5b-instruct", { dtype: "q8" })
-      })
-    try {
-      gerador_valor_atributo = await carregamento_gerador_valor_atributo
-    } catch (erro) {
-      carregamento_gerador_valor_atributo = null
-      throw erro
-    }
+const executar_chamada_transformers = async ({ modelo, prompt, signal, registrar_chamada, executar }) => {
+  const chamada = { id: crypto.randomUUID(), modelo, prompt, resposta: null, erro: null }
+  registrar_chamada(chamada)
+  try {
+    const resposta = await executar()
+    chamada.resposta = JSON.stringify(resposta) ?? String(resposta)
+    registrar_chamada(chamada)
+    return resposta
+  } catch (erro) {
+    chamada.erro = erro instanceof Error ? erro.message : String(erro)
+    registrar_chamada(chamada)
+    throw erro
   }
+}
+
+const estimar_valor_atributo = async ({
+  nota,
+  imagem,
+  atributos,
+  atributo,
+  signal,
+  registrar_chamada = () => {},
+}) => {
+  const descricao_imagem = imagem
+    ? await descrever_imagem(imagem, { signal, registrar_chamada })
+    : ""
 
   const contexto_atributos = atributos
     .filter(item => item.id !== atributo.id && item.nome && item.valor !== "")
@@ -188,10 +216,32 @@ const estimar_valor_atributo = async ({ nota, imagem, atributos, atributo }) => 
     }),
   ].join("\n\n")
 
-  const resultado = await gerador_valor_atributo(prompt, {
-    max_new_tokens: 120,
-    do_sample: false,
-    return_full_text: false,
+  const resultado = await executar_chamada_transformers({
+    modelo: "modelos/tucano2-qwen-0.5b-instruct",
+    prompt,
+    signal,
+    registrar_chamada,
+    executar: async () => {
+      if (!gerador_valor_atributo) {
+        carregamento_gerador_valor_atributo ??= import("@huggingface/transformers")
+          .then(({ pipeline, env }) => {
+            env.localModelPath = import.meta.env.BASE_URL
+            return pipeline("text-generation", "modelos/tucano2-qwen-0.5b-instruct", { dtype: "q8" })
+          })
+        try {
+          gerador_valor_atributo = await carregamento_gerador_valor_atributo
+        } catch (erro) {
+          carregamento_gerador_valor_atributo = null
+          throw erro
+        }
+      }
+      return gerador_valor_atributo(prompt, {
+        max_new_tokens: 120,
+        do_sample: false,
+        return_full_text: false,
+        signal,
+      })
+    },
   })
   const texto_gerado = resultado?.[0]?.generated_text
   const texto = typeof texto_gerado === "string"
