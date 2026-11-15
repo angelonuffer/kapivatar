@@ -13,7 +13,7 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil #perfil', asy
 
   // 2. Verificar os detalhes do perfil
   await expect(page).toHaveURL(/\/perfil$/);
-  await expect(page.locator('h2')).toHaveText('Capivara Original');
+  await expect(page.getByRole('heading', { name: 'Capivara Original', exact: true })).toBeVisible();
   await expect(page.locator('.perfil-info-detalhe p')).toHaveText('Bio original');
 
   // 4. Editar perfil
@@ -26,7 +26,7 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil #perfil', asy
 
   // 5. Verificar atualização nos detalhes
   await expect(page).toHaveURL(/\/perfil$/);
-  await expect(page.locator('h2')).toHaveText('Capivara Editada');
+  await expect(page.getByRole('heading', { name: 'Capivara Editada', exact: true })).toBeVisible();
   await expect(page.locator('.perfil-info-detalhe p')).toHaveText('Bio editada');
 
   // 6. Verificar histórico do perfil
@@ -41,6 +41,6 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil #perfil', asy
 
   // Deve mostrar a versão antiga do perfil (com query parameter v)
   await expect(page).toHaveURL(/.*v=[a-f0-9]{64}/);
-  await expect(page.locator('h2')).toHaveText('Capivara Original');
+  await expect(page.getByRole('heading', { name: 'Capivara Original', exact: true })).toBeVisible();
   await expect(page.locator('.perfil-info-detalhe p')).toHaveText('Bio original');
 });
