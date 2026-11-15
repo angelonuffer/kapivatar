@@ -7,8 +7,9 @@ test('Deve anexar foto pelo menu de adição no perfil #assobios', async ({ page
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
 
   await page.getByRole('button', { name: 'Adicionar ao assobio' }).click();
-  await page.getByRole('button', { name: 'Tirar foto' }).click();
-  await page.locator('.form-assobio input[type="file"]').setInputFiles({
+  await expect(page.getByRole('button', { name: 'Tirar foto' })).toBeVisible();
+  await page.getByRole('button', { name: 'Escolher da galeria' }).click();
+  await page.locator('.form-assobio input[type="file"]:not([capture])').setInputFiles({
     name: 'foto.png',
     mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64'),
