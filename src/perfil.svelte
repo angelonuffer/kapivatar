@@ -181,24 +181,27 @@
   }
 </script>
 
-{#if modo === "visualizar"}
-  <div class="perfil-detalhe">
-    {#if previews.capa || imagem_capa}
-      <img class="perfil-capa-detalhe" src={previews.capa} alt={`Capa de ${dados.nome}`} />
-    {/if}
-    <div class="perfil-info-detalhe">
-      {#if previews.foto || imagem_foto}
-        <img
-          class="perfil-foto-detalhe"
-          src={previews.foto}
-          alt={`Foto de ${dados.nome}`}
-          style:margin-top={dados.capa ? "-50px" : "0"}
-        />
+{#if modo === "visualizar" || modo === "assobiar"}
+  {#if modo === "visualizar"}
+    <div class="perfil-detalhe">
+      {#if previews.capa || imagem_capa}
+        <img class="perfil-capa-detalhe" src={previews.capa} alt={`Capa de ${dados.nome}`} />
       {/if}
-      <h2>{dados.nome}</h2>
-      <p>{dados.bio}</p>
+      <div class="perfil-info-detalhe">
+        {#if previews.foto || imagem_foto}
+          <img
+            class="perfil-foto-detalhe"
+            src={previews.foto}
+            alt={`Foto de ${dados.nome}`}
+            style:margin-top={dados.capa ? "-50px" : "0"}
+          />
+        {/if}
+        <h2>{dados.nome}</h2>
+        <p>{dados.bio}</p>
+      </div>
     </div>
-  </div>
+  {/if}
+  {#if modo === "assobiar"}
   <form class="form-perfil form-assobio" onsubmit={publicar_assobio}>
     <div class="form-campo">
       <div class="campo-nota-container">
@@ -359,22 +362,25 @@
       <p role="alert">{erro_assobio}</p>
     {/if}
   </form>
-  <section class="secao-assobios-perfil">
-    <div class="cabecalho-assobios-perfil">
-      <h3>{mostrar_assobios_arquivados ? "Assobios arquivados" : "Assobios"}</h3>
-      <button
-        type="button"
-        onclick={() => mostrar_assobios_arquivados = !mostrar_assobios_arquivados}
-      >
-        {mostrar_assobios_arquivados ? "Ver assobios" : "Ver arquivados"}
-      </button>
-    </div>
-    <Assobios
-      registros={mostrar_assobios_arquivados ? registros_assobios_arquivados : registros_assobios}
-      somente_arquivados={mostrar_assobios_arquivados}
-      ao_arquivar={ao_arquivar_assobio}
-    />
-  </section>
+  {/if}
+  {#if modo === "visualizar"}
+    <section class="secao-assobios-perfil">
+      <div class="cabecalho-assobios-perfil">
+        <h3>{mostrar_assobios_arquivados ? "Assobios arquivados" : "Assobios"}</h3>
+        <button
+          type="button"
+          onclick={() => mostrar_assobios_arquivados = !mostrar_assobios_arquivados}
+        >
+          {mostrar_assobios_arquivados ? "Ver assobios" : "Ver arquivados"}
+        </button>
+      </div>
+      <Assobios
+        registros={mostrar_assobios_arquivados ? registros_assobios_arquivados : registros_assobios}
+        somente_arquivados={mostrar_assobios_arquivados}
+        ao_arquivar={ao_arquivar_assobio}
+      />
+    </section>
+  {/if}
 {:else if modo === "editar"}
   <form class="form-perfil" onsubmit={salvar}>
     {#each [{ campo: "capa", label: "Capa", arquivo: imagem_capa }, { campo: "foto", label: "Foto de Perfil", arquivo: imagem_foto }] as imagem}

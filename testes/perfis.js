@@ -23,11 +23,24 @@ test('Deve criar e exibir o perfil único do arquivo de dados #perfil #arquivo',
   await expect(page.getByRole('heading', { name: 'Capivara de Teste' })).toBeVisible();
 });
 
+test('Deve abrir a página Assobiar pelo menu de ações do perfil #perfil #assobios', async ({ page }) => {
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill('Perfil para Assobiar');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
+
+  await expect(page.locator('#novo-assobio')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Assobiar' }).click();
+  await expect(page).toHaveURL(/\/assobiar$/);
+  await expect(page.getByRole('heading', { name: 'Assobiar' })).toBeVisible();
+  await expect(page.locator('#novo-assobio')).toBeVisible();
+});
+
 test('Deve publicar assobios no perfil em ordem decrescente de data #perfil #assobios', async ({ page }) => {
   await page.getByRole('button', { name: /Criar perfil/ }).click();
   await page.getByLabel('Nome').fill('Perfil de Assobios');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
   await expect(page.getByRole('heading', { name: 'Perfil de Assobios' })).toBeVisible();
+  await page.getByRole('button', { name: 'Assobiar' }).click();
 
   const campo_assobio = page.locator('#novo-assobio');
   await campo_assobio.fill('Assobio mais antigo');
@@ -35,6 +48,7 @@ test('Deve publicar assobios no perfil em ordem decrescente de data #perfil #ass
   await expect(page.getByText('Assobio mais antigo')).toBeVisible();
 
   await page.waitForTimeout(20);
+  await page.getByRole('button', { name: 'Assobiar' }).click();
   await campo_assobio.fill('Assobio mais recente');
   await page.getByRole('button', { name: 'Publicar assobio' }).click();
 
@@ -47,6 +61,7 @@ test('Deve publicar atributos de tipos diferentes no assobio #perfil #assobios',
   await page.getByLabel('Nome').fill('Perfil com Atributos');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
   await expect(page.getByRole('heading', { name: 'Perfil com Atributos' })).toBeVisible();
+  await page.getByRole('button', { name: 'Assobiar' }).click();
 
   const adicionar_atributo = async () => {
     await page.getByRole('button', { name: 'Adicionar ao assobio' }).click();
@@ -100,6 +115,7 @@ test('Deve fechar o menu de adição ao interagir fora dele #perfil', async ({ p
   await page.getByLabel('Nome').fill('Perfil com Menu');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
   await expect(page.getByRole('heading', { name: 'Perfil com Menu' })).toBeVisible();
+  await page.getByRole('button', { name: 'Assobiar' }).click();
 
   await page.getByRole('button', { name: 'Adicionar ao assobio' }).click();
   await expect(page.getByRole('button', { name: 'Tirar foto' })).toBeVisible();

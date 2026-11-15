@@ -85,6 +85,7 @@ test('Deve mostrar a navegação inferior em mobile #navegacao #mobile', async (
   await menu_acoes.click();
   await expect(page.getByRole('button', { name: 'Editar' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Histórico' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Assobiar' })).toBeVisible();
   await menu_acoes.click();
 
   await navegacao.getByRole('button', { name: 'Dispositivos' }).click();

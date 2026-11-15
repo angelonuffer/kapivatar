@@ -1533,6 +1533,26 @@ const carregar_assobios_perfil = async (diretorio, id_perfil, chave_lista, sinal
   return registros.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
 }
 
+const publicar_assobio = async (diretorio, id, dados, nota, arquivo_imagem, atributos) => {
+  const id_assobio = crypto.randomUUID()
+  const dados_assobio = {
+    perfil: id,
+    perfil_nome: dados.nome,
+    data: new Date().toISOString(),
+    nota,
+    ...(atributos.length ? { atributos } : {}),
+  }
+  if (arquivo_imagem) {
+    const bytes = await arquivo_imagem.arrayBuffer()
+    dados_assobio.imagem = await gerar_hash(bytes)
+    await escrever_arquivo(diretorio, dados_assobio.imagem, bytes)
+  }
+  await salvar_assobio(diretorio, id_assobio, dados_assobio)
+  const ativos = await carregar_lista_assobios(diretorio, "assobios")
+  await salvar_lista_assobios(diretorio, "assobios", [...ativos.assobios, id_assobio])
+  navegar("/perfil")
+}
+
 const páginas = [
   página_inicial,
   {
@@ -1687,6 +1707,7 @@ const páginas = [
       const id = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
       return id
         ? [
+            { nome: "Assobiar", ícone: "campaign", url: "/assobiar" },
             { nome: "Editar", ícone: "edit", url: "/perfil/editar" },
             { nome: "Histórico", ícone: "history", url: "/perfil/histórico" },
           ]
@@ -1741,29 +1762,47 @@ const páginas = [
           imagem_foto,
           registros_assobios,
           registros_assobios_arquivados,
-          ao_publicar_assobio: async (nota, arquivo_imagem, atributos) => {
-            const id_assobio = crypto.randomUUID()
-            const dados_assobio = {
-              perfil: id,
-              perfil_nome: dados.nome,
-              data: new Date().toISOString(),
-              nota,
-              ...(atributos.length ? { atributos } : {}),
-            }
-            if (arquivo_imagem) {
-              const bytes = await arquivo_imagem.arrayBuffer()
-              dados_assobio.imagem = await gerar_hash(bytes)
-              await escrever_arquivo(diretorio, dados_assobio.imagem, bytes)
-            }
-            await salvar_assobio(diretorio, id_assobio, dados_assobio)
-            const ativos = await carregar_lista_assobios(diretorio, "assobios")
-            await salvar_lista_assobios(diretorio, "assobios", [...ativos.assobios, id_assobio])
-            navegar("/perfil")
-          },
           ao_arquivar_assobio: arquivar_assobio,
         },
       })
     }
+  },
+  {
+    nome: "Assobiar",
+    url: "/assobiar",
+    ícone: "campaign",
+    ocultar_no_menu: true,
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      const id = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
+      if (!id) {
+        conteudo.innerHTML = '<p>Nenhum perfil encontrado. <a href="/perfil/criar">Criar perfil</a></p>'
+        return
+      }
+
+      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+      const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
+      if (!arquivo_id) {
+        conteudo.innerHTML = "<p>Perfil não encontrado.</p>"
+        return
+      }
+      const hash_perfil = await aguardar_rota(arquivo_id.text(), sinal_rota)
+      const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, hash_perfil), sinal_rota)
+      if (!arquivo_perfil) {
+        conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
+        return
+      }
+      const dados = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
+
+      return mount(Perfil, {
+        target: conteudo,
+        props: {
+          modo: "assobiar",
+          dados,
+          ao_publicar_assobio: (nota, arquivo_imagem, atributos) =>
+            publicar_assobio(diretorio, id, dados, nota, arquivo_imagem, atributos),
+        },
+      })
+    },
   },
   {
     nome: "Editar Perfil",
