@@ -122,6 +122,6 @@ test('Deve fechar o menu de adição ao interagir fora dele #perfil', async ({ p
   await page.getByRole('button', { name: 'Adicionar ao assobio' }).click();
   await expect(page.getByRole('button', { name: 'Tirar foto' })).toBeVisible();
 
-  await page.getByRole('heading', { name: 'Perfil com Menu' }).click();
+  await page.getByRole('button', { name: 'Publicar assobio' }).click();
   await expect(page.getByRole('button', { name: 'Tirar foto' })).toBeHidden();
 });

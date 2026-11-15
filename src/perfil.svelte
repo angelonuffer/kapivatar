@@ -36,6 +36,7 @@
   let erro_assobio = $state("")
   let mensagem_erro = $state("")
   let input_imagem_assobio = $state()
+  let input_galeria_assobio = $state()
   let container_adicionar_assobio = $state()
   let dialogo_justificativa = $state()
   const urls_preview = new Set()
@@ -116,6 +117,7 @@
       remover_preview(preview_imagem_assobio)
       preview_imagem_assobio = ""
       if (input_imagem_assobio) input_imagem_assobio.value = ""
+      if (input_galeria_assobio) input_galeria_assobio.value = ""
     } catch (erro) {
       console.error("Erro ao publicar assobio:", erro)
       erro_assobio = "Não foi possível publicar o assobio. Tente novamente."
@@ -275,6 +277,17 @@
               <button
                 type="button"
                 class="item-menu-adicionar-assobio"
+                onclick={() => {
+                  menu_adicionar_aberto = false
+                  input_galeria_assobio.click()
+                }}
+              >
+                <span class="material-symbols-outlined" aria-hidden="true">photo_library</span>
+                <span>Escolher da galeria</span>
+              </button>
+              <button
+                type="button"
+                class="item-menu-adicionar-assobio"
                 onclick={adicionar_atributo_assobio}
               >
                 <span class="material-symbols-outlined" aria-hidden="true">label</span>
@@ -287,6 +300,13 @@
             type="file"
             accept="image/*"
             capture="environment"
+            hidden
+            onchange={selecionar_imagem_assobio}
+          />
+          <input
+            bind:this={input_galeria_assobio}
+            type="file"
+            accept="image/*"
             hidden
             onchange={selecionar_imagem_assobio}
           />
