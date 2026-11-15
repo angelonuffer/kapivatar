@@ -443,14 +443,9 @@ a.ativo {
   min-height: 100px;
 }
 
-.campo-nota-container {
-  position: relative;
-}
-
 .campo-nota-container textarea {
   box-sizing: border-box;
   width: 100%;
-  padding-bottom: 3em;
 }
 
 .botao-descricao-imagem {

@@ -26,7 +26,6 @@
   let atributos_assobio = $state([])
   let arquivo_imagem_assobio = $state(null)
   let preview_imagem_assobio = $state("")
-  let menu_adicionar_aberto = $state(false)
   let menu_tipo_atributo_aberto = $state(null)
   let salvando_assobio = $state(false)
   let mostrar_assobios_arquivados = $state(false)
@@ -34,7 +33,6 @@
   let mensagem_erro = $state("")
   let input_imagem_assobio = $state()
   let input_galeria_assobio = $state()
-  let container_adicionar_assobio = $state()
   const urls_preview = new Set()
   const tipos_atributo = [
     { valor: "texto", nome: "Texto", icone: "text_fields" },
@@ -57,21 +55,13 @@
   onMount(() => {
     if (imagem_capa) previews.capa = criar_preview(imagem_capa)
     if (imagem_foto) previews.foto = criar_preview(imagem_foto)
-    document.addEventListener("pointerdown", fechar_menu_adicionar_assobio)
     document.addEventListener("pointerdown", fechar_menu_tipo_atributo)
   })
 
   onDestroy(() => {
-    document.removeEventListener("pointerdown", fechar_menu_adicionar_assobio)
     document.removeEventListener("pointerdown", fechar_menu_tipo_atributo)
     for (const url of urls_preview) URL.revokeObjectURL(url)
   })
-
-  const fechar_menu_adicionar_assobio = (event) => {
-    if (!container_adicionar_assobio?.contains(event.target)) {
-      menu_adicionar_aberto = false
-    }
-  }
 
   const fechar_menu_tipo_atributo = (event) => {
     if (!event.target.closest(".seletor-tipo-atributo")) {
@@ -129,7 +119,6 @@
       tipo: "texto",
       valor: "",
     })
-    menu_adicionar_aberto = false
   }
 
   const selecionar_tipo_atributo = (atributo, tipo) => {
@@ -181,74 +170,56 @@
   }
 </script>
 
-{#if modo === "visualizar"}
-  <div class="perfil-detalhe">
-    {#if previews.capa || imagem_capa}
-      <img class="perfil-capa-detalhe" src={previews.capa} alt={`Capa de ${dados.nome}`} />
-    {/if}
-    <div class="perfil-info-detalhe">
-      {#if previews.foto || imagem_foto}
-        <img
-          class="perfil-foto-detalhe"
-          src={previews.foto}
-          alt={`Foto de ${dados.nome}`}
-          style:margin-top={dados.capa ? "-50px" : "0"}
-        />
+{#if modo === "visualizar" || modo === "assobiar"}
+  {#if modo === "visualizar"}
+    <div class="perfil-detalhe">
+      {#if previews.capa || imagem_capa}
+        <img class="perfil-capa-detalhe" src={previews.capa} alt={`Capa de ${dados.nome}`} />
       {/if}
-      <h2>{dados.nome}</h2>
-      <p>{dados.bio}</p>
+      <div class="perfil-info-detalhe">
+        {#if previews.foto || imagem_foto}
+          <img
+            class="perfil-foto-detalhe"
+            src={previews.foto}
+            alt={`Foto de ${dados.nome}`}
+            style:margin-top={dados.capa ? "-50px" : "0"}
+          />
+        {/if}
+        <h2>{dados.nome}</h2>
+        <p>{dados.bio}</p>
+      </div>
     </div>
-  </div>
+  {/if}
+  {#if modo === "assobiar"}
   <form class="form-perfil form-assobio" onsubmit={publicar_assobio}>
     <div class="form-campo">
       <div class="campo-nota-container">
         <textarea id="novo-assobio" bind:value={novo_assobio}></textarea>
-        <div class="adicionar-assobio-container" bind:this={container_adicionar_assobio}>
+        <div class="acoes-assobio">
           <button
             type="button"
-            class="botao-adicionar-assobio"
-            aria-label="Adicionar ao assobio"
-            aria-expanded={menu_adicionar_aberto}
-            aria-controls="menu-adicionar-assobio"
-            title="Adicionar ao assobio"
-            onclick={() => menu_adicionar_aberto = !menu_adicionar_aberto}
+            class="botao-acao-assobio"
+            onclick={() => input_imagem_assobio.click()}
           >
-            <span class="material-symbols-outlined" aria-hidden="true">add</span>
+            <span class="material-symbols-outlined" aria-hidden="true">photo_camera</span>
+            <span>Tirar foto</span>
           </button>
-          {#if menu_adicionar_aberto}
-            <div class="menu-adicionar-assobio" id="menu-adicionar-assobio">
-              <button
-                type="button"
-                class="item-menu-adicionar-assobio"
-                onclick={() => {
-                  menu_adicionar_aberto = false
-                  input_imagem_assobio.click()
-                }}
-              >
-                <span class="material-symbols-outlined" aria-hidden="true">photo_camera</span>
-                <span>Tirar foto</span>
-              </button>
-              <button
-                type="button"
-                class="item-menu-adicionar-assobio"
-                onclick={() => {
-                  menu_adicionar_aberto = false
-                  input_galeria_assobio.click()
-                }}
-              >
-                <span class="material-symbols-outlined" aria-hidden="true">photo_library</span>
-                <span>Escolher da galeria</span>
-              </button>
-              <button
-                type="button"
-                class="item-menu-adicionar-assobio"
-                onclick={adicionar_atributo_assobio}
-              >
-                <span class="material-symbols-outlined" aria-hidden="true">label</span>
-                <span>Atributo</span>
-              </button>
-            </div>
-          {/if}
+          <button
+            type="button"
+            class="botao-acao-assobio"
+            onclick={() => input_galeria_assobio.click()}
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">photo_library</span>
+            <span>Escolher da galeria</span>
+          </button>
+          <button
+            type="button"
+            class="botao-acao-assobio"
+            onclick={adicionar_atributo_assobio}
+          >
+            <span class="material-symbols-outlined" aria-hidden="true">label</span>
+            <span>Atributo</span>
+          </button>
           <input
             bind:this={input_imagem_assobio}
             type="file"
@@ -265,23 +236,14 @@
             onchange={selecionar_imagem_assobio}
           />
         </div>
-        {#if preview_imagem_assobio}
-          <img
-            class="preview-imagem-assobio"
-            src={preview_imagem_assobio}
-            alt="Pré-visualização da foto do assobio"
-          />
-        {/if}
-        <button
-          type="submit"
-          class="botao-publicar-assobio"
-          aria-label="Publicar assobio"
-          title="Publicar assobio"
-          disabled={salvando_assobio}
-        >
-          <span class="material-symbols-outlined" aria-hidden="true">send</span>
-        </button>
       </div>
+      {#if preview_imagem_assobio}
+        <img
+          class="preview-imagem-assobio"
+          src={preview_imagem_assobio}
+          alt="Pré-visualização da foto do assobio"
+        />
+      {/if}
       {#if atributos_assobio.length}
         <div class="atributos-assobio">
           {#each atributos_assobio as atributo (atributo.id)}
@@ -354,27 +316,38 @@
           {/each}
         </div>
       {/if}
+      <button
+        type="submit"
+        class="botao-publicar-assobio"
+        disabled={salvando_assobio}
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">send</span>
+        <span>{salvando_assobio ? "Publicando..." : "Publicar assobio"}</span>
+      </button>
     </div>
     {#if erro_assobio}
       <p role="alert">{erro_assobio}</p>
     {/if}
   </form>
-  <section class="secao-assobios-perfil">
-    <div class="cabecalho-assobios-perfil">
-      <h3>{mostrar_assobios_arquivados ? "Assobios arquivados" : "Assobios"}</h3>
-      <button
-        type="button"
-        onclick={() => mostrar_assobios_arquivados = !mostrar_assobios_arquivados}
-      >
-        {mostrar_assobios_arquivados ? "Ver assobios" : "Ver arquivados"}
-      </button>
-    </div>
-    <Assobios
-      registros={mostrar_assobios_arquivados ? registros_assobios_arquivados : registros_assobios}
-      somente_arquivados={mostrar_assobios_arquivados}
-      ao_arquivar={ao_arquivar_assobio}
-    />
-  </section>
+  {/if}
+  {#if modo === "visualizar"}
+    <section class="secao-assobios-perfil">
+      <div class="cabecalho-assobios-perfil">
+        <h3>{mostrar_assobios_arquivados ? "Assobios arquivados" : "Assobios"}</h3>
+        <button
+          type="button"
+          onclick={() => mostrar_assobios_arquivados = !mostrar_assobios_arquivados}
+        >
+          {mostrar_assobios_arquivados ? "Ver assobios" : "Ver arquivados"}
+        </button>
+      </div>
+      <Assobios
+        registros={mostrar_assobios_arquivados ? registros_assobios_arquivados : registros_assobios}
+        somente_arquivados={mostrar_assobios_arquivados}
+        ao_arquivar={ao_arquivar_assobio}
+      />
+    </section>
+  {/if}
 {:else if modo === "editar"}
   <form class="form-perfil" onsubmit={salvar}>
     {#each [{ campo: "capa", label: "Capa", arquivo: imagem_capa }, { campo: "foto", label: "Foto de Perfil", arquivo: imagem_foto }] as imagem}
@@ -451,32 +424,18 @@
     margin: 0;
   }
 
-  .adicionar-assobio-container {
-    position: absolute;
-    bottom: 0.5em;
-    left: 0.5em;
+  .acoes-assobio {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+    margin-top: 0.5em;
   }
 
-  .botao-adicionar-assobio {
-    padding: 0.35em;
-  }
-
-  .menu-adicionar-assobio {
-    position: absolute;
-    bottom: calc(100% + 0.5em);
-    left: 0;
-    min-width: 150px;
-    overflow: hidden;
-    background: #444;
-    border-radius: 0.5em;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    z-index: 10;
-  }
-
-  .item-menu-adicionar-assobio {
+  .botao-acao-assobio,
+  .botao-publicar-assobio {
+    box-sizing: border-box;
     width: 100%;
     justify-content: flex-start;
-    border-radius: 0;
   }
 
   .atributos-assobio {
@@ -552,9 +511,6 @@
   }
 
   .botao-publicar-assobio {
-    position: absolute;
-    right: 0.5em;
-    bottom: 0.5em;
-    padding: 0.35em;
+    justify-content: center;
   }
 </style>

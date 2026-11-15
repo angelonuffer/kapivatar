@@ -1,12 +1,12 @@
 import { test, expect } from './simulações/fixtures.js';
 
-test('Deve anexar foto pelo menu de adição no perfil #assobios', async ({ page }) => {
+test('Deve anexar foto pela ação Escolher da galeria #assobios', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Criar perfil/ }).click();
   await page.getByLabel('Nome').fill('Perfil com foto');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
 
-  await page.getByRole('button', { name: 'Adicionar ao assobio' }).click();
+  await page.getByRole('button', { name: 'Assobiar' }).click();
   await expect(page.getByRole('button', { name: 'Tirar foto' })).toBeVisible();
   await page.getByRole('button', { name: 'Escolher da galeria' }).click();
   await page.locator('.form-assobio input[type="file"]:not([capture])').setInputFiles({
@@ -28,6 +28,7 @@ test('Deve arquivar e restaurar um assobio pelo perfil #perfil #assobios', async
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
   await expect(page.getByRole('heading', { name: 'Perfil de Assobio' })).toBeVisible();
 
+  await page.getByRole('button', { name: 'Assobiar' }).click();
   await page.locator('#novo-assobio').fill('Assobio arquivado');
   await page.getByRole('button', { name: 'Publicar assobio' }).click();
   await expect(page.getByText('Assobio arquivado')).toBeVisible();
