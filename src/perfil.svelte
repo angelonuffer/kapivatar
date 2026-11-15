@@ -17,6 +17,7 @@
     registros_assobios = [],
     ao_publicar_assobio,
     ao_arquivar_assobio,
+    ao_estimar_valor_atributo,
   } = $props()
 
   let previews = $state({ capa: "", foto: "" })
@@ -27,12 +28,24 @@
   let preview_imagem_assobio = $state("")
   let menu_adicionar_aberto = $state(false)
   let menu_tipo_atributo_aberto = $state(null)
+  let menu_acoes_atributo_aberto = $state(null)
+  let atributo_estimando = $state(null)
+  let nome_atributo_estimando = $state("")
+  let chamadas_estimativa = $state([])
+  let detalhes_estimativa_abertos = $state(false)
+  let estimativa_concluida = $state(false)
+  let valor_estimado = $state("")
+  let erro_estimativa = $state("")
+  let justificativa_estimativa = $state(null)
   let salvando_assobio = $state(false)
   let erro_assobio = $state("")
   let mensagem_erro = $state("")
   let input_imagem_assobio = $state()
   let input_galeria_assobio = $state()
   let container_adicionar_assobio = $state()
+  let dialogo_estimativa = $state()
+  let dialogo_justificativa = $state()
+  let controle_estimativa
   const urls_preview = new Set()
   const tipos_atributo = [
     { valor: "texto", nome: "Texto", icone: "text_fields" },
@@ -57,11 +70,13 @@
     if (imagem_foto) previews.foto = criar_preview(imagem_foto)
     document.addEventListener("pointerdown", fechar_menu_adicionar_assobio)
     document.addEventListener("pointerdown", fechar_menu_tipo_atributo)
+    document.addEventListener("pointerdown", fechar_menu_acoes_atributo)
   })
 
   onDestroy(() => {
     document.removeEventListener("pointerdown", fechar_menu_adicionar_assobio)
     document.removeEventListener("pointerdown", fechar_menu_tipo_atributo)
+    document.removeEventListener("pointerdown", fechar_menu_acoes_atributo)
     for (const url of urls_preview) URL.revokeObjectURL(url)
   })
 
@@ -74,6 +89,12 @@
   const fechar_menu_tipo_atributo = (event) => {
     if (!event.target.closest(".seletor-tipo-atributo")) {
       menu_tipo_atributo_aberto = null
+    }
+  }
+
+  const fechar_menu_acoes_atributo = (event) => {
+    if (!event.target.closest(".acoes-atributo-assobio")) {
+      menu_acoes_atributo_aberto = null
     }
   }
 
@@ -134,6 +155,70 @@
     if (atributo.tipo !== tipo.valor) atributo.valor = ""
     atributo.tipo = tipo.valor
     menu_tipo_atributo_aberto = null
+  }
+
+  const estimar_valor_atributo = async (atributo) => {
+    menu_acoes_atributo_aberto = null
+    erro_estimativa = ""
+    atributo_estimando = atributo.id
+    nome_atributo_estimando = atributo.nome.trim()
+    chamadas_estimativa = []
+    detalhes_estimativa_abertos = false
+    estimativa_concluida = false
+    valor_estimado = ""
+    controle_estimativa = new AbortController()
+    const { signal } = controle_estimativa
+    dialogo_estimativa.showModal()
+    try {
+      const resultado = await ao_estimar_valor_atributo({
+        nota: novo_assobio.trim(),
+        imagem: arquivo_imagem_assobio,
+        atributos: atributos_assobio.map(({ id, nome, tipo, valor }) => ({
+          id,
+          nome: nome.trim(),
+          tipo,
+          valor,
+        })),
+        atributo: {
+          id: atributo.id,
+          nome: atributo.nome.trim(),
+          tipo: atributo.tipo,
+        },
+        signal,
+        registrar_chamada: (chamada) => {
+          chamadas_estimativa = chamadas_estimativa.some(item => item.id === chamada.id)
+            ? chamadas_estimativa.map(item => item.id === chamada.id ? { ...chamada } : item)
+            : [...chamadas_estimativa, { ...chamada }]
+        },
+      })
+      if (signal.aborted) return
+      atributo.valor = resultado.valor
+      valor_estimado = resultado.valor
+      justificativa_estimativa = {
+        nome: atributo.nome.trim(),
+        texto: resultado.justificativa,
+      }
+      estimativa_concluida = true
+    } catch (erro) {
+      if (signal.aborted) return
+      console.error("Erro ao estimar valor do atributo:", erro)
+      erro_estimativa = "Não foi possível estimar o valor. Verifique a disponibilidade do modelo e tente novamente."
+    } finally {
+      if (controle_estimativa?.signal === signal) {
+        controle_estimativa = null
+        atributo_estimando = null
+      }
+    }
+  }
+
+  const fechar_dialogo_estimativa = () => {
+    if (controle_estimativa) {
+      controle_estimativa.abort()
+      controle_estimativa = null
+    }
+    dialogo_estimativa.close()
+    atributo_estimando = null
+    if (estimativa_concluida) dialogo_justificativa.showModal()
   }
 
   const salvar = async (event) => {
@@ -340,17 +425,51 @@
                   {/if}
                 </div>
               </div>
-              <button
-                type="button"
-                class="remover-atributo-assobio"
-                aria-label="Remover atributo"
-                onclick={() => atributos_assobio = atributos_assobio.filter(item => item.id !== atributo.id)}
-              >
-                <span class="material-symbols-outlined" aria-hidden="true">close</span>
-              </button>
+              <div class="acoes-atributo-assobio">
+                <button
+                  type="button"
+                  class="botao-acoes-atributo"
+                  aria-label={`Ações do atributo ${atributo.nome || "sem nome"}`}
+                  aria-expanded={menu_acoes_atributo_aberto === atributo.id}
+                  aria-controls={`menu-acoes-atributo-${atributo.id}`}
+                  title="Ações do atributo"
+                  onclick={() => menu_acoes_atributo_aberto = menu_acoes_atributo_aberto === atributo.id
+                    ? null
+                    : atributo.id}
+                >
+                  <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
+                </button>
+                {#if menu_acoes_atributo_aberto === atributo.id}
+                  <div class="menu-acoes-atributo" id={`menu-acoes-atributo-${atributo.id}`}>
+                    <button
+                      type="button"
+                      class="opcao-acao-atributo"
+                      disabled={Boolean(atributo_estimando)}
+                      onclick={() => estimar_valor_atributo(atributo)}
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">auto_awesome</span>
+                      <span>{atributo_estimando === atributo.id ? "Estimando..." : "Estimar valor"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="opcao-acao-atributo"
+                      onclick={() => {
+                        atributos_assobio = atributos_assobio.filter(item => item.id !== atributo.id)
+                        menu_acoes_atributo_aberto = null
+                      }}
+                    >
+                      <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                      <span>Eliminar atributo</span>
+                    </button>
+                  </div>
+                {/if}
+              </div>
             </div>
           {/each}
         </div>
+      {/if}
+      {#if erro_estimativa}
+        <p role="alert">{erro_estimativa}</p>
       {/if}
     </div>
     {#if erro_assobio}
@@ -362,6 +481,71 @@
     somente_arquivados={false}
     ao_arquivar={ao_arquivar_assobio}
   />
+  <dialog
+    class="dialogo-estimativa"
+    bind:this={dialogo_estimativa}
+    aria-labelledby="titulo-estimativa"
+    oncancel={(event) => {
+      event.preventDefault()
+      fechar_dialogo_estimativa()
+    }}
+  >
+    {#if detalhes_estimativa_abertos}
+      <h2 id="titulo-estimativa">Detalhes da estimativa para {nome_atributo_estimando}</h2>
+      {#if chamadas_estimativa.length}
+        <div class="detalhes-chamadas-transformers">
+          {#each chamadas_estimativa as chamada, indice (chamada.id)}
+            <section class="detalhe-chamada-transformers">
+              <h3>Chamada {indice + 1}: {chamada.modelo}</h3>
+              <h4>Prompt</h4>
+              <pre>{chamada.prompt}</pre>
+              <h4>Resposta</h4>
+              <pre>{chamada.resposta ?? "Aguardando resposta..."}</pre>
+              {#if chamada.erro}
+                <h4>Erro</h4>
+                <pre>{chamada.erro}</pre>
+              {/if}
+            </section>
+          {/each}
+        </div>
+      {:else}
+        <p>Aguardando a primeira chamada ao modelo...</p>
+      {/if}
+      <div class="acoes-dialogo">
+        <button type="button" onclick={() => detalhes_estimativa_abertos = false}>Voltar</button>
+        <button type="button" onclick={fechar_dialogo_estimativa}>
+          {estimativa_concluida ? "Concluir" : "Cancelar"}
+        </button>
+      </div>
+    {:else}
+      <h2 id="titulo-estimativa">
+        {estimativa_concluida ? "Estimativa concluída" : `Estimando valor para ${nome_atributo_estimando}`}
+      </h2>
+      {#if erro_estimativa}
+        <p role="alert">{erro_estimativa}</p>
+      {:else if estimativa_concluida && justificativa_estimativa}
+        <p>Valor estimado para {justificativa_estimativa.nome}: {valor_estimado}</p>
+      {:else}
+        <p>Aguarde enquanto o valor é estimado.</p>
+      {/if}
+      <div class="acoes-dialogo">
+        <button type="button" onclick={() => detalhes_estimativa_abertos = true}>Detalhes da estimativa</button>
+        <button type="button" onclick={fechar_dialogo_estimativa}>
+          {estimativa_concluida ? "Concluir" : "Cancelar"}
+        </button>
+      </div>
+    {/if}
+  </dialog>
+  <dialog bind:this={dialogo_justificativa} aria-labelledby="titulo-justificativa-estimativa">
+    <h2 id="titulo-justificativa-estimativa">Justificativa da estimativa</h2>
+    {#if justificativa_estimativa}
+      <p><strong>Atributo:</strong> {justificativa_estimativa.nome}</p>
+      <p>{justificativa_estimativa.texto}</p>
+    {/if}
+    <div class="acoes-dialogo">
+      <button type="button" onclick={() => dialogo_justificativa.close()}>Fechar</button>
+    </div>
+  </dialog>
 {:else if modo === "editar"}
   <form class="form-perfil" onsubmit={salvar}>
     {#each [{ campo: "capa", label: "Capa", arquivo: imagem_capa }, { campo: "foto", label: "Foto de Perfil", arquivo: imagem_foto }] as imagem}
@@ -426,6 +610,29 @@
 {/if}
 
 <style>
+  .dialogo-estimativa {
+    width: min(42em, calc(100% - 2em));
+    max-height: min(80vh, 60em);
+    overflow: auto;
+  }
+
+  .detalhes-chamadas-transformers {
+    max-height: 55vh;
+    overflow: auto;
+  }
+
+  .detalhe-chamada-transformers {
+    border-top: 1px solid currentColor;
+    padding-top: 0.5em;
+  }
+
+  .detalhe-chamada-transformers pre {
+    max-height: 16em;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
   .adicionar-assobio-container {
     position: absolute;
     bottom: 0.5em;
@@ -514,8 +721,39 @@
     background: #555;
   }
 
-  .remover-atributo-assobio {
+  .acoes-atributo-assobio {
+    position: relative;
+  }
+
+  .botao-acoes-atributo {
     padding: 0.3em;
+  }
+
+  .menu-acoes-atributo {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.35em);
+    z-index: 10;
+    min-width: max-content;
+    overflow: hidden;
+    border-radius: 0.5em;
+    background: #444;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+
+  .opcao-acao-atributo {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.6em;
+    border-radius: 0;
+    background: none;
+    text-align: left;
+  }
+
+  .opcao-acao-atributo:hover:not(:disabled) {
+    background: #555;
   }
 
   .preview-imagem-assobio {

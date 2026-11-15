@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "playwright test",
     "test:report": "node --test scripts/relatorio.test.js scripts/indice-pages.test.js",
+    "model:export": "python scripts/exportar-modelo-atributos.py",
     "report:pages": "node scripts/gerar-relatorio.js",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
   },

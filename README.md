@@ -73,6 +73,17 @@ Para gerar os arquivos de produção em `dist/`, execute:
 npm run build
 ```
 
+### Estimativa de atributos
+
+A estimativa local usa o modelo Tucano2 Qwen 0.5B. Antes de iniciar a aplicação ou gerar o build, exporte seus pesos para ONNX e quantize-os para execução no navegador:
+
+```bash
+pip install "optimum[onnxruntime]" transformers
+npm run model:export
+```
+
+O comando baixa o modelo `Polygl0t/Tucano2-qwen-0.5B-Instruct` e gera os arquivos em `public/modelos/`, ignorados pelo Git. A exportação pode ocupar bastante espaço em disco e memória. Sem esses arquivos, a estimativa informa que o modelo não está disponível; as outras funções do perfil continuam operando.
+
 Para testar localmente o build gerado, execute:
 
 ```bash

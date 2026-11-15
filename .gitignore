@@ -26,3 +26,4 @@ dist-ssr
 test-results
 playwright-report
 playwright-pages
+public/modelos/tucano2-qwen-0.5b-instruct/
