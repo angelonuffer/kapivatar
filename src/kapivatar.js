@@ -225,6 +225,7 @@ const estimar_valor_atributo = async ({
       if (!gerador_valor_atributo) {
         carregamento_gerador_valor_atributo ??= import("@huggingface/transformers")
           .then(({ pipeline, env }) => {
+            env.allowLocalModels = true
             env.localModelPath = import.meta.env.BASE_URL
             return pipeline("text-generation", "modelos/tucano2-qwen-0.5b-instruct", { dtype: "q8" })
           })
