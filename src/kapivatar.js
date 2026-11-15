@@ -225,8 +225,21 @@ const estimar_valor_atributo = async ({
       if (!gerador_valor_atributo) {
         carregamento_gerador_valor_atributo ??= import("@huggingface/transformers")
           .then(({ pipeline, env }) => {
+            env.allowLocalModels = true
             env.localModelPath = import.meta.env.BASE_URL
-            return pipeline("text-generation", "modelos/tucano2-qwen-0.5b-instruct", { dtype: "q8" })
+            const caminho_config = new URL(
+              `${env.localModelPath}modelos/tucano2-qwen-0.5b-instruct/config.json`,
+              document.baseURI,
+            )
+            const carregar_pipeline = async () => {
+              const resposta_config = await fetch(caminho_config, { signal })
+              const config = await resposta_config.clone().text()
+              if (!resposta_config.ok || !config.trimStart().startsWith("{")) {
+                throw new Error("Modelo Tucano2 local indisponível. Execute `npm run model:export` antes de iniciar ou gerar o build.")
+              }
+              return pipeline("text-generation", "modelos/tucano2-qwen-0.5b-instruct", { dtype: "q8" })
+            }
+            return carregar_pipeline()
           })
         try {
           gerador_valor_atributo = await carregamento_gerador_valor_atributo
