@@ -1,6 +1,24 @@
 <script>
+  import { onMount } from "svelte"
+
   let { registros, somente_arquivados, ao_arquivar } = $props()
   let menu_aberto = $state(null)
+  let imagens = $state({})
+  const urls_imagens = []
+
+  onMount(() => {
+    for (const registro of registros) {
+      if (registro.imagem_arquivo) {
+        const url = URL.createObjectURL(registro.imagem_arquivo)
+        urls_imagens.push(url)
+        imagens[registro.id] = url
+      }
+    }
+
+    return () => {
+      for (const url of urls_imagens) URL.revokeObjectURL(url)
+    }
+  })
 
   const alternar_menu = (evento, id) => {
     evento.stopPropagation()
@@ -16,9 +34,12 @@
   <ul class="assobios-lista">
     {#each registros as registro (registro.id)}
       <li class="assobio-card">
-        <a href={`/assobio/${registro.id}`} class="assobio-card-titulo">
+        <p class="assobio-card-titulo">
           {registro.perfil_nome} — {registro.data}
-        </a>
+        </p>
+        {#if imagens[registro.id]}
+          <img class="imagem-assobio" src={imagens[registro.id]} alt="Imagem do assobio" />
+        {/if}
         <p class="assobio-card-nota">{registro.nota}</p>
         {#if registro.atributos?.length}
           <div class="assobio-atributos">
@@ -87,7 +108,7 @@
   }
 
   .assobio-card-titulo {
-    display: block;
+    margin: 0;
     padding: 0.5em 2.5em 0.5em 0;
     color: #f0d7b8;
     font-size: 1.05em;

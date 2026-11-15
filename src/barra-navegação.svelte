@@ -1,7 +1,6 @@
 <script>
   const itens_navegacao = [
     { nome: "Início", url: "/", rotas: ["/"], icone: "home" },
-    { nome: "Assobios", url: "/assobios", rotas: ["/assobios", "/assobio"], icone: "campaign" },
     { nome: "Contatos", url: "/contatos", rotas: ["/contatos", "/contato"], icone: "contacts" },
     { nome: "Dispositivos", url: "/dispositivos", rotas: ["/dispositivos"], icone: "devices" },
     { nome: "Perfil", url: "/perfil", rotas: ["/perfil"], icone: "account_circle" },
@@ -83,7 +82,7 @@
       box-sizing: border-box;
       flex: 0 0 4.5rem;
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       width: 100%;
       height: 4.5rem;
       min-height: 4.5rem;

@@ -84,8 +84,6 @@ test('Deve publicar atributos de tipos diferentes no assobio #perfil #assobios',
     'Verdadeiro',
   ]);
 
-  await page.goto('/assobios');
-  await page.locator('.assobio-card-titulo').click();
   await expect(page.locator('.assobio-atributo span')).toHaveText([
     'Habitat',
     'Floresta',
@@ -94,6 +92,7 @@ test('Deve publicar atributos de tipos diferentes no assobio #perfil #assobios',
     'Noturna',
     'Verdadeiro',
   ]);
+  await expect(page.locator('.assobio-card-titulo')).not.toHaveAttribute('href');
 });
 
 test('Deve fechar o menu de adição ao interagir fora dele #perfil', async ({ page }) => {

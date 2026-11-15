@@ -16,8 +16,6 @@ import CriarPerfil from "./criar-perfil.svelte"
 import Perfil from "./perfil.svelte"
 import BaseHorizontal from "./base-horizontal.svelte"
 import BaseVertical from "./base-vertical.svelte"
-import Assobios from "./assobios.svelte"
-import Assobiar from "./assobiar.svelte"
 import Dispositivos, { metadados as metadados_dispositivos } from "./dispositivos.svelte"
 
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
@@ -96,53 +94,11 @@ let diretorio_selecionado = null
 let sincronizacao_iniciada = false
 let banco_sqlite_aberto = false
 let nome_dispositivo_local_promise = null
-let gerador_descricao_imagem
-let carregamento_gerador_descricao_imagem
-let tradutor_descricao_imagem
-let carregamento_tradutor_descricao_imagem
 
 const gerar_hash = async (conteudo) => {
   const buffer = typeof conteudo === "string" ? new TextEncoder().encode(conteudo) : conteudo
   const hash_buffer = await crypto.subtle.digest("SHA-256", buffer)
   return Array.from(new Uint8Array(hash_buffer)).map((b) => b.toString(16).padStart(2, "0")).join("")
-}
-
-const descrever_imagem = async (imagem) => {
-  if (!gerador_descricao_imagem) {
-    carregamento_gerador_descricao_imagem ??= import("@huggingface/transformers")
-      .then(({ pipeline }) => pipeline("image-to-text", "Xenova/vit-gpt2-image-captioning"))
-    try {
-      gerador_descricao_imagem = await carregamento_gerador_descricao_imagem
-    } catch (erro) {
-      carregamento_gerador_descricao_imagem = null
-      throw erro
-    }
-  }
-  const url_imagem = URL.createObjectURL(imagem)
-  try {
-    const resultado = await gerador_descricao_imagem(url_imagem)
-    const descricao = resultado?.[0]?.generated_text?.trim()
-    if (!descricao) throw new Error("O modelo não gerou uma descrição para esta imagem.")
-    if (!tradutor_descricao_imagem) {
-      carregamento_tradutor_descricao_imagem ??= import("@huggingface/transformers")
-        .then(({ pipeline }) => pipeline("translation", "Xenova/nllb-200-distilled-600M"))
-      try {
-        tradutor_descricao_imagem = await carregamento_tradutor_descricao_imagem
-      } catch (erro) {
-        carregamento_tradutor_descricao_imagem = null
-        throw erro
-      }
-    }
-    const resultado_traducao = await tradutor_descricao_imagem(descricao, {
-      src_lang: "eng_Latn",
-      tgt_lang: "por_Latn",
-    })
-    const descricao_traduzida = resultado_traducao?.[0]?.translation_text?.trim()
-    if (!descricao_traduzida) throw new Error("O modelo não traduziu a descrição para português.")
-    return descricao_traduzida
-  } finally {
-    URL.revokeObjectURL(url_imagem)
-  }
 }
 
 const gerar_chaves = async () => {
@@ -1562,68 +1518,19 @@ const arquivar_assobio = async (id, arquivar) => {
   rotear()
 }
 
-const renderizar_lista_assobios = async (conteudo, chave_lista, sinal_rota) => {
-  const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+const carregar_assobios_perfil = async (diretorio, id_perfil, chave_lista, sinal_rota) => {
   const lista = await aguardar_rota(carregar_lista_assobios(diretorio, chave_lista), sinal_rota)
   const registros = []
   for (const id of lista.assobios) {
     const registro = await aguardar_rota(carregar_dados_assobio(diretorio, id), sinal_rota)
-    if (registro) registros.push({ id, ...registro.dados })
+    if (registro?.dados.perfil === id_perfil) {
+      const imagem_arquivo = registro.dados.imagem
+        ? await aguardar_rota(ler_arquivo(diretorio, registro.dados.imagem), sinal_rota)
+        : null
+      registros.push({ id, ...registro.dados, imagem_arquivo })
+    }
   }
-  return mount(Assobios, {
-    target: conteudo,
-    props: {
-      registros,
-      somente_arquivados: chave_lista === "assobios_arquivados",
-      ao_arquivar: arquivar_assobio,
-    },
-  })
-}
-
-const criar_formulario_assobio = async (conteudo, registro, sinal_rota) => {
-  const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-  const id = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
-  const arquivo_id = id ? await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota) : null
-  const arquivo_perfil = arquivo_id
-    ? await aguardar_rota(ler_arquivo(diretorio, await arquivo_id.text()), sinal_rota)
-    : null
-  const dados_perfil = arquivo_perfil
-    ? JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
-    : null
-  if (!dados_perfil) throw new Error("Nenhum perfil encontrado no arquivo de dados.")
-  const imagem_existente = registro?.dados.imagem
-    ? await aguardar_rota(ler_arquivo(diretorio, registro.dados.imagem), sinal_rota)
-    : null
-  return mount(Assobiar, {
-    target: conteudo,
-    props: {
-      perfil_nome: dados_perfil.nome,
-      registro,
-      imagem_existente,
-      descrever_imagem,
-      ao_salvar: async ({ data, nota, arquivo_imagem }) => {
-        const dados = {
-          perfil: id,
-          perfil_nome: dados_perfil.nome,
-          data,
-          nota,
-          imagem: registro?.dados.imagem,
-        }
-        if (arquivo_imagem) {
-          const bytes = await arquivo_imagem.arrayBuffer()
-          dados.imagem = await gerar_hash(bytes)
-          await escrever_arquivo(diretorio, dados.imagem, bytes)
-        }
-        const id_assobio = registro?.id || crypto.randomUUID()
-        await salvar_assobio(diretorio, id_assobio, dados, registro?.hash)
-        if (!registro) {
-          const ativos = await carregar_lista_assobios(diretorio, "assobios")
-          await salvar_lista_assobios(diretorio, "assobios", [...ativos.assobios, id_assobio])
-        }
-        navegar(`/assobio/${id_assobio}`)
-      },
-    },
-  })
+  return registros.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
 }
 
 const páginas = [
@@ -1817,15 +1724,13 @@ const páginas = [
       const imagem_foto = dados.foto
         ? await aguardar_rota(ler_arquivo(diretorio, dados.foto), sinal_rota)
         : null
-      const lista_assobios = await aguardar_rota(carregar_lista_assobios(diretorio, "assobios"), sinal_rota)
-      const registros_assobios = []
-      for (const id_assobio of lista_assobios.assobios) {
-        const registro = await aguardar_rota(carregar_dados_assobio(diretorio, id_assobio), sinal_rota)
-        if (registro?.dados.perfil === id) {
-          registros_assobios.push({ id: id_assobio, ...registro.dados })
-        }
-      }
-      registros_assobios.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+      const registros_assobios = await carregar_assobios_perfil(diretorio, id, "assobios", sinal_rota)
+      const registros_assobios_arquivados = await carregar_assobios_perfil(
+        diretorio,
+        id,
+        "assobios_arquivados",
+        sinal_rota,
+      )
 
       return mount(Perfil, {
         target: conteudo,
@@ -1835,6 +1740,7 @@ const páginas = [
           imagem_capa,
           imagem_foto,
           registros_assobios,
+          registros_assobios_arquivados,
           ao_publicar_assobio: async (nota, arquivo_imagem, atributos) => {
             const id_assobio = crypto.randomUUID()
             const dados_assobio = {
@@ -1951,137 +1857,6 @@ const páginas = [
         target: conteudo,
         props: { modo: "historico", historico },
       })
-    }
-  },
-  {
-    nome: "Assobios",
-    url: "/assobios",
-    ícone: "campaign",
-    ações: [
-      { nome: "Assobiar", url: "/assobios/criar", ícone: "add" },
-      { nome: "Arquivo", url: "/assobios/arquivo", ícone: "archive" },
-    ],
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      return renderizar_lista_assobios(conteudo, "assobios", sinal_rota)
-    }
-  },
-  {
-    nome: "Assobiar",
-    url: "/assobios/criar",
-    ícone: "add",
-    ocultar_no_menu: true,
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      return criar_formulario_assobio(conteudo, null, sinal_rota)
-    }
-  },
-  {
-    nome: "Arquivo de Assobios",
-    url: "/assobios/arquivo",
-    ícone: "archive",
-    ocultar_no_menu: true,
-    ações: [{ nome: "Voltar aos assobios", url: "/assobios", ícone: "campaign" }],
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      return renderizar_lista_assobios(conteudo, "assobios_arquivados", sinal_rota)
-    }
-  },
-  {
-    nome: "Assobio",
-    url: "/assobio/:id",
-    ícone: "campaign",
-    ocultar_no_menu: true,
-    ações: [
-      { nome: "Editar", ícone: "edit", url_dinamica: route_params => `/assobio/${route_params.id}/editar` },
-      { nome: "Histórico", ícone: "history", url_dinamica: route_params => `/assobio/${route_params.id}/histórico` },
-    ],
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-      const atual = await carregar_dados_assobio(diretorio, route_params.id)
-      const hash = params.get("v") || atual?.hash
-      const arquivo = hash ? await aguardar_rota(ler_arquivo(diretorio, hash), sinal_rota) : null
-      if (!arquivo) {
-        conteudo.innerHTML = "<p>Assobio não encontrado.</p>"
-        return
-      }
-      const dados = JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
-      const perfil = document.createElement("p")
-      perfil.textContent = `Perfil: ${dados.perfil_nome}`
-      const data = document.createElement("p")
-      data.textContent = `Data: ${dados.data}`
-      const elementos = [perfil, data]
-      if (dados.imagem) {
-        const arquivo_imagem = await aguardar_rota(ler_arquivo(diretorio, dados.imagem), sinal_rota)
-        if (arquivo_imagem) {
-          const imagem = document.createElement("img")
-          imagem.classList.add("imagem-assobio")
-          imagem.alt = "Imagem do assobio"
-          imagem.src = URL.createObjectURL(arquivo_imagem)
-          elementos.push(imagem)
-        }
-      }
-      if (dados.nota) {
-        const nota = document.createElement("p")
-        nota.textContent = dados.nota
-        elementos.push(nota)
-      }
-      if (dados.atributos?.length) {
-        const atributos = document.createElement("div")
-        atributos.className = "assobio-atributos"
-        for (const atributo of dados.atributos) {
-          const linha = document.createElement("div")
-          linha.className = "assobio-atributo"
-          const nome = document.createElement("span")
-          nome.textContent = atributo.nome
-          const valor = document.createElement("span")
-          valor.textContent = typeof atributo.valor === "boolean"
-            ? atributo.valor ? "Verdadeiro" : "Falso"
-            : atributo.valor
-          linha.append(nome, valor)
-          atributos.append(linha)
-        }
-        elementos.push(atributos)
-      }
-      conteudo.append(...elementos)
-    }
-  },
-  {
-    nome: "Editar Assobio",
-    url: "/assobio/:id/editar",
-    ícone: "edit",
-    ocultar_no_menu: true,
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-      const atual = await carregar_dados_assobio(diretorio, route_params.id)
-      if (!atual) {
-        conteudo.innerHTML = "<p>Assobio não encontrado.</p>"
-        return
-      }
-      return criar_formulario_assobio(conteudo, { ...atual, id: route_params.id }, sinal_rota)
-    }
-  },
-  {
-    nome: "Histórico do Assobio",
-    url: "/assobio/:id/histórico",
-    ícone: "history",
-    ocultar_no_menu: true,
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-      const lista = document.createElement("ul")
-      const atual = await carregar_dados_assobio(diretorio, route_params.id)
-      let hash = atual?.hash
-      while (hash) {
-        const arquivo = await aguardar_rota(ler_arquivo(diretorio, hash), sinal_rota)
-        if (!arquivo) break
-        const versão = JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
-        const item = document.createElement("li")
-        const link = document.createElement("a")
-        link.href = `/assobio/${route_params.id}?v=${hash}`
-        link.textContent = new Date(versão.data_modificacao).toLocaleString()
-        item.appendChild(link)
-        lista.appendChild(item)
-        hash = versão.anterior
-      }
-      if (lista.children.length) conteudo.appendChild(lista)
-      else conteudo.innerHTML = "<p>Nenhum histórico encontrado.</p>"
     }
   },
   {
