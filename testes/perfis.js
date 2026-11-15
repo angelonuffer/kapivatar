@@ -96,6 +96,23 @@ test('Deve publicar atributos de tipos diferentes no assobio #perfil #assobios',
   ]);
 });
 
+test('Deve exibir as ações de atributo e permitir eliminá-lo #perfil #assobios', async ({ page }) => {
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill('Perfil com Ações de Atributo');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
+  await expect(page.getByRole('heading', { name: 'Perfil com Ações de Atributo' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Adicionar ao assobio' }).click();
+  await page.getByRole('button', { name: 'Atributo', exact: true }).click();
+  const linha = page.locator('.linha-atributo-assobio');
+  await linha.getByLabel('Nome do atributo').fill('Habitat');
+  await linha.getByRole('button', { name: 'Ações do atributo Habitat' }).click();
+
+  await expect(page.getByRole('button', { name: 'Estimar valor' })).toBeVisible();
+  await page.getByRole('button', { name: 'Eliminar atributo' }).click();
+  await expect(linha).toHaveCount(0);
+});
+
 test('Deve fechar o menu de adição ao interagir fora dele #perfil', async ({ page }) => {
   await page.getByRole('button', { name: /Criar perfil/ }).click();
   await page.getByLabel('Nome').fill('Perfil com Menu');
