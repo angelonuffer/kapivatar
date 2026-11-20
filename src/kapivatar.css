@@ -150,6 +150,70 @@ a.ativo {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
+/* Detalhe do perfil */
+.perfil-detalhe {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto 1.5em;
+  overflow: hidden;
+  border: 1px solid #383838;
+  border-radius: 1.25em;
+  background: linear-gradient(145deg, #2b2b2b, #242424);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+.perfil-capa-detalhe {
+  display: block;
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 0;
+  background: #1e1e1e;
+}
+
+.perfil-info-detalhe {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: end;
+  gap: 1.25em;
+  min-height: 132px;
+  padding: 1.25em 1.5em 1.5em;
+}
+
+.perfil-foto-detalhe {
+  width: 112px;
+  height: 112px;
+  border: 5px solid #292929;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #444;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32);
+}
+
+.perfil-identidade {
+  min-width: 0;
+  padding-bottom: 0.35em;
+}
+
+.perfil-info-detalhe h2 {
+  margin: 0 0 0.25em;
+  color: #f5eee7;
+  font-size: clamp(1.55em, 3vw, 2.2em);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.perfil-info-detalhe p {
+  max-width: 44rem;
+  margin: 0;
+  color: #c9c9c9;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 767px) {
   body {
     flex-direction: column;
@@ -180,21 +244,29 @@ a.ativo {
 
   .perfil-capa-detalhe {
     width: 100%;
-    height: 200px;
+    height: 168px;
     object-fit: cover;
-    border-radius: 8px 8px 0 0;
+    border-radius: 0;
   }
 
   .perfil-foto-detalhe {
-    width: 100px;
-    height: 100px;
+    width: 88px;
+    height: 88px;
     border-radius: 50%;
-    border: 4px solid white;
+    border: 4px solid #292929;
     object-fit: cover;
   }
 
   .perfil-info-detalhe {
-    padding: 1rem;
+    grid-template-columns: 88px minmax(0, 1fr);
+    align-items: end;
+    gap: 0.85em;
+    min-height: 112px;
+    padding: 1em;
+  }
+
+  .perfil-info-detalhe h2 {
+    font-size: 1.35em;
   }
 }
 
