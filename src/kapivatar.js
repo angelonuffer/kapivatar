@@ -8,6 +8,8 @@ import {
   existe_dado_sqlite,
   listar_referencias_texto_sqlite,
   listar_dados_sqlite,
+  inserir_foto_perfil_sqlite,
+  listar_fotos_perfil_sqlite,
 } from "./sqlite.js"
 import { mount, unmount } from "svelte"
 import "material-symbols/outlined.css"
@@ -1694,6 +1696,7 @@ const páginas = [
           escrever_arquivo,
           ler_arquivo,
           navegar,
+          registrar_foto_perfil: inserir_foto_perfil_sqlite,
         },
       })
     }
@@ -1760,6 +1763,7 @@ const páginas = [
           dados,
           imagem_capa,
           imagem_foto,
+          navegar,
           registros_assobios,
           registros_assobios_arquivados,
           ao_arquivar_assobio: arquivar_assobio,
@@ -1850,6 +1854,71 @@ const páginas = [
           gerar_hash,
           escrever_arquivo,
           navegar,
+          registrar_foto_perfil: inserir_foto_perfil_sqlite,
+        },
+      })
+    }
+  },
+  {
+    nome: "Editar Foto de Perfil",
+    url: "/perfil/foto/editar",
+    ícone: "account_circle",
+    ocultar_no_menu: true,
+    render: async (conteudo, params, route_params, sinal_rota) => {
+      const id = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
+      if (!id) {
+        conteudo.innerHTML = '<p>Nenhum perfil encontrado. <a href="/perfil/criar">Criar perfil</a></p>'
+        return
+      }
+      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
+      const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
+      if (!arquivo_id) {
+        conteudo.innerHTML = "<p>Perfil não encontrado.</p>"
+        return
+      }
+      const hash_perfil_atual = await aguardar_rota(arquivo_id.text(), sinal_rota)
+      const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, hash_perfil_atual), sinal_rota)
+      if (!arquivo_perfil) {
+        conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
+        return
+      }
+      const dados_atuais = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
+      const fotos = await aguardar_rota(listar_fotos_perfil_sqlite(), sinal_rota)
+      const fotos_perfil = fotos.map(foto => ({
+        ...foto,
+        url: URL.createObjectURL(new Blob([foto.blob])),
+      }))
+
+      const salvar_foto = async (conteudo_foto) => {
+        const buffer = conteudo_foto instanceof Blob
+          ? await conteudo_foto.arrayBuffer()
+          : conteudo_foto
+        const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer
+        const hash = await gerar_hash(bytes)
+        await escrever_arquivo(diretorio, hash, bytes)
+        await inserir_foto_perfil_sqlite(bytes)
+
+        const dados_novos = {
+          ...dados_atuais,
+          foto: hash,
+          anterior: hash_perfil_atual,
+          data: new Date().toISOString(),
+        }
+        const conteudo_perfil = JSON.stringify(dados_novos)
+        const hash_perfil_novo = await gerar_hash(conteudo_perfil)
+        await escrever_arquivo(diretorio, hash_perfil_novo, conteudo_perfil)
+        await escrever_arquivo(diretorio, id, hash_perfil_novo)
+      }
+
+      return mount(Perfil, {
+        target: conteudo,
+        props: {
+          modo: "editar_foto",
+          dados: dados_atuais,
+          navegar,
+          fotos_perfil,
+          ao_salvar_foto: salvar_foto,
+          ao_restaurar_foto: salvar_foto,
         },
       })
     }

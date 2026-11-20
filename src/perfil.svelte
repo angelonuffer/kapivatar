@@ -18,6 +18,10 @@
     registros_assobios_arquivados = [],
     ao_publicar_assobio,
     ao_arquivar_assobio,
+    ao_salvar_foto,
+    ao_restaurar_foto,
+    registrar_foto_perfil,
+    fotos_perfil = [],
   } = $props()
 
   let previews = $state({ capa: "", foto: "" })
@@ -33,6 +37,9 @@
   let mensagem_erro = $state("")
   let input_imagem_assobio = $state()
   let input_galeria_assobio = $state()
+  let arquivo_foto_nova = $state(null)
+  let preview_foto_nova = $state("")
+  let input_foto_perfil = $state()
   const urls_preview = new Set()
   const tipos_atributo = [
     { valor: "texto", nome: "Texto", icone: "text_fields" },
@@ -61,6 +68,9 @@
   onDestroy(() => {
     document.removeEventListener("pointerdown", fechar_menu_tipo_atributo)
     for (const url of urls_preview) URL.revokeObjectURL(url)
+    for (const foto of fotos_perfil) {
+      if (foto.url) URL.revokeObjectURL(foto.url)
+    }
   })
 
   const fechar_menu_tipo_atributo = (event) => {
@@ -127,6 +137,43 @@
     menu_tipo_atributo_aberto = null
   }
 
+  const selecionar_foto_perfil = (event) => {
+    const arquivo = event.currentTarget.files?.[0]
+    if (!arquivo) return
+    remover_preview(preview_foto_nova)
+    arquivo_foto_nova = arquivo
+    preview_foto_nova = criar_preview(arquivo)
+  }
+
+  const salvar_foto_perfil = async (event) => {
+    event.preventDefault()
+    if (!arquivo_foto_nova || !ao_salvar_foto) return
+    salvando = true
+    mensagem_erro = ""
+    try {
+      await ao_salvar_foto(arquivo_foto_nova)
+      navegar("/perfil")
+    } catch (erro) {
+      console.error("Erro ao editar foto de perfil:", erro)
+      mensagem_erro = "Não foi possível salvar a foto de perfil. Tente novamente."
+      salvando = false
+    }
+  }
+
+  const restaurar_foto_perfil = async (blob) => {
+    if (!ao_restaurar_foto) return
+    salvando = true
+    mensagem_erro = ""
+    try {
+      await ao_restaurar_foto(blob)
+      navegar("/perfil")
+    } catch (erro) {
+      console.error("Erro ao restaurar foto de perfil:", erro)
+      mensagem_erro = "Não foi possível restaurar a foto de perfil. Tente novamente."
+      salvando = false
+    }
+  }
+
   const salvar = async (event) => {
     event.preventDefault()
     salvando = true
@@ -148,6 +195,9 @@
           const buffer = await arquivo.arrayBuffer()
           const hash = await gerar_hash(buffer)
           await escrever_arquivo(diretorio, hash, buffer)
+          if (campo === "foto" && registrar_foto_perfil) {
+            await registrar_foto_perfil(buffer)
+          }
           return hash
         }
         return hash_antigo
@@ -177,14 +227,31 @@
         <img class="perfil-capa-detalhe" src={previews.capa} alt={`Capa de ${dados.nome}`} />
       {/if}
       <div class="perfil-info-detalhe">
-        {#if previews.foto || imagem_foto}
-          <img
-            class="perfil-foto-detalhe"
-            src={previews.foto}
-            alt={`Foto de ${dados.nome}`}
-            style:margin-top={dados.capa ? "-50px" : "0"}
-          />
-        {/if}
+        <div class="foto-perfil-container">
+          {#if previews.foto || imagem_foto}
+            <img
+              class="perfil-foto-detalhe"
+              src={previews.foto}
+              alt={`Foto de ${dados.nome}`}
+              style:margin-top={dados.capa ? "-50px" : "0"}
+            />
+          {:else}
+            <div class="perfil-foto-sem-foto" aria-label={`Foto de ${dados.nome} não registrada`}>
+              <span class="material-symbols-outlined" aria-hidden="true">person</span>
+            </div>
+          {/if}
+          {#if navegar}
+            <button
+              type="button"
+              class="editar-foto-perfil"
+              aria-label="Alterar foto de perfil"
+              title="Alterar foto de perfil"
+              onclick={() => navegar("/perfil/foto/editar")}
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+            </button>
+          {/if}
+        </div>
         <h2>{dados.nome}</h2>
         <p>{dados.bio}</p>
       </div>
@@ -349,9 +416,64 @@
       />
     </section>
   {/if}
+{:else if modo === "editar_foto"}
+  <form class="form-perfil editar-foto-perfil-form" onsubmit={salvar_foto_perfil}>
+    <h2>Editar foto de perfil</h2>
+    <div class="form-campo">
+      <label for="foto-perfil-nova">Selecionar foto do dispositivo</label>
+      <input
+        bind:this={input_foto_perfil}
+        type="file"
+        id="foto-perfil-nova"
+        accept="image/*"
+        hidden
+        onchange={selecionar_foto_perfil}
+      />
+      <button type="button" onclick={() => input_foto_perfil.click()}>
+        <span class="material-symbols-outlined" aria-hidden="true">photo_library</span>
+        <span>Escolher foto</span>
+      </button>
+      {#if preview_foto_nova}
+        <div class="preview-container">
+          <img class="preview-imagem" src={preview_foto_nova} alt="Prévia da nova foto de perfil" />
+        </div>
+      {/if}
+    </div>
+    <button type="submit" disabled={salvando || !arquivo_foto_nova}>
+      <span class="material-symbols-outlined" aria-hidden="true">save</span>
+      <span>{salvando ? "Salvando..." : "Salvar foto"}</span>
+    </button>
+    {#if mensagem_erro}
+      <p role="alert">{mensagem_erro}</p>
+    {/if}
+  </form>
+
+  <section class="historico-fotos-perfil">
+    <h3>Fotos anteriores</h3>
+    {#if fotos_perfil.length}
+      <div class="lista-fotos-perfil">
+        {#each fotos_perfil as foto (foto.data)}
+          <div class="foto-perfil-historico">
+            <img src={foto.url} alt={`Foto anterior de ${new Date(foto.data).toLocaleString()}`} />
+            <time datetime={foto.data}>{new Date(foto.data).toLocaleString()}</time>
+            <button
+              type="button"
+              disabled={salvando}
+              onclick={() => restaurar_foto_perfil(foto.blob)}
+            >
+              <span class="material-symbols-outlined" aria-hidden="true">restore</span>
+              <span>Restaurar</span>
+            </button>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <p>Nenhuma foto anterior encontrada.</p>
+    {/if}
+  </section>
 {:else if modo === "editar"}
   <form class="form-perfil" onsubmit={salvar}>
-    {#each [{ campo: "capa", label: "Capa", arquivo: imagem_capa }, { campo: "foto", label: "Foto de Perfil", arquivo: imagem_foto }] as imagem}
+    {#each [{ campo: "capa", label: "Capa", arquivo: imagem_capa }] as imagem}
       <div class="form-campo">
         <label for={imagem.campo}>{imagem.label}</label>
         <div class="input-arquivo-container">
@@ -529,5 +651,68 @@
 
   .botao-publicar-assobio {
     justify-content: center;
+  }
+
+  .foto-perfil-container {
+    position: relative;
+    display: inline-block;
+  }
+
+  .perfil-foto-sem-foto {
+    display: flex;
+    width: 100px;
+    height: 100px;
+    align-items: center;
+    justify-content: center;
+    border: 4px solid white;
+    border-radius: 50%;
+    background: #444;
+  }
+
+  .perfil-foto-sem-foto .material-symbols-outlined {
+    font-size: 48px;
+  }
+
+  .editar-foto-perfil {
+    position: absolute;
+    right: 0.1em;
+    bottom: 0.1em;
+    width: 2.25em;
+    height: 2.25em;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .editar-foto-perfil-form {
+    margin-bottom: 2em;
+  }
+
+  .historico-fotos-perfil {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .lista-fotos-perfil {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1em;
+  }
+
+  .foto-perfil-historico {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+  }
+
+  .foto-perfil-historico img {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 0.5em;
+    object-fit: cover;
+  }
+
+  .foto-perfil-historico time {
+    min-height: 2.5em;
   }
 </style>

@@ -15,13 +15,16 @@ test('Deve realizar o fluxo de autenticação e comunicação via postMessage #a
   await page.getByLabel('Nome').fill('Capivara Autorizada');
   await page.getByLabel('Bio', { exact: true }).fill('Bio autorizada');
 
-  // Adicionar uma foto para testar a renderização da imagem
-  const fotoInput = page.locator('input#foto');
-  const filePath = path.join(__dirname, '../src/kapivatar.svg');
-  await fotoInput.setInputFiles(filePath);
-
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
   await expect.poll(() => page.evaluate(() => window.obter_id_perfil_selecionado())).not.toBeNull();
+
+  // Adicionar uma foto pela página dedicada para testar a renderização da imagem
+  await page.getByRole('button', { name: 'Alterar foto de perfil' }).click();
+  await expect(page).toHaveURL(/\/perfil\/foto\/editar$/);
+  const filePath = path.join(__dirname, '../src/kapivatar.svg');
+  await page.locator('input#foto-perfil-nova').setInputFiles(filePath);
+  await page.getByRole('button', { name: 'Salvar foto' }).click();
+  await expect(page).toHaveURL(/\/perfil$/);
 
   // 2. Navegar para /perfil-autenticado sem autorização prévia usando window.navegar
   await page.evaluate(() => {

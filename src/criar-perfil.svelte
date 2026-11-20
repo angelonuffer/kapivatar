@@ -11,6 +11,7 @@
     escrever_arquivo,
     ler_arquivo,
     navegar,
+    registrar_foto_perfil,
   } = $props()
 
   let nome = $state("")
@@ -68,16 +69,13 @@
           const buffer = await arquivo.arrayBuffer()
           const hash = await gerar_hash(buffer)
           await escrever_arquivo(diretorio, hash, buffer)
-          return hash
+          return { hash, buffer }
         }
         return null
       }
 
-      const hash_capa = await salvar_imagem("capa")
-      if (hash_capa) dados.capa = hash_capa
-
-      const hash_foto = await salvar_imagem("foto")
-      if (hash_foto) dados.foto = hash_foto
+      const capa = await salvar_imagem("capa")
+      if (capa) dados.capa = capa.hash
 
       const conteudo_perfil = JSON.stringify(dados)
       const hash_perfil = await gerar_hash(conteudo_perfil)
@@ -118,30 +116,6 @@
         <div class="preview-container">
           <img class="preview-imagem" src={previews.capa.url} alt="Prévia da capa" />
           <span class="nome-arquivo">{previews.capa.nome}</span>
-        </div>
-      {/if}
-    </div>
-  </div>
-
-  <div class="form-campo">
-    <label for="foto">Foto de Perfil</label>
-    <div class="input-arquivo-container">
-      <input
-        type="file"
-        id="foto"
-        name="foto"
-        accept="image/*"
-        hidden
-        onchange={(event) => atualizar_preview("foto", event)}
-      />
-      <button type="button" onclick={() => document.getElementById("foto").click()}>
-        <span class="material-symbols-outlined">upload_file</span>
-        <span>Escolher imagem</span>
-      </button>
-      {#if previews.foto}
-        <div class="preview-container">
-          <img class="preview-imagem" src={previews.foto.url} alt="Prévia da foto de perfil" />
-          <span class="nome-arquivo">{previews.foto.nome}</span>
         </div>
       {/if}
     </div>

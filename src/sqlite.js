@@ -50,7 +50,34 @@ const validar_formato_sqlite = (novo_db) => {
   const tabelas = novo_db.selectValue(
     "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
   )
-  if (tabelas !== 1) throw new Error("Formato de arquivo de perfil não suportado.")
+  const tem_foto_perfil = novo_db.selectValue(
+    "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'foto_perfil')",
+  ) === 1
+  const tabelas_conhecidas = novo_db.selectValue(
+    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('kapivatar_dados', 'foto_perfil')",
+  )
+  if (tabelas < 1 || tabelas > 2 || tabelas_conhecidas !== 0) {
+    throw new Error("Formato de arquivo de perfil não suportado.")
+  }
+  if (tem_foto_perfil) {
+    const colunas_foto = []
+    novo_db.exec({
+      sql: "PRAGMA table_info(foto_perfil)",
+      rowMode: "array",
+      resultRows: colunas_foto,
+    })
+    if (
+      colunas_foto.length !== 2 ||
+      colunas_foto[0][1] !== "blob" ||
+      colunas_foto[0][2]?.toLowerCase() !== "blob" ||
+      colunas_foto[0][3] !== 1 ||
+      colunas_foto[1][1] !== "data" ||
+      colunas_foto[1][2]?.toLowerCase() !== "text" ||
+      colunas_foto[1][3] !== 1
+    ) {
+      throw new Error("Formato de arquivo de perfil não suportado.")
+    }
+  }
   const dados_invalidos = novo_db.selectValue(
     "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave IS NULL OR tipo NOT IN ('texto', 'json', 'blob') OR valor IS NULL)",
   )
@@ -62,11 +89,15 @@ const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
   const sqlite = await obter_sqlite()
   const arquivo = await handle.getFile()
   const novo_db = new sqlite.oo1.DB()
+  let banco_novo = false
+  let esquema_migrado = false
 
   try {
     if (arquivo.size === 0) {
       if (!criar) throw new Error("Formato de arquivo de perfil não suportado.")
       novo_db.exec("CREATE TABLE kapivatar_dados (chave TEXT PRIMARY KEY, tipo TEXT NOT NULL, valor BLOB NOT NULL)")
+      novo_db.exec("CREATE TABLE foto_perfil (blob BLOB NOT NULL, data TEXT NOT NULL)")
+      banco_novo = true
     } else {
       if (criar) throw new Error("Escolha um arquivo novo para criar o perfil.")
       const bytes = new Uint8Array(await arquivo.arrayBuffer())
@@ -85,6 +116,13 @@ const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
         throw new Error("O arquivo SQLite selecionado está corrompido.")
       }
       validar_formato_sqlite(novo_db)
+      const tem_foto_perfil = novo_db.selectValue(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'foto_perfil')",
+      ) === 1
+      if (!tem_foto_perfil) {
+        novo_db.exec("CREATE TABLE foto_perfil (blob BLOB NOT NULL, data TEXT NOT NULL)")
+        esquema_migrado = true
+      }
     }
   } catch (erro) {
     novo_db.close()
@@ -94,7 +132,7 @@ const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
   if (db) db.close()
   db = novo_db
   arquivo_selecionado = handle
-  if (arquivo.size === 0) await persistir_banco()
+  if (banco_novo || esquema_migrado) await persistir_banco()
 }
 
 export const abrir_banco_sqlite = (handle, opcoes) => {
@@ -207,4 +245,35 @@ export const listar_dados_sqlite = async () => {
     if (tipo === "json") return [chave, JSON.parse(new TextDecoder().decode(bytes))]
     return [chave, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)]
   })
+}
+
+export const inserir_foto_perfil_sqlite = (blob, data = new Date().toISOString()) => enfileirar_gravacao(async () => {
+  if (!db || !arquivo_selecionado) throw new Error("Nenhum banco SQLite está aberto.")
+  const bytes = blob instanceof Blob
+    ? new Uint8Array(await blob.arrayBuffer())
+    : blob instanceof ArrayBuffer
+      ? new Uint8Array(blob)
+      : new Uint8Array(blob.buffer, blob.byteOffset, blob.byteLength)
+  db.exec({
+    sql: "INSERT INTO foto_perfil (blob, data) VALUES (?, ?)",
+    bind: [bytes, data],
+  })
+  await persistir_banco()
+})
+
+export const listar_fotos_perfil_sqlite = async () => {
+  await fila_gravacao
+  if (!db) return []
+  const linhas = []
+  db.exec({
+    sql: "SELECT blob, data FROM foto_perfil ORDER BY data DESC",
+    rowMode: "array",
+    resultRows: linhas,
+  })
+  return linhas.map(([blob, data]) => ({
+    blob: blob instanceof Uint8Array
+      ? blob.buffer.slice(blob.byteOffset, blob.byteOffset + blob.byteLength)
+      : new Uint8Array(blob).buffer,
+    data,
+  }))
 }
