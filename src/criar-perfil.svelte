@@ -69,6 +69,9 @@
           const buffer = await arquivo.arrayBuffer()
           const hash = await gerar_hash(buffer)
           await escrever_arquivo(diretorio, hash, buffer)
+          if (campo === "foto" && registrar_foto_perfil) {
+            await registrar_foto_perfil(buffer)
+          }
           return { hash, buffer }
         }
         return null
