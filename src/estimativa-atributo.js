@@ -4,13 +4,13 @@ const modelo_estimativa = "onnx-community/Qwen2.5-0.5B-Instruct"
 let carregar_descritor
 let carregar_estimador
 
-const obter_pipeline = async (modelo, tipo) => {
+const obter_pipeline = async (modelo, tipo, dtype = "q4") => {
   const { pipeline } = await import("@huggingface/transformers")
-  return pipeline(tipo, modelo, { dtype: "q4" })
+  return pipeline(tipo, modelo, { dtype })
 }
 
 const obter_descritor = () => {
-  carregar_descritor ??= obter_pipeline(modelo_descricao_imagem, "image-to-text")
+  carregar_descritor ??= obter_pipeline(modelo_descricao_imagem, "image-to-text", "q8")
     .catch((erro) => {
       carregar_descritor = null
       throw erro
