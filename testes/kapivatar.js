@@ -4,7 +4,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
-test('A tela de entrada oferece somente abrir ou criar perfil', async ({ page }) => {
+test('A tela de entrada oferece abrir perfil, criar perfil ou usar outro dispositivo', async ({ page }) => {
   await expect(page.locator('.login-acao button > span:nth-child(2)')).toHaveText([
     'Abrir perfil',
     'Criar perfil',
@@ -333,7 +333,11 @@ test('Recusa arquivos SQLite em formato não suportado', async ({ page }) => {
   });
   await page.getByRole('button', { name: /Abrir perfil/ }).click();
   await expect(page.getByRole('alert')).toHaveText('Não foi possível acessar o arquivo selecionado. Tente novamente.');
-  await expect(page.locator('.login-acao button > span:nth-child(2)')).toHaveText(['Abrir perfil', 'Criar perfil']);
+  await expect(page.locator('.login-acao button > span:nth-child(2)')).toHaveText([
+    'Abrir perfil',
+    'Criar perfil',
+    'Perfil de outro dispositivo',
+  ]);
 });
 
 test('Deve sincronizar uma vez ao abrir o banco, sem repetir em cada navegação #sincronizacao #navegacao', async ({ page }) => {
