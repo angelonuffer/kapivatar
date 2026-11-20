@@ -58,57 +58,21 @@ const validar_formato_sqlite = (novo_db) => {
     colunas[0][5] === 1 &&
     colunas[1][1] === "valor" &&
     colunas[1][3] === 1
-  const esquema_antigo = colunas.length === 3 &&
-    colunas[0][1] === "chave" &&
-    colunas[0][2]?.toLowerCase() === "text" &&
-    colunas[0][5] === 1 &&
-    colunas[1][1] === "tipo" &&
-    colunas[1][2]?.toLowerCase() === "text" &&
-    colunas[1][3] === 1 &&
-    colunas[2][1] === "valor" &&
-    colunas[2][2]?.toLowerCase() === "blob" &&
-    colunas[2][3] === 1
-  if (!esquema_novo && !esquema_antigo) {
+  if (!esquema_novo) {
     throw new Error("Formato de arquivo de perfil não suportado.")
   }
   const tabelas = novo_db.selectValue(
     "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
   )
   const tabelas_conhecidas = novo_db.selectValue(
-    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('kapivatar_dados', 'foto_perfil')",
+    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('kapivatar_dados')",
   )
-  if (tabelas !== 1 && tabelas !== 2 || tabelas_conhecidas !== 0) {
+  if (tabelas !== 1 || tabelas_conhecidas !== 0) {
     throw new Error("Formato de arquivo de perfil não suportado.")
   }
-  const tem_foto_perfil = novo_db.selectValue(
-    "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'foto_perfil')",
-  ) === 1
-  if (tem_foto_perfil) {
-    const colunas_foto = []
-    novo_db.exec({
-      sql: "PRAGMA table_info(foto_perfil)",
-      rowMode: "array",
-      resultRows: colunas_foto,
-    })
-    if (
-      colunas_foto.length !== 2 ||
-      colunas_foto[0][1] !== "blob" ||
-      colunas_foto[0][2]?.toLowerCase() !== "blob" ||
-      colunas_foto[0][3] !== 1 ||
-      colunas_foto[1][1] !== "data" ||
-      colunas_foto[1][2]?.toLowerCase() !== "text" ||
-      colunas_foto[1][3] !== 1
-    ) {
-      throw new Error("Formato de arquivo de perfil não suportado.")
-    }
-  }
-  const dados_invalidos = esquema_antigo
-    ? novo_db.selectValue(
-      "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave IS NULL OR tipo NOT IN ('texto', 'json', 'blob') OR valor IS NULL)",
-    )
-    : novo_db.selectValue(
-      "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave IS NULL OR valor IS NULL)",
-    )
+  const dados_invalidos = novo_db.selectValue(
+    "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave IS NULL OR valor IS NULL)",
+  )
   if (dados_invalidos) throw new Error("Formato de arquivo de perfil não suportado.")
 }
 
@@ -118,7 +82,6 @@ const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
   const arquivo = await handle.getFile()
   const novo_db = new sqlite.oo1.DB()
   let banco_novo = false
-  let esquema_migrado = false
 
   try {
     if (arquivo.size === 0) {
@@ -143,50 +106,12 @@ const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
         throw new Error("O arquivo SQLite selecionado está corrompido.")
       }
       validar_formato_sqlite(novo_db)
-      const tem_coluna_tipo = novo_db.selectValue(
-        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('kapivatar_dados') WHERE name = 'tipo')",
+      const tem_nome_legado = novo_db.selectValue(
+        "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave = 'kapivatar.dispositivo.nome')",
       ) === 1
-      if (tem_coluna_tipo) {
-        const dados_antigos = []
-        novo_db.exec({
-          sql: "SELECT chave, tipo, valor FROM kapivatar_dados",
-          rowMode: "array",
-          resultRows: dados_antigos,
-        })
-        novo_db.exec("CREATE TABLE kapivatar_dados_nova (chave TEXT PRIMARY KEY, valor BLOB NOT NULL)")
-        for (const [chave, tipo, valor] of dados_antigos) {
-          let conteudo = valor
-          if (tipo === "json") conteudo = codificar_json(JSON.parse(new TextDecoder().decode(valor)))
-          novo_db.exec({
-            sql: "INSERT INTO kapivatar_dados_nova (chave, valor) VALUES (?, ?)",
-            bind: [chave, conteudo],
-          })
-        }
-        novo_db.exec("DROP TABLE kapivatar_dados")
-        novo_db.exec("ALTER TABLE kapivatar_dados_nova RENAME TO kapivatar_dados")
-        esquema_migrado = true
-      }
-      const tem_foto_perfil = novo_db.selectValue(
-        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'foto_perfil')",
-      ) === 1
-      if (tem_foto_perfil) {
-        const fotos = []
-        novo_db.exec({
-          sql: "SELECT blob, data FROM foto_perfil",
-          rowMode: "array",
-          resultRows: fotos,
-        })
-        for (const [blob, data] of fotos) {
-          const bytes = blob instanceof Uint8Array
-            ? blob
-            : new Uint8Array(blob)
-          novo_db.exec({
-            sql: "INSERT INTO kapivatar_dados (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
-            bind: [`foto_perfil:${data}`, bytes],
-          })
-        }
-        novo_db.exec("DROP TABLE foto_perfil")
-        esquema_migrado = true
+      if (tem_nome_legado) {
+        novo_db.exec("DELETE FROM kapivatar_dados WHERE chave = 'kapivatar.dispositivo.nome'")
+        banco_novo = true
       }
     }
   } catch (erro) {
@@ -197,7 +122,7 @@ const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
   if (db) db.close()
   db = novo_db
   arquivo_selecionado = handle
-  if (banco_novo || esquema_migrado) await persistir_banco()
+  if (banco_novo) await persistir_banco()
 }
 
 export const abrir_banco_sqlite = (handle, opcoes) => {
@@ -220,7 +145,16 @@ export const ler_dado_sqlite = async (chave) => {
     [chave],
   )
   if (valor === undefined) return undefined
-  if (typeof valor === "string") return valor
+  if (typeof valor === "string") {
+    if (chave === "perfil") {
+      try {
+        return JSON.parse(valor)
+      } catch {
+        return undefined
+      }
+    }
+    return valor
+  }
   const bytes = valor instanceof Uint8Array ? valor : new Uint8Array(valor)
   const json = decodificar_json(bytes)
   if (json !== undefined) return json
@@ -231,7 +165,12 @@ export const gravar_dado_sqlite = (chave, valor) => enfileirar_gravacao(async ()
   if (!db || !arquivo_selecionado) throw new Error("Nenhum banco SQLite está aberto.")
 
   let conteudo
-  if (typeof valor === "string") {
+  if (chave === "perfil") {
+    if (typeof valor !== "object" || valor === null || Array.isArray(valor)) {
+      throw new Error("O perfil deve ser um objeto JSON.")
+    }
+    conteudo = JSON.stringify(valor)
+  } else if (typeof valor === "string") {
     conteudo = valor
   } else if (valor instanceof Blob) {
     conteudo = new Uint8Array(await valor.arrayBuffer())
@@ -303,33 +242,3 @@ export const listar_dados_sqlite = async () => {
   })
 }
 
-export const inserir_foto_perfil_sqlite = (blob, data = new Date().toISOString()) => enfileirar_gravacao(async () => {
-  if (!db || !arquivo_selecionado) throw new Error("Nenhum banco SQLite está aberto.")
-  const bytes = blob instanceof Blob
-    ? new Uint8Array(await blob.arrayBuffer())
-    : blob instanceof ArrayBuffer
-      ? new Uint8Array(blob)
-      : new Uint8Array(blob.buffer, blob.byteOffset, blob.byteLength)
-  db.exec({
-    sql: "INSERT INTO kapivatar_dados (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
-    bind: [`foto_perfil:${data}`, bytes],
-  })
-  await persistir_banco()
-})
-
-export const listar_fotos_perfil_sqlite = async () => {
-  await fila_gravacao
-  if (!db) return []
-  const linhas = []
-  db.exec({
-    sql: "SELECT chave, valor FROM kapivatar_dados WHERE chave LIKE 'foto_perfil:%' AND typeof(valor) = 'blob' ORDER BY chave DESC",
-    rowMode: "array",
-    resultRows: linhas,
-  })
-  return linhas.map(([chave, blob]) => ({
-    blob: blob instanceof Uint8Array
-      ? blob.buffer.slice(blob.byteOffset, blob.byteOffset + blob.byteLength)
-      : new Uint8Array(blob).buffer,
-    data: chave.slice("foto_perfil:".length),
-  }))
-}

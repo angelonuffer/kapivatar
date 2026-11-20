@@ -7,7 +7,6 @@
     dados = {},
     imagem_capa = null,
     imagem_foto = null,
-    hash_perfil_atual,
     id,
     diretorio,
     gerar_hash,
@@ -20,7 +19,7 @@
     ao_arquivar_assobio,
     ao_salvar_foto,
     ao_restaurar_foto,
-    registrar_foto_perfil,
+    atualizar_perfil_sqlite,
     fotos_perfil = [],
   } = $props()
 
@@ -182,11 +181,8 @@
 
     try {
       const dados_novos = {
-        ...dados,
         nome: form_data.get("nome"),
         bio: form_data.get("bio"),
-        anterior: hash_perfil_atual,
-        data: new Date().toISOString(),
       }
 
       const salvar_imagem = async (campo, hash_antigo) => {
@@ -195,9 +191,6 @@
           const buffer = await arquivo.arrayBuffer()
           const hash = await gerar_hash(buffer)
           await escrever_arquivo(diretorio, hash, buffer)
-          if (campo === "foto" && registrar_foto_perfil) {
-            await registrar_foto_perfil(buffer)
-          }
           return hash
         }
         return hash_antigo
@@ -206,10 +199,7 @@
       dados_novos.capa = await salvar_imagem("capa", dados.capa)
       dados_novos.foto = await salvar_imagem("foto", dados.foto)
 
-      const conteudo_perfil = JSON.stringify(dados_novos)
-      const hash_perfil_novo = await gerar_hash(conteudo_perfil)
-      await escrever_arquivo(diretorio, hash_perfil_novo, conteudo_perfil)
-      await escrever_arquivo(diretorio, id, hash_perfil_novo)
+      await atualizar_perfil_sqlite(dados_novos)
 
       navegar("/perfil")
     } catch (erro) {
@@ -525,7 +515,7 @@
     <div class="historico" style="margin-top: 0; border-top: none;">
       <ul>
         {#each historico as versao}
-          <li><a href={`/perfil?v=${versao.hash}`}>{versao.data}</a></li>
+          <li><time datetime={versao.data}>{versao.campo}: {new Date(versao.data).toLocaleString()}</time></li>
         {/each}
       </ul>
     </div>

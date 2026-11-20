@@ -8,8 +8,6 @@ import {
   existe_dado_sqlite,
   listar_referencias_texto_sqlite,
   listar_dados_sqlite,
-  inserir_foto_perfil_sqlite,
-  listar_fotos_perfil_sqlite,
 } from "./sqlite.js"
 import { mount, unmount } from "svelte"
 import "material-symbols/outlined.css"
@@ -221,6 +219,79 @@ const gerar_id_perfil = async (chave_publica) => {
   return await gerar_hash(spki)
 }
 
+const obter_valor_atual = (versoes) => {
+  if (!Array.isArray(versoes) || versoes.length === 0) return undefined
+  return versoes.reduce((atual, versao) =>
+    !atual || String(versao?.data || "") > String(atual?.data || "") ? versao : atual,
+  undefined)?.valor
+}
+
+const ler_perfil_sqlite = async () => {
+  const perfil = await ler_dado_sqlite("perfil")
+  if (!perfil || typeof perfil !== "object" || typeof perfil.chave_privada !== "object" || !perfil.chave_privada) {
+    return null
+  }
+  for (const campo of ["capa", "foto", "nome", "bio"]) {
+    if (perfil[campo] !== undefined) {
+      if (!Array.isArray(perfil[campo])) return null
+      for (const versao of perfil[campo]) {
+        if (!versao || typeof versao.data !== "string" || !Object.hasOwn(versao, "valor")) return null
+        if (["capa", "foto"].includes(campo) && (typeof versao.valor !== "string" || !/^[a-f0-9]{64}$/.test(versao.valor))) return null
+        if (["nome", "bio"].includes(campo) && typeof versao.valor !== "string") return null
+      }
+    }
+  }
+  if (!perfil.dispositivo || typeof perfil.dispositivo.id !== "string" || typeof perfil.dispositivo.nome !== "string") return null
+  if (!Array.isArray(perfil.outros_dispositivos)) return null
+  if (Object.keys(perfil).some(campo => !["capa", "foto", "nome", "bio", "chave_privada", "dispositivo", "outros_dispositivos"].includes(campo))) return null
+  const chave_privada = await importar_chave_privada(perfil.chave_privada)
+  const jwk_publica = Object.fromEntries(
+    Object.entries(perfil.chave_privada).filter(([campo]) => !["d", "p", "q", "dp", "dq", "qi", "oth"].includes(campo)),
+  )
+  jwk_publica.key_ops = ["encrypt"]
+  const chave_publica = await crypto.subtle.importKey(
+    "jwk",
+    jwk_publica,
+    { name: "RSA-OAEP", hash: "SHA-256" },
+    true,
+    ["encrypt"],
+  )
+  const chave_publica_jwk = await exportar_chave(chave_publica)
+  const id = await gerar_id_perfil(chave_publica)
+  return {
+    capa: obter_valor_atual(perfil.capa),
+    foto: obter_valor_atual(perfil.foto),
+    nome: obter_valor_atual(perfil.nome),
+    bio: obter_valor_atual(perfil.bio),
+    chave_privada,
+    chave_privada_jwk: perfil.chave_privada,
+    chave_publica: chave_publica_jwk,
+    dispositivo: perfil.dispositivo,
+    outros_dispositivos: perfil.outros_dispositivos,
+    id,
+  }
+}
+
+const atualizar_perfil_sqlite = async (mudancas) => {
+  const perfil = await ler_dado_sqlite("perfil")
+  if (!perfil || typeof perfil !== "object") throw new Error("Formato de arquivo de perfil não suportado.")
+  const atualizado = { ...perfil }
+  const data = new Date().toISOString()
+  for (const [campo, valor] of Object.entries(mudancas)) {
+    if (["dispositivo", "outros_dispositivos"].includes(campo)) {
+      atualizado[campo] = valor
+      continue
+    }
+    if (!["capa", "foto", "nome", "bio"].includes(campo)) continue
+    if (valor === undefined || valor === null) {
+      atualizado[campo] = []
+    } else {
+      atualizado[campo] = [...(Array.isArray(perfil[campo]) ? perfil[campo] : []), { data, valor }]
+    }
+  }
+  await gravar_dado_sqlite("perfil", atualizado)
+}
+
 const obter_handle_salvo = async () => {
   const db = await banco_kapivatar
   return new Promise((resolve, reject) => {
@@ -403,51 +474,8 @@ const opcoes_selecao_perfil = {
 }
 
 const validar_perfil_unico = async () => {
-  const id = await ler_dado_sqlite("perfil")
-  if (typeof id !== "string" || !/^[a-f0-9]{64}$/.test(id)) {
-    throw new Error("Formato de arquivo de perfil não suportado.")
-  }
-  const hash = await ler_dado_sqlite(id)
-  if (typeof hash !== "string" || !/^[a-f0-9]{64}$/.test(hash)) {
-    throw new Error("Formato de arquivo de perfil não suportado.")
-  }
-  const conteúdo = await ler_dado_sqlite(hash)
-  if (typeof conteúdo !== "string") {
-    throw new Error("Formato de arquivo de perfil não suportado.")
-  }
-  let perfil
-  try {
-    perfil = JSON.parse(conteúdo)
-  } catch {
-    throw new Error("Formato de arquivo de perfil não suportado.")
-  }
-  if (
-    !perfil ||
-    perfil.id !== id ||
-    typeof perfil.nome !== "string" ||
-    typeof perfil.chave_publica !== "object" ||
-    !perfil.chave_publica ||
-    typeof perfil.chave_privada !== "object" ||
-    !perfil.chave_privada
-  ) {
-    throw new Error("Formato de arquivo de perfil não suportado.")
-  }
-  const referências = await listar_referencias_texto_sqlite()
-  const ids_de_perfis = referências.flatMap(([chave, texto_perfil]) => {
-    try {
-      const possível_perfil = JSON.parse(texto_perfil)
-      return possível_perfil?.id === chave &&
-        typeof possível_perfil.chave_publica === "object" &&
-        possível_perfil.chave_publica &&
-        typeof possível_perfil.chave_privada === "object" &&
-        possível_perfil.chave_privada
-        ? [chave]
-        : []
-    } catch {
-      return []
-    }
-  })
-  if (ids_de_perfis.length !== 1 || ids_de_perfis[0] !== id) {
+  const perfil = await ler_perfil_sqlite()
+  if (!perfil || !perfil.id || !perfil.chave_privada || !perfil.chave_publica) {
     throw new Error("Formato de arquivo de perfil não suportado.")
   }
 }
@@ -513,10 +541,8 @@ const escrever_arquivo = async (diretorio, nome, conteudo) => {
 }
 
 window.obter_id_perfil_selecionado = async (sinal_rota) => {
-  const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-  const arquivo = await aguardar_rota(ler_arquivo(diretorio, "perfil"), sinal_rota)
-  if (!arquivo) return null
-  return await aguardar_rota(arquivo.text(), sinal_rota)
+  const perfil = await aguardar_rota(ler_perfil_sqlite(), sinal_rota)
+  return perfil?.id || null
 }
 
 const verificar_retentativas = async () => {
@@ -705,15 +731,10 @@ const obter_id_dispositivo_local = () => {
 const obter_nome_dispositivo_local = () => {
   if (!nome_dispositivo_local_promise) {
     nome_dispositivo_local_promise = (async () => {
-      const chave = "kapivatar.dispositivo.nome"
-      let nome = await ler_dado_sqlite(chave)
-      if (nome === undefined) {
-        nome = `Dispositivo ${crypto.randomUUID().slice(0, 8)}`
-        await gravar_dado_sqlite(chave, nome)
-      }
-      if (typeof nome !== "string" || !nome) {
-        throw new Error("O nome do dispositivo salvo no arquivo de dados é inválido.")
-      }
+      const perfil = await ler_perfil_sqlite()
+      if (perfil?.dispositivo?.nome) return perfil.dispositivo.nome
+      const nome = `Dispositivo ${crypto.randomUUID().slice(0, 8)}`
+      if (perfil) await atualizar_perfil_sqlite({ dispositivo: { id: obter_id_dispositivo_local(), nome } })
       return nome
     })()
     nome_dispositivo_local_promise.catch(() => {
@@ -724,7 +745,7 @@ const obter_nome_dispositivo_local = () => {
 }
 
 const renomear_dispositivo_local = async (nome) => {
-  await gravar_dado_sqlite("kapivatar.dispositivo.nome", nome)
+  await atualizar_perfil_sqlite({ dispositivo: { id: obter_id_dispositivo_local(), nome } })
   nome_dispositivo_local_promise = Promise.resolve(nome)
 }
 
@@ -751,7 +772,7 @@ const validar_dispositivo_pareado = (dispositivo) => {
   return dispositivo
 }
 
-const salvar_dispositivo_pareado = (dispositivo) => {
+const salvar_dispositivo_pareado = async (dispositivo) => {
   validar_dispositivo_pareado(dispositivo)
   const dispositivos = carregar_dispositivos_pareados()
   const existente = dispositivos.find((item) => item.id === dispositivo.id)
@@ -767,6 +788,9 @@ const salvar_dispositivo_pareado = (dispositivo) => {
   if (existente) Object.assign(existente, atualizado)
   else dispositivos.push(atualizado)
   localStorage.setItem(chave_storage_dispositivos_pareados, JSON.stringify(dispositivos))
+  await atualizar_perfil_sqlite({
+    outros_dispositivos: dispositivos.map(({ id, nome, pareado_em }) => ({ id, nome, pareado_em })),
+  })
 }
 
 const obter_topico_pareamento = async (chave) => {
@@ -1194,16 +1218,16 @@ const iniciar_pareamento = async (chave_informada, botao, status) => {
 }
 
 const enviar_solicitacao_contato = async (id_alvo, eh_retentativa = false) => {
-  const id_meu_perfil = await obter_id_perfil_selecionado()
-  const diretorio = await obter_diretorio()
-  const arquivo_id = await ler_arquivo(diretorio, id_meu_perfil)
-  const hash_perfil = await arquivo_id.text()
-  const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
-  const meu_perfil = JSON.parse(await arquivo_perfil.text())
-
-  // Remover chave privada antes de enviar
-  const { chave_privada, ...meu_perfil_publico } = meu_perfil
-  meu_perfil_publico.id = id_meu_perfil
+  const perfil = await ler_perfil_sqlite()
+  if (!perfil) throw new Error("Formato de arquivo de perfil não suportado.")
+  const meu_perfil_publico = {
+    capa: perfil.capa,
+    foto: perfil.foto,
+    nome: perfil.nome,
+    bio: perfil.bio,
+    chave_publica: perfil.chave_publica,
+    id: perfil.id,
+  }
 
   const mensagem = {
     adicionar_contato_id: id_alvo,
@@ -1226,15 +1250,16 @@ const enviar_solicitacao_contato = async (id_alvo, eh_retentativa = false) => {
 }
 
 const enviar_confirmacao_aceite = async (id_meu_perfil, perfil_solicitante) => {
-  const diretorio = await obter_diretorio()
-  const arquivo_id = await ler_arquivo(diretorio, id_meu_perfil)
-  const hash_perfil = await arquivo_id.text()
-  const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
-  const meu_perfil = JSON.parse(await arquivo_perfil.text())
-
-  // Remover chave privada antes de enviar
-  const { chave_privada, ...meu_perfil_publico } = meu_perfil
-  meu_perfil_publico.id = id_meu_perfil
+  const perfil = await ler_perfil_sqlite()
+  if (!perfil) throw new Error("Formato de arquivo de perfil não suportado.")
+  const meu_perfil_publico = {
+    capa: perfil.capa,
+    foto: perfil.foto,
+    nome: perfil.nome,
+    bio: perfil.bio,
+    chave_publica: perfil.chave_publica,
+    id: perfil.id,
+  }
 
   const conteudo_aceito = {
     solicitação_aceita: true,
@@ -1298,11 +1323,6 @@ const enviar_ack = async (id_contato, id_mensagem) => {
 
 const enviar_mensagem_chat = async (id_contato, texto, id_mensagem = null) => {
   const id_meu_perfil = await obter_id_perfil_selecionado()
-  const diretorio = await obter_diretorio()
-  const arquivo_id = await ler_arquivo(diretorio, id_meu_perfil)
-  const hash_perfil = await arquivo_id.text()
-  const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
-  const meu_perfil = JSON.parse(await arquivo_perfil.text())
 
   const lista_contatos = await carregar_lista_contatos()
   const contato = lista_contatos.contatos.find(c => c.id === id_contato)
@@ -1378,14 +1398,10 @@ window.processar_mensagem_mqtt = async (dados) => {
   if (dados.id_destino && dados.mensagem_criptografada) {
     if (id_perfil === dados.id_destino) {
       // Descriptografar somente com a chave privada do perfil selecionado.
-      const arquivo_id = await ler_arquivo(diretorio, dados.id_destino)
-      if (arquivo_id) {
-        const hash_perfil = await arquivo_id.text()
-        const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
-        const meu_perfil = JSON.parse(await arquivo_perfil.text())
-
+      const perfil = await ler_perfil_sqlite()
+      if (perfil) {
         try {
-          const chave_privada = await importar_chave_privada(meu_perfil.chave_privada)
+          const chave_privada = perfil.chave_privada
           const buffer = base64_para_buffer(dados.mensagem_criptografada)
           const conteudo = await descriptografar(chave_privada, buffer)
 
@@ -1695,8 +1711,9 @@ const páginas = [
           gerar_hash,
           escrever_arquivo,
           ler_arquivo,
+          gravar_dado_sqlite,
+          obter_dispositivo_local,
           navegar,
-          registrar_foto_perfil: inserir_foto_perfil_sqlite,
         },
       })
     }
@@ -1724,24 +1741,11 @@ const páginas = [
       }
       const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
 
-      let hash_perfil = params.get("v")
-
-      if (!hash_perfil) {
-        const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
-        if (!arquivo_id) {
-          conteudo.innerHTML = "<p>Perfil não encontrado.</p>"
-          return
-        }
-        hash_perfil = await aguardar_rota(arquivo_id.text(), sinal_rota)
-      }
-
-      const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, hash_perfil), sinal_rota)
-      if (!arquivo_perfil) {
+      const dados = await aguardar_rota(ler_perfil_sqlite(), sinal_rota)
+      if (!dados) {
         conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
         return
       }
-
-      const dados = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
       const imagem_capa = dados.capa
         ? await aguardar_rota(ler_arquivo(diretorio, dados.capa), sinal_rota)
         : null
@@ -1784,18 +1788,11 @@ const páginas = [
       }
 
       const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-      const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
-      if (!arquivo_id) {
-        conteudo.innerHTML = "<p>Perfil não encontrado.</p>"
-        return
-      }
-      const hash_perfil = await aguardar_rota(arquivo_id.text(), sinal_rota)
-      const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, hash_perfil), sinal_rota)
-      if (!arquivo_perfil) {
+      const dados = await aguardar_rota(ler_perfil_sqlite(), sinal_rota)
+      if (!dados) {
         conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
         return
       }
-      const dados = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
 
       return mount(Perfil, {
         target: conteudo,
@@ -1820,20 +1817,11 @@ const páginas = [
         return
       }
       const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-      const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
-
-      if (!arquivo_id) {
-        conteudo.innerHTML = "<p>Perfil não encontrado.</p>"
-        return
-      }
-
-      const hash_perfil_atual = await aguardar_rota(arquivo_id.text(), sinal_rota)
-      const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, hash_perfil_atual), sinal_rota)
-      if (!arquivo_perfil) {
+      const dados_atuais = await aguardar_rota(ler_perfil_sqlite(), sinal_rota)
+      if (!dados_atuais) {
         conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
         return
       }
-      const dados_atuais = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
       const imagem_capa = dados_atuais.capa
         ? await aguardar_rota(ler_arquivo(diretorio, dados_atuais.capa), sinal_rota)
         : null
@@ -1848,13 +1836,12 @@ const páginas = [
           dados: dados_atuais,
           imagem_capa,
           imagem_foto,
-          hash_perfil_atual,
           id,
           diretorio,
           gerar_hash,
           escrever_arquivo,
           navegar,
-          registrar_foto_perfil: inserir_foto_perfil_sqlite,
+          atualizar_perfil_sqlite,
         },
       })
     }
@@ -1871,23 +1858,22 @@ const páginas = [
         return
       }
       const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-      const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
-      if (!arquivo_id) {
-        conteudo.innerHTML = "<p>Perfil não encontrado.</p>"
-        return
-      }
-      const hash_perfil_atual = await aguardar_rota(arquivo_id.text(), sinal_rota)
-      const arquivo_perfil = await aguardar_rota(ler_arquivo(diretorio, hash_perfil_atual), sinal_rota)
-      if (!arquivo_perfil) {
+      const dados_atuais = await aguardar_rota(ler_perfil_sqlite(), sinal_rota)
+      if (!dados_atuais) {
         conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
         return
       }
-      const dados_atuais = JSON.parse(await aguardar_rota(arquivo_perfil.text(), sinal_rota))
-      const fotos = await aguardar_rota(listar_fotos_perfil_sqlite(), sinal_rota)
-      const fotos_perfil = fotos.map(foto => ({
-        ...foto,
-        url: URL.createObjectURL(new Blob([foto.blob])),
-      }))
+      const perfil_bruto = await aguardar_rota(ler_dado_sqlite("perfil"), sinal_rota)
+      const fotos_perfil = []
+      for (const versao of Array.isArray(perfil_bruto?.foto) ? perfil_bruto.foto : []) {
+        const arquivo = await aguardar_rota(ler_arquivo(diretorio, versao.valor), sinal_rota)
+        if (arquivo) {
+          fotos_perfil.push({
+            data: versao.data,
+            url: URL.createObjectURL(arquivo),
+          })
+        }
+      }
 
       const salvar_foto = async (conteudo_foto) => {
         const buffer = conteudo_foto instanceof Blob
@@ -1896,18 +1882,8 @@ const páginas = [
         const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer
         const hash = await gerar_hash(bytes)
         await escrever_arquivo(diretorio, hash, bytes)
-        await inserir_foto_perfil_sqlite(bytes)
 
-        const dados_novos = {
-          ...dados_atuais,
-          foto: hash,
-          anterior: hash_perfil_atual,
-          data: new Date().toISOString(),
-        }
-        const conteudo_perfil = JSON.stringify(dados_novos)
-        const hash_perfil_novo = await gerar_hash(conteudo_perfil)
-        await escrever_arquivo(diretorio, hash_perfil_novo, conteudo_perfil)
-        await escrever_arquivo(diretorio, id, hash_perfil_novo)
+        await atualizar_perfil_sqlite({ foto: hash })
       }
 
       return mount(Perfil, {
@@ -1934,32 +1910,17 @@ const páginas = [
         conteudo.innerHTML = '<p>Nenhum perfil encontrado. <a href="/perfil/criar">Criar perfil</a></p>'
         return
       }
-      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-
-      const carregar_versao = async (hash) => {
-        if (!hash) return null
-        const arquivo = await aguardar_rota(ler_arquivo(diretorio, hash), sinal_rota)
-        if (!arquivo) return null
-        return JSON.parse(await aguardar_rota(arquivo.text(), sinal_rota))
-      }
-
-      // Começa da versão atual apontada pelo ID
-      const arquivo_id = await aguardar_rota(ler_arquivo(diretorio, id), sinal_rota)
-      let hash_cursor = arquivo_id ? await aguardar_rota(arquivo_id.text(), sinal_rota) : null
+      const perfil = await aguardar_rota(ler_dado_sqlite("perfil"), sinal_rota)
       const historico = []
-
-      while (hash_cursor) {
-        const dados_versao = await aguardar_rota(carregar_versao(hash_cursor), sinal_rota)
-        if (!dados_versao) break
-
-        const data = window.isScreenshotTest
-          ? new Date("2026-03-30T12:00:00.000Z").toLocaleString()
-          : dados_versao.data
-            ? new Date(dados_versao.data).toLocaleString()
-            : `Versão: ${hash_cursor}`
-        historico.push({ hash: hash_cursor, data })
-        hash_cursor = dados_versao.anterior
+      if (perfil && typeof perfil === "object") {
+        for (const campo of ["capa", "foto", "nome", "bio"]) {
+          if (!Array.isArray(perfil[campo])) continue
+          for (const versao of perfil[campo]) {
+            historico.push({ campo, data: versao.data, valor: versao.valor })
+          }
+        }
       }
+      historico.sort((a, b) => String(b.data).localeCompare(String(a.data)))
 
       return mount(Perfil, {
         target: conteudo,
@@ -2478,12 +2439,8 @@ const atualizar_sidebar_perfil_selecionado = async () => {
 
   if (id_selecionado) {
     const diretorio = await obter_diretorio()
-    const arquivo_id = await ler_arquivo(diretorio, id_selecionado)
-    if (arquivo_id) {
-      const hash_perfil = await arquivo_id.text()
-      const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
-      if (arquivo_perfil) {
-        const dados = JSON.parse(await arquivo_perfil.text())
+    const dados = await ler_perfil_sqlite()
+    if (dados && dados.id === id_selecionado) {
 
         const container_info = document.createElement("div")
         container_info.classList.add("perfil-sidebar-info")
@@ -2511,7 +2468,6 @@ const atualizar_sidebar_perfil_selecionado = async () => {
         link_perfil.appendChild(container_info)
         perfil_selecionado.appendChild(link_perfil)
       }
-    }
   } else {
     const link_selecionar = document.createElement("a")
     link_selecionar.href = "/perfil"
@@ -2711,24 +2667,19 @@ const rotear = async () => {
             if (subdiretorio) {
               let foto_exibida = false
               let dados_perfil = null
-              const arquivo_id = await ler_arquivo(diretorio, id_selecionado)
-              if (arquivo_id) {
-                const hash_perfil = await arquivo_id.text()
-                const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
-                if (arquivo_perfil) {
-                  const dados = JSON.parse(await arquivo_perfil.text())
-                  dados_perfil = dados
-                  if (dados.foto) {
-                    const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
-                    if (arquivo_foto) {
-                      container.innerHTML = ""
-                      const img = document.createElement("img")
-                      img.src = URL.createObjectURL(arquivo_foto)
-                      img.className = "perfil-autenticado-foto"
-                      img.alt = `Foto de ${dados.nome}`
-                      container.appendChild(img)
-                      foto_exibida = true
-                    }
+              const dados = await ler_perfil_sqlite()
+              if (dados && dados.id === id_selecionado) {
+                dados_perfil = dados
+                if (dados.foto) {
+                  const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
+                  if (arquivo_foto) {
+                    container.innerHTML = ""
+                    const img = document.createElement("img")
+                    img.src = URL.createObjectURL(arquivo_foto)
+                    img.className = "perfil-autenticado-foto"
+                    img.alt = `Foto de ${dados.nome}`
+                    container.appendChild(img)
+                    foto_exibida = true
                   }
                 }
               }
@@ -2816,15 +2767,10 @@ const rotear = async () => {
         return
       }
 
-      const arquivo_id = await ler_arquivo(diretorio, id_selecionado)
+      const dados = await ler_perfil_sqlite()
       let nome_perfil = "Perfil Sem Nome"
-      if (arquivo_id) {
-        const hash_perfil = await arquivo_id.text()
-        const arquivo_perfil = await ler_arquivo(diretorio, hash_perfil)
-        if (arquivo_perfil) {
-          const dados = JSON.parse(await arquivo_perfil.text())
-          nome_perfil = dados.nome
-        }
+      if (dados && dados.id === id_selecionado) {
+        nome_perfil = dados.nome
       }
 
       document.body.innerHTML = ""

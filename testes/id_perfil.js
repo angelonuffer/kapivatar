@@ -34,13 +34,8 @@ test('Deve criar, visualizar, editar e ver histórico de um perfil #perfil', asy
   await expect(page).toHaveURL(/\/perfil\/hist%C3%B3rico$/);
 
   const itensHistorico = page.locator('.historico ul li');
-  await expect(itensHistorico).toHaveCount(2);
-
-  // 7. Navegar para versão anterior através do histórico
-  await itensHistorico.last().locator('a').click();
-
-  // Deve mostrar a versão antiga do perfil (com query parameter v)
-  await expect(page).toHaveURL(/.*v=[a-f0-9]{64}/);
-  await expect(page.locator('h2')).toHaveText('Capivara Original');
-  await expect(page.locator('.perfil-info-detalhe p')).toHaveText('Bio original');
+  await expect(itensHistorico).toHaveCount(4);
+  await expect(itensHistorico.filter({ hasText: /^nome:/ })).toHaveCount(2);
+  await expect(itensHistorico.filter({ hasText: /^bio:/ })).toHaveCount(2);
+  await expect(itensHistorico.locator('time')).toHaveCount(4);
 });

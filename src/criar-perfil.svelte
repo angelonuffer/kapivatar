@@ -9,9 +9,10 @@
     gerar_id_perfil,
     gerar_hash,
     escrever_arquivo,
+    gravar_dado_sqlite,
     ler_arquivo,
     navegar,
-    registrar_foto_perfil,
+    obter_dispositivo_local,
   } = $props()
 
   let nome = $state("")
@@ -52,15 +53,15 @@
 
       const chaves = await gerar_chaves()
       const chave_privada_jwk = await exportar_chave(chaves.privateKey)
-      const chave_publica_jwk = await exportar_chave(chaves.publicKey)
-      const id_perfil = await gerar_id_perfil(chaves.publicKey)
 
+      const agora = new Date().toISOString()
+      const dispositivo = await obter_dispositivo_local()
       const dados = {
-        nome,
-        bio,
-        id: id_perfil,
+        nome: [{ data: agora, valor: nome }],
+        bio: [{ data: agora, valor: bio }],
         chave_privada: chave_privada_jwk,
-        chave_publica: chave_publica_jwk,
+        dispositivo: { id: dispositivo.id, nome: dispositivo.nome },
+        outros_dispositivos: [],
       }
 
       const salvar_imagem = async (campo) => {
@@ -69,24 +70,18 @@
           const buffer = await arquivo.arrayBuffer()
           const hash = await gerar_hash(buffer)
           await escrever_arquivo(diretorio, hash, buffer)
-          if (campo === "foto" && registrar_foto_perfil) {
-            await registrar_foto_perfil(buffer)
-          }
           return { hash, buffer }
         }
         return null
       }
 
       const capa = await salvar_imagem("capa")
-      if (capa) dados.capa = capa.hash
+      if (capa) dados.capa = [{ data: agora, valor: capa.hash }]
 
-      const conteudo_perfil = JSON.stringify(dados)
-      const hash_perfil = await gerar_hash(conteudo_perfil)
-      await escrever_arquivo(diretorio, hash_perfil, conteudo_perfil)
+      const foto = await salvar_imagem("foto")
+      if (foto) dados.foto = [{ data: agora, valor: foto.hash }]
 
-      await escrever_arquivo(diretorio, id_perfil, hash_perfil)
-
-      await escrever_arquivo(diretorio, "perfil", id_perfil)
+      await gravar_dado_sqlite("perfil", dados)
 
       navegar("/perfil")
     } catch (erro) {
