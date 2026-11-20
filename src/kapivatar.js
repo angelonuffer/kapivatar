@@ -231,19 +231,20 @@ const ler_perfil_sqlite = async () => {
   if (!perfil || typeof perfil !== "object" || typeof perfil.chave_privada !== "object" || !perfil.chave_privada) {
     return null
   }
-  for (const campo of ["capa", "foto", "nome", "bio"]) {
+  for (const campo of ["capa", "foto", "nome", "bio", "visibilidade_foto"]) {
     if (perfil[campo] !== undefined) {
       if (!Array.isArray(perfil[campo])) return null
       for (const versao of perfil[campo]) {
         if (!versao || typeof versao.data !== "string" || !Object.hasOwn(versao, "valor")) return null
         if (["capa", "foto"].includes(campo) && (typeof versao.valor !== "string" || !/^[a-f0-9]{64}$/.test(versao.valor))) return null
         if (["nome", "bio"].includes(campo) && typeof versao.valor !== "string") return null
+        if (campo === "visibilidade_foto" && !["privado", "publico"].includes(versao.valor)) return null
       }
     }
   }
   if (!perfil.dispositivo || typeof perfil.dispositivo.id !== "string" || typeof perfil.dispositivo.nome !== "string") return null
   if (!Array.isArray(perfil.outros_dispositivos)) return null
-  if (Object.keys(perfil).some(campo => !["capa", "foto", "nome", "bio", "chave_privada", "dispositivo", "outros_dispositivos"].includes(campo))) return null
+  if (Object.keys(perfil).some(campo => !["capa", "foto", "nome", "bio", "visibilidade_foto", "chave_privada", "dispositivo", "outros_dispositivos"].includes(campo))) return null
   const chave_privada = await importar_chave_privada(perfil.chave_privada)
   const jwk_publica = Object.fromEntries(
     Object.entries(perfil.chave_privada).filter(([campo]) => !["d", "p", "q", "dp", "dq", "qi", "oth"].includes(campo)),
@@ -263,6 +264,7 @@ const ler_perfil_sqlite = async () => {
     foto: obter_valor_atual(perfil.foto),
     nome: obter_valor_atual(perfil.nome),
     bio: obter_valor_atual(perfil.bio),
+    visibilidade_foto: obter_valor_atual(perfil.visibilidade_foto) || "privado",
     chave_privada,
     chave_privada_jwk: perfil.chave_privada,
     chave_publica: chave_publica_jwk,
@@ -282,7 +284,7 @@ const atualizar_perfil_sqlite = async (mudancas) => {
       atualizado[campo] = valor
       continue
     }
-    if (!["capa", "foto", "nome", "bio"].includes(campo)) continue
+    if (!["capa", "foto", "nome", "bio", "visibilidade_foto"].includes(campo)) continue
     if (valor === undefined || valor === null) {
       atualizado[campo] = []
     } else {
@@ -1981,7 +1983,7 @@ const páginas = [
         }
       }
 
-      const salvar_foto = async (conteudo_foto) => {
+      const salvar_foto = async (conteudo_foto, visibilidade = "privado") => {
         const buffer = conteudo_foto instanceof Blob
           ? await conteudo_foto.arrayBuffer()
           : conteudo_foto
@@ -1989,7 +1991,10 @@ const páginas = [
         const hash = await gerar_hash(bytes)
         await escrever_arquivo(diretorio, hash, bytes)
 
-        await atualizar_perfil_sqlite({ foto: hash })
+        await atualizar_perfil_sqlite({
+          foto: hash,
+          visibilidade_foto: ["privado", "publico"].includes(visibilidade) ? visibilidade : "privado",
+        })
       }
 
       return mount(Perfil, {
@@ -1999,6 +2004,7 @@ const páginas = [
           dados: dados_atuais,
           navegar,
           fotos_perfil,
+          visibilidade_foto: dados_atuais.visibilidade_foto,
           ao_salvar_foto: salvar_foto,
           ao_restaurar_foto: salvar_foto,
         },

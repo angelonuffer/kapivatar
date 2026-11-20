@@ -4,6 +4,31 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
 });
 
+test('Deve selecionar entre foto de perfil privada e pública #perfil #foto', async ({ page }) => {
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill('Perfil com Visibilidade');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
+
+  await page.getByRole('button', { name: 'Alterar foto de perfil' }).click();
+  await expect(page).toHaveURL(/\/perfil\/foto\/editar$/);
+  await expect(page.getByRole('radio', { name: 'Privado' })).toBeChecked();
+
+  await page.locator('#foto-perfil-nova').setInputFiles({
+    name: 'perfil.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    ),
+  });
+  await page.getByRole('radio', { name: 'Público' }).check();
+  await page.getByRole('button', { name: 'Salvar foto' }).click();
+  await expect(page).toHaveURL(/\/perfil$/);
+
+  await page.getByRole('button', { name: 'Alterar foto de perfil' }).click();
+  await expect(page.getByRole('radio', { name: 'Público' })).toBeChecked();
+});
+
 test('Deve criar e exibir o perfil único do arquivo de dados #perfil #arquivo', async ({ page }) => {
   await page.getByRole('button', { name: /Criar perfil/ }).click();
   await expect(page).toHaveURL(/\/perfil\/criar$/);

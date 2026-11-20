@@ -59,6 +59,7 @@
       const dados = {
         nome: [{ data: agora, valor: nome }],
         bio: [{ data: agora, valor: bio }],
+        visibilidade_foto: [{ data: agora, valor: "privado" }],
         chave_privada: chave_privada_jwk,
         dispositivo: { id: dispositivo.id, nome: dispositivo.nome },
         outros_dispositivos: [],

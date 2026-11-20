@@ -21,6 +21,7 @@
     ao_restaurar_foto,
     atualizar_perfil_sqlite,
     fotos_perfil = [],
+    visibilidade_foto = "privado",
   } = $props()
 
   let previews = $state({ capa: "", foto: "" })
@@ -39,6 +40,7 @@
   let arquivo_foto_nova = $state(null)
   let preview_foto_nova = $state("")
   let input_foto_perfil = $state()
+  let visibilidade_foto_selecionada = $state("privado")
   const urls_preview = new Set()
   const tipos_atributo = [
     { valor: "texto", nome: "Texto", icone: "text_fields" },
@@ -61,6 +63,7 @@
   onMount(() => {
     if (imagem_capa) previews.capa = criar_preview(imagem_capa)
     if (imagem_foto) previews.foto = criar_preview(imagem_foto)
+    visibilidade_foto_selecionada = visibilidade_foto
     document.addEventListener("pointerdown", fechar_menu_tipo_atributo)
   })
 
@@ -150,7 +153,7 @@
     salvando = true
     mensagem_erro = ""
     try {
-      await ao_salvar_foto(arquivo_foto_nova)
+      await ao_salvar_foto(arquivo_foto_nova, visibilidade_foto_selecionada)
       navegar("/perfil")
     } catch (erro) {
       console.error("Erro ao editar foto de perfil:", erro)
@@ -164,7 +167,7 @@
     salvando = true
     mensagem_erro = ""
     try {
-      await ao_restaurar_foto(blob)
+      await ao_restaurar_foto(blob, visibilidade_foto_selecionada)
       navegar("/perfil")
     } catch (erro) {
       console.error("Erro ao restaurar foto de perfil:", erro)
@@ -429,6 +432,17 @@
         </div>
       {/if}
     </div>
+    <fieldset class="visibilidade-foto-perfil">
+      <legend>Visibilidade da foto</legend>
+      <label>
+        <input type="radio" name="visibilidade-foto" value="privado" bind:group={visibilidade_foto_selecionada} />
+        <span>Privado</span>
+      </label>
+      <label>
+        <input type="radio" name="visibilidade-foto" value="publico" bind:group={visibilidade_foto_selecionada} />
+        <span>Público</span>
+      </label>
+    </fieldset>
     <button type="submit" disabled={salvando || !arquivo_foto_nova}>
       <span class="material-symbols-outlined" aria-hidden="true">save</span>
       <span>{salvando ? "Salvando..." : "Salvar foto"}</span>
@@ -676,6 +690,30 @@
 
   .editar-foto-perfil-form {
     margin-bottom: 2em;
+  }
+
+  .visibilidade-foto-perfil {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5em;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .visibilidade-foto-perfil legend {
+    grid-column: 1 / -1;
+    margin-bottom: 0.5em;
+  }
+
+  .visibilidade-foto-perfil label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5em;
+    min-height: 2.75em;
+    border: 1px solid #666;
+    border-radius: 0.5em;
   }
 
   .historico-fotos-perfil {
