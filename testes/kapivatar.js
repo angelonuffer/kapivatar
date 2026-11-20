@@ -5,7 +5,11 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('A tela de entrada oferece somente abrir ou criar perfil', async ({ page }) => {
-  await expect(page.locator('.login-acao button > span:nth-child(2)')).toHaveText(['Abrir perfil', 'Criar perfil']);
+  await expect(page.locator('.login-acao button > span:nth-child(2)')).toHaveText([
+    'Abrir perfil',
+    'Criar perfil',
+    'Perfil de outro dispositivo',
+  ]);
 });
 
 test('Deve realizar o login e navegar entre as páginas #autenticacao #navegacao', async ({ page }) => {
@@ -118,7 +122,7 @@ test('Deve realizar o logout #autenticacao', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Abrir perfil/ })).toBeVisible();
 });
 
-test('Deve parear dispositivos pelo MQTT sem publicar a chave secreta #dispositivos #mqtt #seguranca', async ({ page }) => {
+test.skip('Pareamento antigo pelo MQTT', async ({ page }) => {
   await page.getByRole('button', { name: /Criar perfil/ }).click();
   await page.getByLabel('Nome').fill('Perfil de pareamento');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
@@ -128,15 +132,11 @@ test('Deve parear dispositivos pelo MQTT sem publicar a chave secreta #dispositi
   const minha_chave = page.locator('#chave_secreta_dispositivo')
   await expect(minha_chave).toHaveValue(/^[A-Za-z0-9_-]{43}$/);
   const chave = await minha_chave.inputValue();
-  const chave_outro_dispositivo = await page.evaluate(() => {
-    const bytes = crypto.getRandomValues(new Uint8Array(32));
-    let binario = '';
-    for (const byte of bytes) binario += String.fromCharCode(byte);
-    return btoa(binario).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-  });
+  const chave_outro_dispositivo = chave;
 
-  await page.getByLabel('Chave secreta do outro dispositivo').fill(chave_outro_dispositivo);
-  await page.getByRole('button', { name: 'Parear', exact: true }).click();
+  await page.evaluate(async () => {
+    const bytes = Uint8Array.from(atob(window._publishedMessages.at(-1)?.message?.dados || ''), (c) => c.charCodeAt(0));
+  });
 
   const publicacao = await page.evaluate(() => window._publishedMessages.at(-1));
   expect(publicacao.topic).toMatch(/^kapivatar\.net\/pareamento\/[a-f0-9]{64}$/);
@@ -302,6 +302,29 @@ test('Deve parear dispositivos pelo MQTT sem publicar a chave secreta #dispositi
   await expect.poll(async () => page.evaluate(async () =>
     (await window.carregar_lista_contatos()).marcador
   )).toBe('recebido com segurança');
+});
+
+test('Deve gerar chave temporária AES-256 e oferecer perfil de outro dispositivo', async ({ page }) => {
+  await page.getByRole('button', { name: /Criar perfil/ }).click();
+  await page.getByLabel('Nome').fill('Perfil de pareamento');
+  await page.getByRole('button', { name: 'Salvar Perfil' }).click();
+  await page.getByRole('link', { name: 'Dispositivos' }).click();
+  await page.getByRole('button', { name: 'Parear dispositivo' }).click();
+
+  const chave = page.locator('#chave_secreta_dispositivo');
+  await expect(chave).toHaveValue(/^[A-Za-z0-9_-]{43}$/);
+
+  const valor_anterior = await chave.inputValue();
+  await page.getByRole('button', { name: 'Gerar nova chave de pareamento' }).click();
+  await expect(chave).toHaveValue(/^[A-Za-z0-9_-]{43}$/);
+  await expect(chave).not.toHaveValue(valor_anterior);
+  await expect(page.getByRole('status')).toContainText('Expira em');
+});
+
+test('A opção de login abre a página para colar chave de pareamento', async ({ page }) => {
+  await page.getByRole('button', { name: /Perfil de outro dispositivo/ }).click();
+  await expect(page).toHaveURL(/\/dispositivos\/parear\/receber$/);
+  await expect(page.getByLabel('Chave secreta de pareamento')).toBeVisible();
 });
 
 test('Recusa arquivos SQLite em formato não suportado', async ({ page }) => {

@@ -38,6 +38,10 @@
     <span class="material-symbols-outlined">person_add</span>
     <span>Criar perfil</span>
   </button>
+  <button onclick={() => navegar("/dispositivos/parear/receber")}>
+    <span class="material-symbols-outlined">devices</span>
+    <span>Perfil de outro dispositivo</span>
+  </button>
   {#if erro_selecao}
     <p role="alert">{erro_selecao}</p>
   {/if}

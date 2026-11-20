@@ -686,26 +686,42 @@ const chave_storage_dispositivo = "kapivatar.dispositivo.chave"
 const chave_storage_id_dispositivo = "kapivatar.dispositivo.id"
 const chave_storage_dispositivos_pareados = "kapivatar.dispositivos.pareados"
 const chave_storage_versoes_sincronizacao = "kapivatar.sincronizacao.versoes"
-const prefixo_topico_pareamento = "kapivatar.net/pareamento/"
+const prefixo_topico_pareamento = "/kapivatar/parear/"
 const pareamentos_pendentes = new Map()
 const transferencias_sincronizacao = new Map()
 const tamanho_fragmento_sincronizacao = 48 * 1024
 const tamanho_maximo_sincronizacao = 32 * 1024 * 1024
 let elemento_status_pareamento = null
+let chave_pareamento_atual = null
+let temporizador_pareamento_atual = null
+let temporizador_contagem_pareamento = null
 
 const gerar_chave_secreta_dispositivo = () => {
   const bytes = crypto.getRandomValues(new Uint8Array(tamanho_chave_pareamento))
   return buffer_para_base64url(bytes)
 }
 
-const obter_chave_secreta_dispositivo = () => {
-  let chave = localStorage.getItem(chave_storage_dispositivo)
-  if (!chave) {
-    chave = gerar_chave_secreta_dispositivo()
-    localStorage.setItem(chave_storage_dispositivo, chave)
+const gerar_chave_pareamento_temporaria = async () => {
+  if (temporizador_pareamento_atual) clearTimeout(temporizador_pareamento_atual)
+  if (chave_pareamento_atual?.topico && typeof cliente_mqtt.unsubscribe === "function") {
+    cliente_mqtt.unsubscribe(chave_pareamento_atual.topico)
   }
+  const chave = gerar_chave_secreta_dispositivo()
   decodificar_chave_pareamento(chave)
-  return chave
+  const topico = await obter_topico_pareamento(chave)
+  chave_pareamento_atual = {
+    chave,
+    topico,
+    expiracao: Date.now() + 120_000,
+  }
+  temporizador_pareamento_atual = setTimeout(() => {
+    if (chave_pareamento_atual?.chave === chave) {
+      if (typeof cliente_mqtt.unsubscribe === "function") cliente_mqtt.unsubscribe(topico)
+      chave_pareamento_atual = null
+    }
+  }, 120_000)
+  cliente_mqtt.subscribe(topico)
+  return chave_pareamento_atual
 }
 
 const decodificar_chave_pareamento = (chave) => {
@@ -1107,9 +1123,37 @@ const atualizar_status_pareamento = (mensagem) => {
   }
 }
 
+const salvar_perfil_recebido_pareamento = async (perfil_recebido, dispositivo_remoto) => {
+  if (typeof window.showSaveFilePicker !== "function") {
+    throw new Error("Este navegador não oferece suporte à criação de arquivos.")
+  }
+  const perfil = JSON.parse(JSON.stringify(perfil_recebido))
+  const dispositivo_local = await obter_dispositivo_local()
+  perfil.dispositivo = dispositivo_local
+  perfil.outros_dispositivos = [
+    {
+      id: dispositivo_remoto.id,
+      nome: dispositivo_remoto.nome,
+      pareado_em: new Date().toISOString(),
+    },
+  ]
+
+  const [handle] = await window.showSaveFilePicker({
+    suggestedName: "perfil.kapivatar",
+    ...opcoes_selecao_perfil,
+  })
+  await handle.requestPermission({ mode: "readwrite" })
+  await abrir_banco_sqlite(handle, { criar: true })
+  await gravar_dado_sqlite("perfil", perfil)
+  nome_dispositivo_local_promise = Promise.resolve(dispositivo_local.nome)
+  await gravar_handle_salvo(handle)
+  diretorio_selecionado = handle
+  banco_sqlite_aberto = true
+  sincronizacao_iniciada = true
+  await validar_perfil_unico()
+}
+
 const processar_mensagem_pareamento = async (topico, envelope) => {
-  const chave_local = obter_chave_secreta_dispositivo()
-  const topico_local = await obter_topico_pareamento(chave_local)
   const pendente = [...pareamentos_pendentes.values()].find((item) => item.topico === topico)
   let par_topico = null
   for (const dispositivo of carregar_dispositivos_pareados()) {
@@ -1118,7 +1162,11 @@ const processar_mensagem_pareamento = async (topico, envelope) => {
       break
     }
   }
-  const chave = topico_local === topico ? chave_local : pendente?.chave || par_topico
+  const chave_temporaria = chave_pareamento_atual?.topico === topico &&
+    chave_pareamento_atual.expiracao > Date.now()
+    ? chave_pareamento_atual.chave
+    : null
+  const chave = chave_temporaria || pendente?.chave || par_topico
   if (!chave) return
 
   const mensagem = await descriptografar_mensagem_pareamento(chave, topico, envelope)
@@ -1158,6 +1206,11 @@ const processar_mensagem_pareamento = async (topico, envelope) => {
     const dispositivo_local = await obter_dispositivo_local()
     if (mensagem.dispositivo?.id === dispositivo_local.id) return
     const dispositivo_remoto = validar_dispositivo_pareado(mensagem.dispositivo)
+    const perfil_recebido = await ler_dado_sqlite("perfil")
+    if (!perfil_recebido) {
+      atualizar_status_pareamento("Abra um perfil antes de confirmar o pareamento.")
+      return
+    }
 
     const resposta = await criptografar_mensagem_pareamento(chave, topico, {
       versao: 1,
@@ -1165,9 +1218,10 @@ const processar_mensagem_pareamento = async (topico, envelope) => {
       solicitacao_id: mensagem.solicitacao_id,
       criado_em: Date.now(),
       dispositivo: dispositivo_local,
+      perfil: perfil_recebido,
     })
     cliente_mqtt.publish(topico, JSON.stringify(resposta))
-    salvar_dispositivo_pareado({ ...dispositivo_remoto, chave_secreta: chave })
+    await salvar_dispositivo_pareado({ ...dispositivo_remoto, chave_secreta: chave })
     cliente_mqtt.subscribe(topico)
     await sincronizar_banco_com_par(topico, chave)
     atualizar_status_pareamento(`Dispositivo pareado: ${dispositivo_remoto.nome}.`)
@@ -1181,12 +1235,16 @@ const processar_mensagem_pareamento = async (topico, envelope) => {
     const dispositivo_remoto = validar_dispositivo_pareado(mensagem.dispositivo)
     clearTimeout(pendente_resposta.timeout)
     pareamentos_pendentes.delete(mensagem.solicitacao_id)
-    salvar_dispositivo_pareado({ ...dispositivo_remoto, chave_secreta: chave })
+    if (mensagem.perfil) {
+      await salvar_perfil_recebido_pareamento(mensagem.perfil, dispositivo_remoto)
+    }
+    await salvar_dispositivo_pareado({ ...dispositivo_remoto, chave_secreta: chave })
     cliente_mqtt.subscribe(topico)
     pendente_resposta.botao.disabled = false
     pendente_resposta.status.textContent = `Dispositivo pareado: ${dispositivo_remoto.nome}.`
     await sincronizar_banco_com_par(topico, chave)
     await solicitar_sincronizacao_dispositivo(topico, chave)
+    navegar("/")
   }
 }
 
@@ -1591,6 +1649,62 @@ const páginas = [
     })
   },
   {
+    nome: "Perfil de outro dispositivo",
+    url: "/dispositivos/parear/receber",
+    ícone: "devices",
+    ocultar_no_menu: true,
+    render: async (conteudo) => {
+      const secao = document.createElement("section")
+      secao.classList.add("pareamento-dispositivo")
+      const título = document.createElement("h1")
+      título.textContent = "Perfil de outro dispositivo"
+      const explicacao = document.createElement("p")
+      explicacao.textContent = "Cole a chave secreta de pareamento exibida no outro dispositivo."
+
+      const form = document.createElement("form")
+      form.classList.add("form-perfil", "pareamento-formulario")
+      const campo = document.createElement("div")
+      campo.classList.add("form-campo")
+      const rotulo = document.createElement("label")
+      rotulo.htmlFor = "chave_secreta_pareamento"
+      rotulo.textContent = "Chave secreta de pareamento"
+      const chave = document.createElement("input")
+      chave.id = "chave_secreta_pareamento"
+      chave.name = "chave_secreta_pareamento"
+      chave.type = "text"
+      chave.required = true
+      chave.autocomplete = "off"
+      chave.spellcheck = false
+      chave.maxLength = 43
+      chave.pattern = "[A-Za-z0-9_-]{43}"
+      campo.append(rotulo, chave)
+      const botao = document.createElement("button")
+      botao.type = "submit"
+      botao.textContent = "Parear"
+      form.append(campo, botao)
+
+      const status = document.createElement("p")
+      status.classList.add("pareamento-status")
+      status.setAttribute("role", "status")
+      status.setAttribute("aria-live", "polite")
+      elemento_status_pareamento = status
+      secao.append(título, explicacao, form, status)
+      conteudo.appendChild(secao)
+
+      form.onsubmit = async (evento) => {
+        evento.preventDefault()
+        botao.disabled = true
+        try {
+          await iniciar_pareamento(chave.value, botao, status)
+        } catch (erro) {
+          console.error("Erro ao iniciar o pareamento:", erro)
+          status.textContent = erro instanceof Error ? erro.message : "Não foi possível iniciar o pareamento."
+          botao.disabled = false
+        }
+      }
+    }
+  },
+  {
     nome: "Parear dispositivo",
     url: "/dispositivos/parear",
     ícone: "sync_alt",
@@ -1601,13 +1715,13 @@ const páginas = [
       secao.classList.add("pareamento-dispositivo")
 
       const explicacao = document.createElement("p")
-      explicacao.textContent = "Compartilhe a chave secreta deste dispositivo com o outro dispositivo. As mensagens de pareamento são criptografadas neste navegador antes de serem enviadas pelo MQTT."
+      explicacao.textContent = "Compartilhe esta chave de pareamento com o outro dispositivo. Ela expira em 120 segundos e é usada como chave AES-256."
 
       const campo_chave = document.createElement("div")
       campo_chave.classList.add("form-campo")
       const rotulo_chave = document.createElement("label")
       rotulo_chave.htmlFor = "chave_secreta_dispositivo"
-      rotulo_chave.textContent = "Chave secreta deste dispositivo"
+      rotulo_chave.textContent = "Chave secreta de pareamento"
       const container_chave = document.createElement("div")
       container_chave.classList.add("campo-copia-container")
       const chave_secreta = document.createElement("input")
@@ -1622,72 +1736,64 @@ const páginas = [
       icone_copiar.classList.add("material-symbols-outlined")
       icone_copiar.textContent = "content_copy"
       botao_copiar.appendChild(icone_copiar)
-      container_chave.append(chave_secreta, botao_copiar)
+      const botao_gerar = document.createElement("button")
+      botao_gerar.type = "button"
+      botao_gerar.setAttribute("aria-label", "Gerar nova chave de pareamento")
+      const icone_gerar = document.createElement("span")
+      icone_gerar.classList.add("material-symbols-outlined")
+      icone_gerar.textContent = "refresh"
+      botao_gerar.appendChild(icone_gerar)
+      container_chave.append(chave_secreta, botao_copiar, botao_gerar)
       campo_chave.append(rotulo_chave, container_chave)
       secao.append(explicacao, campo_chave)
-
-      const form = document.createElement("form")
-      form.classList.add("form-perfil", "pareamento-formulario")
-      const campo_chave_outro = document.createElement("div")
-      campo_chave_outro.classList.add("form-campo")
-      const rotulo_chave_outro = document.createElement("label")
-      rotulo_chave_outro.htmlFor = "chave_secreta_outro_dispositivo"
-      rotulo_chave_outro.textContent = "Chave secreta do outro dispositivo"
-      const chave_outro = document.createElement("input")
-      chave_outro.id = "chave_secreta_outro_dispositivo"
-      chave_outro.name = "chave_secreta_outro_dispositivo"
-      chave_outro.type = "text"
-      chave_outro.required = true
-      chave_outro.autocomplete = "off"
-      chave_outro.spellcheck = false
-      chave_outro.maxLength = 43
-      chave_outro.pattern = "[A-Za-z0-9_-]{43}"
-      campo_chave_outro.append(rotulo_chave_outro, chave_outro)
-      const botao_parear = document.createElement("button")
-      botao_parear.type = "submit"
-      botao_parear.textContent = "Parear"
-      form.append(campo_chave_outro, botao_parear)
 
       const status = document.createElement("p")
       status.classList.add("pareamento-status")
       status.setAttribute("role", "status")
       status.setAttribute("aria-live", "polite")
       elemento_status_pareamento = status
-      secao.append(form, status)
+      secao.append(status)
       conteudo.appendChild(secao)
 
-      try {
-        const chave = obter_chave_secreta_dispositivo()
-        chave_secreta.value = chave
-        const topico = await obter_topico_pareamento(chave)
-        cliente_mqtt.subscribe(topico)
-      } catch (erro) {
-        console.error("Erro ao preparar o pareamento:", erro)
-        status.textContent = "Não foi possível preparar o pareamento neste navegador."
-        botao_parear.disabled = true
-      }
-
-      botao_copiar.onclick = async () => {
+      const copiar = async () => {
         try {
           await navigator.clipboard.writeText(chave_secreta.value)
-          status.textContent = "Chave secreta copiada."
+          status.textContent = "Chave secreta de pareamento copiada."
         } catch (erro) {
           console.error("Erro ao copiar a chave secreta:", erro)
           status.textContent = "Não foi possível copiar a chave secreta."
         }
       }
 
-      form.onsubmit = async (evento) => {
-        evento.preventDefault()
-        botao_parear.disabled = true
+      botao_copiar.onclick = copiar
+
+      const gerar = async () => {
         try {
-          await iniciar_pareamento(chave_outro.value, botao_parear, status)
+          const atual = await gerar_chave_pareamento_temporaria()
+          chave_secreta.value = atual.chave
+          await copiar()
+          const restante = () => {
+            if (chave_pareamento_atual?.chave !== atual.chave) return
+            const segundos = Math.max(0, Math.ceil((atual.expiracao - Date.now()) / 1000))
+            if (segundos === 0) {
+              chave_secreta.value = ""
+              status.textContent = "Chave expirada. Gere uma nova chave."
+              if (temporizador_contagem_pareamento) clearInterval(temporizador_contagem_pareamento)
+            } else {
+              status.textContent = `Chave copiada. Expira em ${segundos}s.`
+            }
+          }
+          restante()
+          if (temporizador_contagem_pareamento) clearInterval(temporizador_contagem_pareamento)
+          temporizador_contagem_pareamento = setInterval(restante, 1000)
         } catch (erro) {
-          console.error("Erro ao iniciar o pareamento:", erro)
-          status.textContent = erro instanceof Error ? erro.message : "Não foi possível iniciar o pareamento."
-          botao_parear.disabled = false
+          console.error("Erro ao gerar a chave de pareamento:", erro)
+          status.textContent = "Não foi possível gerar a chave de pareamento."
         }
       }
+
+      botao_gerar.onclick = gerar
+      await gerar()
     }
   },
   {
@@ -2861,6 +2967,17 @@ const rotear = async () => {
 
   if (!diretorio) {
     layout_referencias = null
+    if (path === "/dispositivos/parear/receber") {
+      const página_receber = páginas.find((p) => p.url === path)
+      document.body.className = "pareamento-inicial-body"
+      document.body.replaceChildren()
+      const container = document.createElement("main")
+      container.classList.add("pareamento-inicial")
+      componente_página_montado = await página_receber.render(container, params, {}, sinal_rota)
+      if (id_rota !== id_rota_atual) return
+      document.body.appendChild(container)
+      return
+    }
     if (path === "/perfil/criar") {
       const página_criar_perfil = páginas.find((p) => p.url === path)
       document.body.className = "criar-perfil-inicial-body"
