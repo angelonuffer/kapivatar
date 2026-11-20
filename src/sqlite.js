@@ -7,6 +7,25 @@ let arquivo_selecionado
 let fila_gravacao = Promise.resolve()
 let fila_abertura = Promise.resolve()
 
+const PREFIXO_JSON = new Uint8Array([0x6b, 0x61, 0x70, 0x69, 0x6a, 0x73, 0x6f, 0x6e])
+
+const codificar_json = (valor) => {
+  const conteudo = new TextEncoder().encode(JSON.stringify(valor))
+  const codificado = new Uint8Array(PREFIXO_JSON.length + conteudo.length)
+  codificado.set(PREFIXO_JSON)
+  codificado.set(conteudo, PREFIXO_JSON.length)
+  return codificado
+}
+
+const decodificar_json = (valor) => {
+  const bytes = valor instanceof Uint8Array ? valor : new Uint8Array(valor)
+  if (bytes.length < PREFIXO_JSON.length) return undefined
+  for (let indice = 0; indice < PREFIXO_JSON.length; indice++) {
+    if (bytes[indice] !== PREFIXO_JSON[indice]) return undefined
+  }
+  return JSON.parse(new TextDecoder().decode(bytes.slice(PREFIXO_JSON.length)))
+}
+
 const obter_sqlite = async () => {
   if (!sqlite3_promise) sqlite3_promise = sqlite3InitModule()
   if (!sqlite3) sqlite3 = await sqlite3_promise
@@ -33,18 +52,23 @@ const validar_formato_sqlite = (novo_db) => {
     rowMode: "array",
     resultRows: colunas,
   })
-  if (
-    colunas.length !== 3 ||
-    colunas[0][1] !== "chave" ||
-    colunas[0][2]?.toLowerCase() !== "text" ||
-    colunas[0][5] !== 1 ||
-    colunas[1][1] !== "tipo" ||
-    colunas[1][2]?.toLowerCase() !== "text" ||
-    colunas[1][3] !== 1 ||
-    colunas[2][1] !== "valor" ||
-    colunas[2][2]?.toLowerCase() !== "blob" ||
-    colunas[2][3] !== 1
-  ) {
+  const esquema_novo = colunas.length === 2 &&
+    colunas[0][1] === "chave" &&
+    colunas[0][2]?.toLowerCase() === "text" &&
+    colunas[0][5] === 1 &&
+    colunas[1][1] === "valor" &&
+    colunas[1][3] === 1
+  const esquema_antigo = colunas.length === 3 &&
+    colunas[0][1] === "chave" &&
+    colunas[0][2]?.toLowerCase() === "text" &&
+    colunas[0][5] === 1 &&
+    colunas[1][1] === "tipo" &&
+    colunas[1][2]?.toLowerCase() === "text" &&
+    colunas[1][3] === 1 &&
+    colunas[2][1] === "valor" &&
+    colunas[2][2]?.toLowerCase() === "blob" &&
+    colunas[2][3] === 1
+  if (!esquema_novo && !esquema_antigo) {
     throw new Error("Formato de arquivo de perfil não suportado.")
   }
   const tabelas = novo_db.selectValue(
@@ -78,9 +102,13 @@ const validar_formato_sqlite = (novo_db) => {
       throw new Error("Formato de arquivo de perfil não suportado.")
     }
   }
-  const dados_invalidos = novo_db.selectValue(
-    "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave IS NULL OR tipo NOT IN ('texto', 'json', 'blob') OR valor IS NULL)",
-  )
+  const dados_invalidos = esquema_antigo
+    ? novo_db.selectValue(
+      "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave IS NULL OR tipo NOT IN ('texto', 'json', 'blob') OR valor IS NULL)",
+    )
+    : novo_db.selectValue(
+      "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave IS NULL OR valor IS NULL)",
+    )
   if (dados_invalidos) throw new Error("Formato de arquivo de perfil não suportado.")
 }
 
@@ -95,7 +123,7 @@ const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
   try {
     if (arquivo.size === 0) {
       if (!criar) throw new Error("Formato de arquivo de perfil não suportado.")
-      novo_db.exec("CREATE TABLE kapivatar_dados (chave TEXT PRIMARY KEY, tipo TEXT NOT NULL, valor BLOB NOT NULL)")
+      novo_db.exec("CREATE TABLE kapivatar_dados (chave TEXT PRIMARY KEY, valor BLOB NOT NULL)")
       banco_novo = true
     } else {
       if (criar) throw new Error("Escolha um arquivo novo para criar o perfil.")
@@ -115,6 +143,29 @@ const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
         throw new Error("O arquivo SQLite selecionado está corrompido.")
       }
       validar_formato_sqlite(novo_db)
+      const tem_coluna_tipo = novo_db.selectValue(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info('kapivatar_dados') WHERE name = 'tipo')",
+      ) === 1
+      if (tem_coluna_tipo) {
+        const dados_antigos = []
+        novo_db.exec({
+          sql: "SELECT chave, tipo, valor FROM kapivatar_dados",
+          rowMode: "array",
+          resultRows: dados_antigos,
+        })
+        novo_db.exec("CREATE TABLE kapivatar_dados_nova (chave TEXT PRIMARY KEY, valor BLOB NOT NULL)")
+        for (const [chave, tipo, valor] of dados_antigos) {
+          let conteudo = valor
+          if (tipo === "json") conteudo = codificar_json(JSON.parse(new TextDecoder().decode(valor)))
+          novo_db.exec({
+            sql: "INSERT INTO kapivatar_dados_nova (chave, valor) VALUES (?, ?)",
+            bind: [chave, conteudo],
+          })
+        }
+        novo_db.exec("DROP TABLE kapivatar_dados")
+        novo_db.exec("ALTER TABLE kapivatar_dados_nova RENAME TO kapivatar_dados")
+        esquema_migrado = true
+      }
       const tem_foto_perfil = novo_db.selectValue(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'foto_perfil')",
       ) === 1
@@ -130,7 +181,7 @@ const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
             ? blob
             : new Uint8Array(blob)
           novo_db.exec({
-            sql: "INSERT INTO kapivatar_dados (chave, tipo, valor) VALUES (?, 'blob', ?) ON CONFLICT(chave) DO UPDATE SET tipo = excluded.tipo, valor = excluded.valor",
+            sql: "INSERT INTO kapivatar_dados (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
             bind: [`foto_perfil:${data}`, bytes],
           })
         }
@@ -164,47 +215,37 @@ export const fechar_banco_sqlite = async () => {
 
 export const ler_dado_sqlite = async (chave) => {
   if (!db) return undefined
-  const tipo = db.selectValue(
-    "SELECT tipo FROM kapivatar_dados WHERE chave = ?",
-    [chave],
-    sqlite3.capi.SQLITE_TEXT,
-  )
-  if (tipo === undefined) return undefined
   const valor = db.selectValue(
     "SELECT valor FROM kapivatar_dados WHERE chave = ?",
     [chave],
-    tipo === "texto" ? sqlite3.capi.SQLITE_TEXT : sqlite3.capi.SQLITE_BLOB,
   )
-  if (tipo === "texto") return valor
-  if (tipo === "json") return JSON.parse(new TextDecoder().decode(valor))
-  return valor
+  if (valor === undefined) return undefined
+  if (typeof valor === "string") return valor
+  const bytes = valor instanceof Uint8Array ? valor : new Uint8Array(valor)
+  const json = decodificar_json(bytes)
+  if (json !== undefined) return json
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
 }
 
 export const gravar_dado_sqlite = (chave, valor) => enfileirar_gravacao(async () => {
   if (!db || !arquivo_selecionado) throw new Error("Nenhum banco SQLite está aberto.")
 
-  let tipo
   let conteudo
   if (typeof valor === "string") {
-    tipo = "texto"
     conteudo = valor
   } else if (valor instanceof Blob) {
-    tipo = "blob"
     conteudo = new Uint8Array(await valor.arrayBuffer())
   } else if (valor instanceof ArrayBuffer) {
-    tipo = "blob"
     conteudo = new Uint8Array(valor)
   } else if (ArrayBuffer.isView(valor)) {
-    tipo = "blob"
     conteudo = new Uint8Array(valor.buffer, valor.byteOffset, valor.byteLength)
   } else {
-    tipo = "json"
-    conteudo = new TextEncoder().encode(JSON.stringify(valor))
+    conteudo = codificar_json(valor)
   }
 
   db.exec({
-    sql: "INSERT INTO kapivatar_dados (chave, tipo, valor) VALUES (?, ?, ?) ON CONFLICT(chave) DO UPDATE SET tipo = excluded.tipo, valor = excluded.valor",
-    bind: [chave, tipo, conteudo],
+    sql: "INSERT INTO kapivatar_dados (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
+    bind: [chave, conteudo],
   })
   await persistir_banco()
 })
@@ -232,7 +273,7 @@ export const listar_referencias_texto_sqlite = async () => {
     sql: `SELECT origem.chave, destino.valor
       FROM kapivatar_dados AS origem
       JOIN kapivatar_dados AS destino ON destino.chave = origem.valor
-      WHERE origem.tipo = 'texto' AND destino.tipo = 'texto'
+      WHERE typeof(origem.valor) = 'text' AND typeof(destino.valor) = 'text'
         AND length(origem.chave) = 64 AND origem.chave NOT GLOB '*[^a-f0-9]*'
         AND length(origem.valor) = 64 AND origem.valor NOT GLOB '*[^a-f0-9]*'`,
     rowMode: "array",
@@ -247,16 +288,17 @@ export const listar_dados_sqlite = async () => {
 
   const linhas = []
   db.exec({
-    sql: "SELECT chave, tipo, valor FROM kapivatar_dados WHERE chave NOT IN (?, ?)",
+    sql: "SELECT chave, valor FROM kapivatar_dados WHERE chave NOT IN (?, ?)",
     bind: ["arquivo_sqlite", "kapivatar.dispositivo.nome"],
     rowMode: "array",
     resultRows: linhas,
   })
 
-  return linhas.map(([chave, tipo, valor]) => {
-    if (tipo === "texto") return [chave, valor]
+  return linhas.map(([chave, valor]) => {
+    if (typeof valor === "string") return [chave, valor]
     const bytes = valor instanceof Uint8Array ? valor : new Uint8Array(valor)
-    if (tipo === "json") return [chave, JSON.parse(new TextDecoder().decode(bytes))]
+    const json = decodificar_json(bytes)
+    if (json !== undefined) return [chave, json]
     return [chave, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)]
   })
 }
@@ -269,7 +311,7 @@ export const inserir_foto_perfil_sqlite = (blob, data = new Date().toISOString()
       ? new Uint8Array(blob)
       : new Uint8Array(blob.buffer, blob.byteOffset, blob.byteLength)
   db.exec({
-    sql: "INSERT INTO kapivatar_dados (chave, tipo, valor) VALUES (?, 'blob', ?) ON CONFLICT(chave) DO UPDATE SET tipo = excluded.tipo, valor = excluded.valor",
+    sql: "INSERT INTO kapivatar_dados (chave, valor) VALUES (?, ?) ON CONFLICT(chave) DO UPDATE SET valor = excluded.valor",
     bind: [`foto_perfil:${data}`, bytes],
   })
   await persistir_banco()
@@ -280,7 +322,7 @@ export const listar_fotos_perfil_sqlite = async () => {
   if (!db) return []
   const linhas = []
   db.exec({
-    sql: "SELECT chave, valor FROM kapivatar_dados WHERE chave LIKE 'foto_perfil:%' AND tipo = 'blob' ORDER BY chave DESC",
+    sql: "SELECT chave, valor FROM kapivatar_dados WHERE chave LIKE 'foto_perfil:%' AND typeof(valor) = 'blob' ORDER BY chave DESC",
     rowMode: "array",
     resultRows: linhas,
   })
