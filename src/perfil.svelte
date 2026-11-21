@@ -245,8 +245,10 @@
             </button>
           {/if}
         </div>
-        <h2>{dados.nome}</h2>
-        <p>{dados.bio}</p>
+        <div class="perfil-identidade">
+          <h2>{dados.nome}</h2>
+          <p>{dados.bio || "Nenhuma bio adicionada."}</p>
+        </div>
       </div>
     </div>
   {/if}
@@ -549,6 +551,13 @@
 
   .cabecalho-assobios-perfil h3 {
     margin: 0;
+  }
+
+  .secao-assobios-perfil {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
   }
 
   .acoes-assobio {
