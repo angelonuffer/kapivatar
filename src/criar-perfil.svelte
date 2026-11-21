@@ -13,6 +13,7 @@
     ler_arquivo,
     navegar,
     obter_dispositivo_local,
+    carregar_dispositivos_pareados,
   } = $props()
 
   let nome = $state("")
@@ -56,13 +57,15 @@
 
       const agora = new Date().toISOString()
       const dispositivo = await obter_dispositivo_local()
+      const dispositivos_pareados = await carregar_dispositivos_pareados()
       const dados = {
         nome: [{ data: agora, valor: nome }],
         bio: [{ data: agora, valor: bio }],
         visibilidade_foto: [{ data: agora, valor: "privado" }],
         chave_privada: chave_privada_jwk,
         dispositivo: { id: dispositivo.id, nome: dispositivo.nome },
-        outros_dispositivos: [],
+        outros_dispositivos: dispositivos_pareados.map(({ id, nome, chave_secreta, pareado_em }) =>
+          ({ id, nome, chave_secreta, pareado_em })),
       }
 
       const salvar_imagem = async (campo) => {

@@ -12,7 +12,7 @@ O armazenamento combina quatro mecanismos:
 | --- | --- |
 | Arquivo SQLite | Dados do perfil, arquivos virtuais, contatos, conversas, imagens e assobios |
 | IndexedDB | Handle do arquivo SQLite selecionado pelo usuário |
-| `localStorage` | Identidade local do dispositivo, dispositivos pareados e versões usadas na sincronização |
+| `localStorage` | Versões usadas na sincronização |
 | `sessionStorage` | Estado temporário de permissão usado pelo sistema de arquivos virtual |
 
 Os dados do perfil não são guardados em um banco central.
@@ -103,6 +103,7 @@ A chave reservada `perfil` contém um objeto JSON com o formato abaixo:
     {
       "id": "uuid",
       "nome": "Outro dispositivo",
+      "chave_secreta": "chave-secreta-base64url",
       "pareado_em": "2026-11-21T14:12:51.041Z"
     }
   ]
@@ -293,8 +294,6 @@ Os metadados locais usados pelo navegador são mantidos diretamente no `localSto
 
 | Chave | Conteúdo |
 | --- | --- |
-| `kapivatar.dispositivo.id` | UUID persistente deste dispositivo |
-| `kapivatar.dispositivos.pareados` | Lista JSON dos dispositivos pareados, seus nomes, datas e chaves secretas |
 | `kapivatar.sincronizacao.versoes` | Objeto JSON que registra a última versão conhecida de cada chave sincronizada |
 
 Cada entrada de versão sincronizada contém:

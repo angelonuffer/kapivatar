@@ -244,6 +244,15 @@ const ler_perfil_sqlite = async () => {
   }
   if (!perfil.dispositivo || typeof perfil.dispositivo.id !== "string" || typeof perfil.dispositivo.nome !== "string") return null
   if (!Array.isArray(perfil.outros_dispositivos)) return null
+  for (const dispositivo of perfil.outros_dispositivos) {
+    if (
+      !dispositivo ||
+      typeof dispositivo.id !== "string" ||
+      typeof dispositivo.nome !== "string" ||
+      typeof dispositivo.pareado_em !== "string" ||
+      (dispositivo.chave_secreta !== undefined && typeof dispositivo.chave_secreta !== "string")
+    ) return null
+  }
   if (Object.keys(perfil).some(campo => !["capa", "foto", "nome", "bio", "visibilidade_foto", "chave_privada", "dispositivo", "outros_dispositivos"].includes(campo))) return null
   const chave_privada = await importar_chave_privada(perfil.chave_privada)
   const jwk_publica = Object.fromEntries(
@@ -259,6 +268,7 @@ const ler_perfil_sqlite = async () => {
   )
   const chave_publica_jwk = await exportar_chave(chave_publica)
   const id = await gerar_id_perfil(chave_publica)
+  id_dispositivo_local = perfil.dispositivo.id
   return {
     capa: obter_valor_atual(perfil.capa),
     foto: obter_valor_atual(perfil.foto),
@@ -493,6 +503,7 @@ const abrir_perfil = async () => {
   await handle.requestPermission({ mode: "readwrite" })
   const diretorio_anterior = diretorio_selecionado
   await abrir_banco_sqlite(handle)
+  dispositivos_pareados_cache_carregado = false
   try {
     await validar_perfil_unico()
   } catch (erro) {
@@ -684,7 +695,6 @@ const base64url_para_buffer = (base64url) => {
 }
 
 const tamanho_chave_pareamento = 32
-const chave_storage_dispositivo = "kapivatar.dispositivo.chave"
 const chave_storage_id_dispositivo = "kapivatar.dispositivo.id"
 const chave_storage_dispositivos_pareados = "kapivatar.dispositivos.pareados"
 const chave_storage_versoes_sincronizacao = "kapivatar.sincronizacao.versoes"
@@ -737,20 +747,45 @@ const decodificar_chave_pareamento = (chave) => {
   return bytes
 }
 
-const obter_id_dispositivo_local = () => {
-  let id = localStorage.getItem(chave_storage_id_dispositivo)
-  if (!id) {
-    id = crypto.randomUUID()
-    localStorage.setItem(chave_storage_id_dispositivo, id)
+let id_dispositivo_local = null
+let dispositivos_pareados_cache = null
+let dispositivos_pareados_cache_carregado = false
+
+try {
+  const id_legado = localStorage.getItem(chave_storage_id_dispositivo)
+  if (id_legado) id_dispositivo_local = id_legado
+  localStorage.removeItem(chave_storage_id_dispositivo)
+} catch {}
+
+try {
+  const pareados_legado = localStorage.getItem(chave_storage_dispositivos_pareados)
+  if (pareados_legado) {
+    const dispositivos = JSON.parse(pareados_legado)
+    if (Array.isArray(dispositivos)) dispositivos_pareados_cache = dispositivos
   }
-  return id
+  localStorage.removeItem(chave_storage_dispositivos_pareados)
+} catch {}
+
+const obter_id_dispositivo_local = () => {
+  if (!id_dispositivo_local) {
+    try {
+      id_dispositivo_local = localStorage.getItem(chave_storage_id_dispositivo) || crypto.randomUUID()
+      localStorage.removeItem(chave_storage_id_dispositivo)
+    } catch {
+      id_dispositivo_local = crypto.randomUUID()
+    }
+  }
+  return id_dispositivo_local
 }
 
 const obter_nome_dispositivo_local = () => {
   if (!nome_dispositivo_local_promise) {
     nome_dispositivo_local_promise = (async () => {
       const perfil = await ler_perfil_sqlite()
-      if (perfil?.dispositivo?.nome) return perfil.dispositivo.nome
+      if (perfil?.dispositivo?.nome) {
+        id_dispositivo_local = perfil.dispositivo.id
+        return perfil.dispositivo.nome
+      }
       const nome = `Dispositivo ${crypto.randomUUID().slice(0, 8)}`
       if (perfil) await atualizar_perfil_sqlite({ dispositivo: { id: obter_id_dispositivo_local(), nome } })
       return nome
@@ -772,10 +807,42 @@ const obter_dispositivo_local = async () => ({
   nome: await obter_nome_dispositivo_local(),
 })
 
-const carregar_dispositivos_pareados = () => {
-  const salvos = localStorage.getItem(chave_storage_dispositivos_pareados)
-  return salvos ? JSON.parse(salvos) : []
+const carregar_dispositivos_pareados = async () => {
+  if (dispositivos_pareados_cache_carregado) return [...dispositivos_pareados_cache]
+  try {
+    const pareados_legado = localStorage.getItem(chave_storage_dispositivos_pareados)
+    localStorage.removeItem(chave_storage_dispositivos_pareados)
+    if (pareados_legado) {
+      const dispositivos = JSON.parse(pareados_legado)
+      if (Array.isArray(dispositivos)) {
+        dispositivos_pareados_cache = Array.isArray(dispositivos_pareados_cache)
+          ? [...dispositivos_pareados_cache, ...dispositivos]
+          : dispositivos
+      }
+    }
+  } catch {}
+  const perfil = await ler_dado_sqlite("perfil")
+  const do_banco = Array.isArray(perfil?.outros_dispositivos) ? perfil.outros_dispositivos : []
+  const legados = Array.isArray(dispositivos_pareados_cache) ? dispositivos_pareados_cache : []
+  const dispositivos = new Map(do_banco.map((dispositivo) => [dispositivo.id, dispositivo]))
+  for (const dispositivo of legados) {
+    if (dispositivos.has(dispositivo.id)) {
+      dispositivos.set(dispositivo.id, { ...dispositivos.get(dispositivo.id), ...dispositivo })
+    } else {
+      dispositivos.set(dispositivo.id, dispositivo)
+    }
+  }
+  dispositivos_pareados_cache = [...dispositivos.values()]
+  dispositivos_pareados_cache_carregado = true
+  if (legados.length && perfil) {
+    await atualizar_perfil_sqlite({
+      outros_dispositivos: dispositivos_pareados_cache.map(({ id, nome, chave_secreta, pareado_em }) =>
+        ({ id, nome, chave_secreta, pareado_em })),
+    })
+  }
+  return [...dispositivos_pareados_cache]
 }
+window.carregar_dispositivos_pareados = carregar_dispositivos_pareados
 
 const validar_dispositivo_pareado = (dispositivo) => {
   if (
@@ -792,7 +859,7 @@ const validar_dispositivo_pareado = (dispositivo) => {
 
 const salvar_dispositivo_pareado = async (dispositivo) => {
   validar_dispositivo_pareado(dispositivo)
-  const dispositivos = carregar_dispositivos_pareados()
+  const dispositivos = await carregar_dispositivos_pareados()
   const existente = dispositivos.find((item) => item.id === dispositivo.id)
   const atualizado = {
     ...existente,
@@ -805,9 +872,11 @@ const salvar_dispositivo_pareado = async (dispositivo) => {
   decodificar_chave_pareamento(atualizado.chave_secreta)
   if (existente) Object.assign(existente, atualizado)
   else dispositivos.push(atualizado)
-  localStorage.setItem(chave_storage_dispositivos_pareados, JSON.stringify(dispositivos))
+  dispositivos_pareados_cache = dispositivos
+  dispositivos_pareados_cache_carregado = true
   await atualizar_perfil_sqlite({
-    outros_dispositivos: dispositivos.map(({ id, nome, pareado_em }) => ({ id, nome, pareado_em })),
+    outros_dispositivos: dispositivos.map(({ id, nome, chave_secreta, pareado_em }) =>
+      ({ id, nome, chave_secreta, pareado_em })),
   })
 }
 
@@ -955,7 +1024,7 @@ const publicar_registro_sincronizacao = async (topico, chave_secreta, chave, reg
 }
 
 const publicar_registro_para_pares = async (chave, registro, excluir_dispositivo = null) => {
-  const dispositivos = carregar_dispositivos_pareados()
+  const dispositivos = await carregar_dispositivos_pareados()
   for (const dispositivo of dispositivos) {
     if (!dispositivo.chave_secreta || dispositivo.id === excluir_dispositivo) continue
     const topico = await obter_topico_pareamento(dispositivo.chave_secreta)
@@ -998,7 +1067,7 @@ const solicitar_sincronizacao_dispositivo = async (topico, chave_secreta) => {
 
 const sincronizar_pares_conhecidos = async () => {
   if (!banco_sqlite_aberto) return
-  const dispositivos = carregar_dispositivos_pareados()
+  const dispositivos = await carregar_dispositivos_pareados()
   for (const dispositivo of dispositivos) {
     if (!dispositivo.chave_secreta) continue
     const topico = await obter_topico_pareamento(dispositivo.chave_secreta)
@@ -1037,7 +1106,7 @@ const decodificar_fragmento_sincronizacao = (mensagem) => {
 
 const processar_mensagem_sincronizacao = async (topico, chave_secreta, mensagem) => {
   if (!banco_sqlite_aberto) return
-  const pareado = carregar_dispositivos_pareados().find((item) =>
+  const pareado = (await carregar_dispositivos_pareados()).find((item) =>
     item.chave_secreta === chave_secreta && item.id === mensagem.dispositivo_id)
   if (
     !pareado ||
@@ -1146,6 +1215,8 @@ const salvar_perfil_recebido_pareamento = async (perfil_recebido, dispositivo_re
   })
   await handle.requestPermission({ mode: "readwrite" })
   await abrir_banco_sqlite(handle, { criar: true })
+  dispositivos_pareados_cache = null
+  dispositivos_pareados_cache_carregado = false
   await gravar_dado_sqlite("perfil", perfil)
   nome_dispositivo_local_promise = Promise.resolve(dispositivo_local.nome)
   await gravar_handle_salvo(handle)
@@ -1158,7 +1229,7 @@ const salvar_perfil_recebido_pareamento = async (perfil_recebido, dispositivo_re
 const processar_mensagem_pareamento = async (topico, envelope) => {
   const pendente = [...pareamentos_pendentes.values()].find((item) => item.topico === topico)
   let par_topico = null
-  for (const dispositivo of carregar_dispositivos_pareados()) {
+  for (const dispositivo of await carregar_dispositivos_pareados()) {
     if (dispositivo.chave_secreta && await obter_topico_pareamento(dispositivo.chave_secreta) === topico) {
       par_topico = dispositivo.chave_secreta
       break
@@ -1180,7 +1251,7 @@ const processar_mensagem_pareamento = async (topico, envelope) => {
     throw new Error("Uso do envelope de sincronização inválido.")
   }
   if (mensagem.tipo === "sincronizacao_solicitar") {
-    const pareado = carregar_dispositivos_pareados().find((item) =>
+    const pareado = (await carregar_dispositivos_pareados()).find((item) =>
       item.chave_secreta === chave && item.id === mensagem.dispositivo_id)
     if (
       pareado &&
@@ -1640,7 +1711,7 @@ const páginas = [
       props: {
         arquivo_nome: diretorio_selecionado.name,
         nome_dispositivo: await obter_nome_dispositivo_local(),
-        dispositivos_pareados: carregar_dispositivos_pareados(),
+        dispositivos_pareados: await carregar_dispositivos_pareados(),
         renomear_dispositivo: renomear_dispositivo_local,
         abrir_perfil: async () => {
           await abrir_perfil()
@@ -1821,6 +1892,7 @@ const páginas = [
           ler_arquivo,
           gravar_dado_sqlite,
           obter_dispositivo_local,
+          carregar_dispositivos_pareados,
           navegar,
         },
       })

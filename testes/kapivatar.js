@@ -214,9 +214,9 @@ test.skip('Pareamento antigo pelo MQTT', async ({ page }) => {
   });
 
   await expect(page.getByRole('status')).toHaveText('Dispositivo pareado: Dispositivo remoto.');
-  await expect.poll(() => page.evaluate((id) => JSON.parse(
-    localStorage.getItem('kapivatar.dispositivos.pareados')
-  ).some((dispositivo) => dispositivo.id === id), id_dispositivo_remoto)).toBe(true);
+  await expect.poll(() => page.evaluate(async (id) =>
+    (await window.carregar_dispositivos_pareados()).some((dispositivo) => dispositivo.id === id),
+  id_dispositivo_remoto)).toBe(true);
 
   await page.evaluate(async () => {
     await window.salvar_lista_contatos({
