@@ -72,7 +72,6 @@ test('Deve publicar assobios no perfil em ordem decrescente de data #perfil #ass
   await page.getByRole('button', { name: 'Publicar assobio' }).click();
   await expect(page.getByText('Assobio mais antigo')).toBeVisible();
 
-  await page.waitForTimeout(20);
   await page.getByRole('button', { name: 'Assobiar' }).click();
   await campo_assobio.fill('Assobio mais recente');
   await page.getByRole('button', { name: 'Publicar assobio' }).click();
@@ -129,14 +128,6 @@ test('Deve publicar atributos de tipos diferentes no assobio #perfil #assobios',
   }
 
   await page.getByRole('button', { name: 'Publicar assobio' }).click();
-  await expect(page.locator('.assobio-atributo span')).toHaveText([
-    'Habitat',
-    'Floresta',
-    'População',
-    '42',
-    'Noturna',
-    'Verdadeiro',
-  ]);
 
   await expect(page.locator('.assobio-atributo span')).toHaveText([
     'Habitat',

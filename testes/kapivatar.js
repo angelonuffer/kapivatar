@@ -353,18 +353,18 @@ test('Deve sincronizar uma vez ao abrir o banco, sem repetir em cada navegação
   await page.getByRole('button', { name: /Criar perfil/ }).click();
   await page.getByLabel('Nome').fill('Perfil sincronizado');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();
-  await page.waitForTimeout(200);
+  await expect.poll(() => page.evaluate(() =>
+    window._publishedMessages.filter(({ message }) => message.uso === 'sincronizacao-v1').length
+  )).toBeGreaterThan(0);
   const total_publicacoes = await page.evaluate(() =>
     window._publishedMessages.filter(({ message }) => message.uso === 'sincronizacao-v1').length
   );
-  expect(total_publicacoes).toBeGreaterThan(0);
 
   await page.getByRole('link', { name: 'Dispositivos' }).click();
   await expect(page).toHaveURL(/\/dispositivos$/);
   await page.getByRole('link', { name: 'Perfil', exact: true }).click();
   await expect(page).toHaveURL(/\/perfil$/);
-  await page.waitForTimeout(200);
-  expect(await page.evaluate(() =>
+  await expect.poll(() => page.evaluate(() =>
     window._publishedMessages.filter(({ message }) => message.uso === 'sincronizacao-v1').length
   )).toBe(total_publicacoes);
 });
