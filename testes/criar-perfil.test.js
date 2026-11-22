@@ -21,6 +21,13 @@ const props = () => ({
 })
 
 describe("CriarPerfil", () => {
+  it("exibe o campo de foto", () => {
+    render(CriarPerfil, { props: props() })
+
+    expect(screen.getByLabelText("Foto")).toHaveAttribute("type", "file")
+    expect(screen.getByLabelText("Foto")).toHaveAttribute("accept", "image/*")
+  })
+
   it("valida o campo obrigatório de nome", async () => {
     render(CriarPerfil, { props: props() })
     const formulario = screen.getByRole("button", { name: /Salvar Perfil/ }).closest("form")
