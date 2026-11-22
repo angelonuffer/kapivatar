@@ -4,7 +4,7 @@ Este documento descreve onde e como o Kapivatar persiste os dados de um perfil.
 
 ## Visão geral
 
-Um perfil é armazenado em um único arquivo SQLite escolhido pelo usuário. A extensão sugerida é `.kapivatar`, embora o aplicativo também aceite arquivos `.sqlite`.
+Um perfil é armazenado em um único arquivo SQLite escolhido pelo usuário. A extensão do arquivo é livre; o aplicativo aceita qualquer arquivo que contenha SQLite 3 válido.
 
 O armazenamento combina quatro mecanismos:
 
@@ -35,16 +35,14 @@ CREATE TABLE kapivatar_dados (
 
 Na prática, `valor` pode ser armazenado pelo SQLite como texto, blob ou JSON JSON-text. As operações de leitura e escrita reconhecem esses formatos.
 
-Um arquivo só é aceito pelo aplicativo quando:
+O aplicativo verifica a integridade do SQLite e repara automaticamente a estrutura necessária:
 
-- a tabela se chama exatamente `kapivatar_dados`;
-- `chave` é `TEXT PRIMARY KEY`;
-- `valor` é `BLOB NOT NULL`;
-- não existem outras tabelas de usuário;
-- não existem linhas com `chave` ou `valor` nulos;
-- o arquivo passa na verificação `PRAGMA integrity_check`.
-
-Essa validação impede que um arquivo aleatório seja confundido com um perfil ou que tabelas adicionais sejam abertas silenciosamente.
+- se `kapivatar_dados` não existe, ela é criada;
+- se `chave` ou `valor` não existem ou não possuem a forma necessária, a tabela é recriada e
+  os dados legíveis são preservados;
+- outras tabelas são mantidas;
+- se a linha `perfil` não existe, ela é criada;
+- campos ausentes ou inválidos do objeto `perfil` são preenchidos ou recriados.
 
 Todas as alterações usam inserção com substituição da chave:
 
