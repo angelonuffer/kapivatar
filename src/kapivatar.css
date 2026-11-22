@@ -118,11 +118,27 @@ a.ativo {
 }
 
 .login-acao {
+  position: relative;
   flex: 1;
   background-color: #222;
   margin: 1em;
   border-radius: 1em;
   padding: 4em;
+}
+
+.login-acao .botao-voltar-login {
+  position: absolute;
+  top: 1em;
+  left: 1em;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  justify-content: center;
+}
+
+.login-acao .form-perfil {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Perfis */

@@ -2910,7 +2910,23 @@ const rotear = async () => {
       const diretorio = await obter_diretorio()
       if (!diretorio) {
         layout_referencias = null
-        renderizar_tela_inicial({ url_logo, url_capivara, abrir_perfil, navegar })
+        renderizar_tela_inicial({
+          url_logo,
+          url_capivara,
+          abrir_perfil,
+          navegar,
+          criar_arquivo_perfil,
+          obter_diretorio,
+          gerar_chaves,
+          exportar_chave,
+          gerar_id_perfil,
+          gerar_hash,
+          escrever_arquivo,
+          ler_arquivo,
+          gravar_dado_sqlite,
+          obter_dispositivo_local,
+          carregar_dispositivos_pareados,
+        })
         return
       }
 
@@ -3073,7 +3089,23 @@ const rotear = async () => {
       document.body.appendChild(container)
       return
     }
-    renderizar_tela_inicial({ url_logo, url_capivara, abrir_perfil, navegar })
+    renderizar_tela_inicial({
+      url_logo,
+      url_capivara,
+      abrir_perfil,
+      navegar,
+      criar_arquivo_perfil,
+      obter_diretorio,
+      gerar_chaves,
+      exportar_chave,
+      gerar_id_perfil,
+      gerar_hash,
+      escrever_arquivo,
+      ler_arquivo,
+      gravar_dado_sqlite,
+      obter_dispositivo_local,
+      carregar_dispositivos_pareados,
+    })
     return
   }
 

@@ -51,8 +51,8 @@ test('Deve realizar o login e navegar entre as páginas #autenticacao #navegacao
 
 test('Deve criar um perfil diretamente pela tela inicial em um arquivo próprio #perfil #arquivo', async ({ page }) => {
   await page.getByRole('button', { name: /Criar perfil/ }).click();
-  await expect(page).toHaveURL(/\/perfil\/criar$/);
-  await expect(page.getByText('Ao salvar, escolha onde guardar o arquivo do seu perfil.')).toBeVisible();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator('.login-acao .form-perfil')).toBeVisible();
 
   await page.getByLabel('Nome').fill('Lia Nunes');
   await page.getByRole('button', { name: 'Salvar Perfil' }).click();

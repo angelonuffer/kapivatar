@@ -1,6 +1,25 @@
 <script>
-  let { url_logo, url_capivara, abrir_perfil, navegar } = $props()
+  import CriarPerfil from "./criar-perfil.svelte"
+
+  let {
+    url_logo,
+    url_capivara,
+    abrir_perfil,
+    navegar,
+    criar_arquivo_perfil,
+    obter_diretorio,
+    gerar_chaves,
+    exportar_chave,
+    gerar_id_perfil,
+    gerar_hash,
+    escrever_arquivo,
+    gravar_dado_sqlite,
+    ler_arquivo,
+    obter_dispositivo_local,
+    carregar_dispositivos_pareados,
+  } = $props()
   let erro_selecao = $state("")
+  let criando_perfil = $state(false)
 
   const escolher_arquivo = async () => {
     erro_selecao = ""
@@ -29,20 +48,46 @@
 </div>
 
 <div class="coluna login-acao">
-  <p>Entrar no Kapivatar</p>
-  <button onclick={escolher_arquivo}>
-    <span class="material-symbols-outlined">person</span>
-    <span>Abrir perfil</span>
-  </button>
-  <button onclick={() => navegar("/perfil/criar")}>
-    <span class="material-symbols-outlined">person_add</span>
-    <span>Criar perfil</span>
-  </button>
-  <button onclick={() => navegar("/dispositivos/parear/receber")}>
-    <span class="material-symbols-outlined">devices</span>
-    <span>Perfil de outro dispositivo</span>
-  </button>
-  {#if erro_selecao}
-    <p role="alert">{erro_selecao}</p>
+  {#if criando_perfil}
+    <p>Criar perfil</p>
+    <button
+      class="botao-voltar-login"
+      type="button"
+      aria-label="Voltar"
+      onclick={() => criando_perfil = false}
+    >
+      <span class="material-symbols-outlined">arrow_back</span>
+    </button>
+    <CriarPerfil
+      {criar_arquivo_perfil}
+      {obter_diretorio}
+      {gerar_chaves}
+      {exportar_chave}
+      {gerar_id_perfil}
+      {gerar_hash}
+      {escrever_arquivo}
+      {ler_arquivo}
+      {gravar_dado_sqlite}
+      {obter_dispositivo_local}
+      {carregar_dispositivos_pareados}
+      {navegar}
+    />
+  {:else}
+    <p>Entrar no Kapivatar</p>
+    <button onclick={escolher_arquivo}>
+      <span class="material-symbols-outlined">person</span>
+      <span>Abrir perfil</span>
+    </button>
+    <button onclick={() => criando_perfil = true}>
+      <span class="material-symbols-outlined">person_add</span>
+      <span>Criar perfil</span>
+    </button>
+    <button onclick={() => navegar("/dispositivos/parear/receber")}>
+      <span class="material-symbols-outlined">devices</span>
+      <span>Perfil de outro dispositivo</span>
+    </button>
+    {#if erro_selecao}
+      <p role="alert">{erro_selecao}</p>
+    {/if}
   {/if}
 </div>

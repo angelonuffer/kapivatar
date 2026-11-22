@@ -31,7 +31,7 @@ test('Deve selecionar entre foto de perfil privada e pública #perfil #foto', as
 
 test('Deve criar e exibir o perfil único do arquivo de dados #perfil #arquivo', async ({ page }) => {
   await page.getByRole('button', { name: /Criar perfil/ }).click();
-  await expect(page).toHaveURL(/\/perfil\/criar$/);
+  await expect(page).toHaveURL(/\/$/);
 
   await page.getByLabel('Nome').fill('Capivara de Teste');
   await page.getByLabel('Bio', { exact: true }).fill('Uma bio de teste');
