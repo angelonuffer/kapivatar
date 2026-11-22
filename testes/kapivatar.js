@@ -1,4 +1,6 @@
 import { test, expect } from './simulações/fixtures.js';
+import { simular_mqtt } from './simulações/mqtt.js';
+import { simular_file_system_access_api } from './simulações/file-system-access-api.js';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -201,11 +203,11 @@ test.skip('Pareamento antigo pelo MQTT', async ({ page }) => {
       criado_em: Date.now(),
       dispositivo: { id, nome: 'Dispositivo remoto' },
     })));
-    window._mqttClient._simulateIncoming(topic, {
+    window.cliente_mqtt.publish(topic, JSON.stringify({
       versao: 1,
       iv: codificar(iv),
       dados: codificar(dados),
-    });
+    }));
   }, {
     topic: publicacao.topic,
     secret: chave_outro_dispositivo,
@@ -284,12 +286,12 @@ test.skip('Pareamento antigo pelo MQTT', async ({ page }) => {
         iv,
         additionalData: new TextEncoder().encode(topic),
       }, chave_aes, new TextEncoder().encode(JSON.stringify(dados)));
-      window._mqttClient._simulateIncoming(topic, {
+      window.cliente_mqtt.publish(topic, JSON.stringify({
         versao: 1,
         uso: 'sincronizacao-v1',
         iv: codificar(iv),
         dados: codificar(criptografado),
-      });
+      }));
     };
     const instante = Date.now();
     await enviar(hash, lista, instante);
@@ -319,6 +321,66 @@ test('Deve gerar chave temporária AES-256 e oferecer perfil de outro dispositiv
   await expect(chave).toHaveValue(/^[A-Za-z0-9_-]{43}$/);
   await expect(chave).not.toHaveValue(valor_anterior);
   await expect(page.getByRole('status')).toContainText('Expira em');
+});
+
+test('Deve parear dois perfis em dois perfis isolados do Chrome #pareamento #dispositivos', async ({ browser, mqttMock }) => {
+  const perfil_a = await browser.newContext({ baseURL: 'http://127.0.0.1:3000' });
+  const perfil_b = await browser.newContext({ baseURL: 'http://127.0.0.1:3000' });
+  await perfil_a.addInitScript(simular_mqtt);
+  await perfil_a.addInitScript(simular_file_system_access_api);
+  await perfil_b.addInitScript(simular_mqtt);
+  await perfil_b.addInitScript(simular_file_system_access_api);
+
+  const pagina_a = await perfil_a.newPage();
+  const pagina_b = await perfil_b.newPage();
+
+  await pagina_a.goto('/');
+  await pagina_a.getByRole('button', { name: /Criar perfil/ }).click();
+  await pagina_a.getByLabel('Nome').fill('Perfil Chrome A');
+  await pagina_a.getByRole('button', { name: 'Salvar Perfil' }).click();
+  await expect(pagina_a.getByRole('heading', { name: 'Perfil Chrome A' })).toBeVisible();
+
+  await pagina_a.getByRole('link', { name: 'Dispositivos' }).click();
+  await pagina_a.getByRole('button', { name: 'Parear dispositivo' }).click();
+  const chave = pagina_a.locator('#chave_secreta_dispositivo');
+  await expect(chave).toHaveValue(/^[A-Za-z0-9_-]{43}$/);
+
+  await pagina_b.goto('/dispositivos/parear/receber');
+  await pagina_b.getByLabel('Chave secreta de pareamento').fill(await chave.inputValue());
+  const bridge_mqtt = await mqttMock.criar_bridge(pagina_a, pagina_b);
+  await pagina_b.getByRole('button', { name: 'Parear', exact: true }).click();
+  await expect.poll(() => pagina_b.evaluate(() => window._publishedMessages.length)).toBeGreaterThan(0);
+  await expect.poll(() => pagina_a.evaluate(() => window._publishedMessages.length)).toBeGreaterThan(0);
+
+  await expect(pagina_a.getByRole('status')).toContainText(/Dispositivo pareado:/);
+  await expect.poll(() =>
+    pagina_b.evaluate(async () => (await window.carregar_dispositivos_pareados()).length)
+  ).toBe(1);
+
+  await expect(pagina_b.evaluate(() => window._databasePickerCalls)).resolves.toBeGreaterThan(0);
+  await expect(pagina_b.evaluate(() => window._databasePickerType)).resolves.toBe('save');
+  await expect(pagina_b.evaluate(() => window._databasePickerOptions.suggestedName)).resolves.toBe('perfil.kapivatar');
+  await expect(pagina_b).toHaveURL(/\/$/);
+
+  await pagina_a.evaluate(async () => {
+    await window.gravar_dado_sqlite('teste_sincronizacao_pareamento', 'valor-sincronizado');
+    await window.publicar_alteracao_local('teste_sincronizacao_pareamento', 'valor-sincronizado', 'gravar');
+  });
+  await expect.poll(() =>
+    pagina_b.evaluate(() => window.ler_dado_sqlite('teste_sincronizacao_pareamento'))
+  ).toBe('valor-sincronizado');
+
+  await bridge_mqtt.stop();
+
+  const pareados_a = await pagina_a.evaluate(() => window.carregar_dispositivos_pareados());
+  const pareados_b = await pagina_b.evaluate(() => window.carregar_dispositivos_pareados());
+  expect(pareados_a).toHaveLength(1);
+  expect(pareados_b).toHaveLength(1);
+  expect(pareados_a[0].nome).not.toBe('');
+  expect(pareados_b[0].nome).not.toBe('');
+
+  await perfil_a.close();
+  await perfil_b.close();
 });
 
 test('A opção de login abre a página para colar chave de pareamento', async ({ page }) => {

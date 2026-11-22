@@ -17,6 +17,7 @@ import Perfil from "./perfil.svelte"
 import BaseHorizontal from "./base-horizontal.svelte"
 import BaseVertical from "./base-vertical.svelte"
 import Dispositivos, { metadados as metadados_dispositivos } from "./dispositivos.svelte"
+import mqtt from "mqtt"
 
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
 const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
@@ -302,6 +303,9 @@ const atualizar_perfil_sqlite = async (mudancas) => {
     }
   }
   await gravar_dado_sqlite("perfil", atualizado)
+  publicar_alteracao_local("perfil", atualizado, "gravar").catch((erro) => {
+    console.error("Erro ao sincronizar alteração do perfil:", erro)
+  })
 }
 
 const obter_handle_salvo = async () => {
@@ -1036,6 +1040,9 @@ const publicar_alteracao_local = async (chave, valor, operacao) => {
   const versao = nova_versao_sincronizacao(chave, operacao)
   await publicar_registro_para_pares(chave, { valor, operacao, versao })
 }
+window.ler_dado_sqlite = ler_dado_sqlite
+window.gravar_dado_sqlite = gravar_dado_sqlite
+window.publicar_alteracao_local = publicar_alteracao_local
 
 const sincronizar_banco_com_par = async (topico, chave_secreta) => {
   const dados = await listar_dados_sqlite()
@@ -1198,7 +1205,12 @@ const salvar_perfil_recebido_pareamento = async (perfil_recebido, dispositivo_re
   if (typeof window.showSaveFilePicker !== "function") {
     throw new Error("Este navegador não oferece suporte à criação de arquivos.")
   }
-  const perfil = JSON.parse(JSON.stringify(perfil_recebido))
+  const perfil = typeof perfil_recebido === "string"
+    ? JSON.parse(perfil_recebido)
+    : JSON.parse(JSON.stringify(perfil_recebido))
+  if (!perfil || typeof perfil !== "object" || Array.isArray(perfil)) {
+    throw new Error("O perfil recebido é inválido.")
+  }
   const dispositivo_local = await obter_dispositivo_local()
   perfil.dispositivo = dispositivo_local
   perfil.outros_dispositivos = [
@@ -1209,7 +1221,7 @@ const salvar_perfil_recebido_pareamento = async (perfil_recebido, dispositivo_re
     },
   ]
 
-  const [handle] = await window.showSaveFilePicker({
+  const handle = await window.showSaveFilePicker({
     suggestedName: "perfil.kapivatar",
     ...opcoes_selecao_perfil,
   })
@@ -1587,7 +1599,9 @@ window.processar_mensagem_mqtt = async (dados) => {
   }
 }
 
-window.cliente_mqtt = mqtt.connect("wss://broker.hivemq.com:8884/mqtt")
+window.cliente_mqtt = mqtt.connect(
+  "wss://broker.hivemq.com:8884/mqtt",
+)
 const cliente_mqtt = window.cliente_mqtt
 
 cliente_mqtt.on("connect", () => {
