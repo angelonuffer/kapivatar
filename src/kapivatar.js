@@ -1198,7 +1198,12 @@ const salvar_perfil_recebido_pareamento = async (perfil_recebido, dispositivo_re
   if (typeof window.showSaveFilePicker !== "function") {
     throw new Error("Este navegador não oferece suporte à criação de arquivos.")
   }
-  const perfil = JSON.parse(JSON.stringify(perfil_recebido))
+  const perfil = typeof perfil_recebido === "string"
+    ? JSON.parse(perfil_recebido)
+    : JSON.parse(JSON.stringify(perfil_recebido))
+  if (!perfil || typeof perfil !== "object" || Array.isArray(perfil)) {
+    throw new Error("O perfil recebido é inválido.")
+  }
   const dispositivo_local = await obter_dispositivo_local()
   perfil.dispositivo = dispositivo_local
   perfil.outros_dispositivos = [

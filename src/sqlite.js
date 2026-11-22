@@ -166,6 +166,13 @@ export const gravar_dado_sqlite = (chave, valor) => enfileirar_gravacao(async ()
 
   let conteudo
   if (chave === "perfil") {
+    if (typeof valor === "string") {
+      try {
+        valor = JSON.parse(valor)
+      } catch {
+        throw new Error("O perfil deve ser um objeto JSON.")
+      }
+    }
     if (typeof valor !== "object" || valor === null || Array.isArray(valor)) {
       throw new Error("O perfil deve ser um objeto JSON.")
     }

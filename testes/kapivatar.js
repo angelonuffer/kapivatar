@@ -1,4 +1,6 @@
 import { test, expect } from './simulações/fixtures.js';
+import { simular_mqtt } from './simulações/mqtt.js';
+import { simular_file_system_access_api } from './simulações/file-system-access-api.js';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
@@ -319,6 +321,75 @@ test('Deve gerar chave temporária AES-256 e oferecer perfil de outro dispositiv
   await expect(chave).toHaveValue(/^[A-Za-z0-9_-]{43}$/);
   await expect(chave).not.toHaveValue(valor_anterior);
   await expect(page.getByRole('status')).toContainText('Expira em');
+});
+
+test('Deve parear dois perfis em dois perfis isolados do Chrome #pareamento #dispositivos', async ({ browser }) => {
+  const perfil_a = await browser.newContext({ baseURL: 'http://127.0.0.1:3000' });
+  const perfil_b = await browser.newContext({ baseURL: 'http://127.0.0.1:3000' });
+  await perfil_a.addInitScript(simular_mqtt);
+  await perfil_a.addInitScript(simular_file_system_access_api);
+  await perfil_b.addInitScript(simular_mqtt);
+  await perfil_b.addInitScript(simular_file_system_access_api);
+
+  const pagina_a = await perfil_a.newPage();
+  const pagina_b = await perfil_b.newPage();
+
+  await pagina_a.goto('/');
+  await pagina_a.getByRole('button', { name: /Criar perfil/ }).click();
+  await pagina_a.getByLabel('Nome').fill('Perfil Chrome A');
+  await pagina_a.getByRole('button', { name: 'Salvar Perfil' }).click();
+  await expect(pagina_a.getByRole('heading', { name: 'Perfil Chrome A' })).toBeVisible();
+
+  await pagina_a.getByRole('link', { name: 'Dispositivos' }).click();
+  await pagina_a.getByRole('button', { name: 'Parear dispositivo' }).click();
+  const chave = pagina_a.locator('#chave_secreta_dispositivo');
+  await expect(chave).toHaveValue(/^[A-Za-z0-9_-]{43}$/);
+
+  await pagina_b.goto('/dispositivos/parear/receber');
+  await pagina_b.getByLabel('Chave secreta de pareamento').fill(await chave.inputValue());
+  let corretor_ativo = true;
+  let mensagens_a = 0;
+  let mensagens_b = 0;
+  const corretor_mqtt = (async () => {
+    while (corretor_ativo) {
+      const publicacoes_a = await pagina_a.evaluate(() => window._publishedMessages);
+      for (let indice = mensagens_a; indice < publicacoes_a.length; indice++) {
+        await pagina_b.evaluate(({ topic, message }) =>
+          window._mqttClient._simulateIncoming(topic, message),
+        publicacoes_a[indice]);
+      }
+      mensagens_a = publicacoes_a.length;
+
+      const publicacoes_b = await pagina_b.evaluate(() => window._publishedMessages);
+      for (let indice = mensagens_b; indice < publicacoes_b.length; indice++) {
+        await pagina_a.evaluate(({ topic, message }) =>
+          window._mqttClient._simulateIncoming(topic, message),
+        publicacoes_b[indice]);
+      }
+      mensagens_b = publicacoes_b.length;
+      await new Promise((resolver) => setTimeout(resolver, 25));
+    }
+  })();
+  await pagina_b.getByRole('button', { name: 'Parear', exact: true }).click();
+  await expect.poll(() => pagina_b.evaluate(() => window._publishedMessages.length)).toBeGreaterThan(0);
+  await expect.poll(() => pagina_a.evaluate(() => window._publishedMessages.length)).toBeGreaterThan(0);
+
+  await expect(pagina_a.getByRole('status')).toContainText(/Dispositivo pareado:/);
+  await expect.poll(() =>
+    pagina_b.evaluate(async () => (await window.carregar_dispositivos_pareados()).length)
+  ).toBe(1);
+  corretor_ativo = false;
+  await corretor_mqtt;
+
+  const pareados_a = await pagina_a.evaluate(() => window.carregar_dispositivos_pareados());
+  const pareados_b = await pagina_b.evaluate(() => window.carregar_dispositivos_pareados());
+  expect(pareados_a).toHaveLength(1);
+  expect(pareados_b).toHaveLength(1);
+  expect(pareados_a[0].nome).not.toBe('');
+  expect(pareados_b[0].nome).not.toBe('');
+
+  await perfil_a.close();
+  await perfil_b.close();
 });
 
 test('A opção de login abre a página para colar chave de pareamento', async ({ page }) => {
