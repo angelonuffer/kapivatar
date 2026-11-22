@@ -11,5 +11,5 @@
       "extensions": ["svelte.svelte-vscode"]
     }
   },
-  "postCreateCommand": "npm ci && npx playwright install chromium --with-deps"
+  "postCreateCommand": "npm ci"
 }

@@ -21,7 +21,15 @@ export default defineConfig({
       },
     },
   ],
+  resolve: {
+    conditions: ["browser"],
+  },
   optimizeDeps: {
     exclude: ["@sqlite.org/sqlite-wasm"],
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: "./testes/setup.js",
+    include: ["testes/**/*.test.js"],
   },
 })
