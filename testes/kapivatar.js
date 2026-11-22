@@ -203,11 +203,11 @@ test.skip('Pareamento antigo pelo MQTT', async ({ page }) => {
       criado_em: Date.now(),
       dispositivo: { id, nome: 'Dispositivo remoto' },
     })));
-    window._mqttClient._simulateIncoming(topic, {
+    window.cliente_mqtt.publish(topic, JSON.stringify({
       versao: 1,
       iv: codificar(iv),
       dados: codificar(dados),
-    });
+    }));
   }, {
     topic: publicacao.topic,
     secret: chave_outro_dispositivo,
@@ -286,12 +286,12 @@ test.skip('Pareamento antigo pelo MQTT', async ({ page }) => {
         iv,
         additionalData: new TextEncoder().encode(topic),
       }, chave_aes, new TextEncoder().encode(JSON.stringify(dados)));
-      window._mqttClient._simulateIncoming(topic, {
+      window.cliente_mqtt.publish(topic, JSON.stringify({
         versao: 1,
         uso: 'sincronizacao-v1',
         iv: codificar(iv),
         dados: codificar(criptografado),
-      });
+      }));
     };
     const instante = Date.now();
     await enviar(hash, lista, instante);
@@ -347,7 +347,7 @@ test('Deve parear dois perfis em dois perfis isolados do Chrome #pareamento #dis
 
   await pagina_b.goto('/dispositivos/parear/receber');
   await pagina_b.getByLabel('Chave secreta de pareamento').fill(await chave.inputValue());
-  const bridge_mqtt = mqttMock.criar_bridge(pagina_a, pagina_b);
+  const bridge_mqtt = await mqttMock.criar_bridge(pagina_a, pagina_b);
   await pagina_b.getByRole('button', { name: 'Parear', exact: true }).click();
   await expect.poll(() => pagina_b.evaluate(() => window._publishedMessages.length)).toBeGreaterThan(0);
   await expect.poll(() => pagina_a.evaluate(() => window._publishedMessages.length)).toBeGreaterThan(0);

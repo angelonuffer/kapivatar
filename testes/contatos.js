@@ -127,7 +127,7 @@ test('Deve realizar fluxo de solicitação, retentativa e confirmação ao receb
         chave_publica: chavePublicaAlvo
       }
     };
-    window._mqttClient._simulateIncoming('kapivatar.net', dadosMqtt);
+    window.cliente_mqtt.publish('kapivatar.net', JSON.stringify(dadosMqtt));
   }, { idAlvo, chavePublicaAlvo, meuId });
 
   await expect.poll(async () => page.evaluate((idAlvo) => (

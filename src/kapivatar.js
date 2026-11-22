@@ -17,6 +17,7 @@ import Perfil from "./perfil.svelte"
 import BaseHorizontal from "./base-horizontal.svelte"
 import BaseVertical from "./base-vertical.svelte"
 import Dispositivos, { metadados as metadados_dispositivos } from "./dispositivos.svelte"
+import mqtt from "mqtt"
 
 const url_logo = new URL("./kapivatar.svg", import.meta.url).href
 const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
@@ -1592,7 +1593,9 @@ window.processar_mensagem_mqtt = async (dados) => {
   }
 }
 
-window.cliente_mqtt = mqtt.connect("wss://broker.hivemq.com:8884/mqtt")
+window.cliente_mqtt = mqtt.connect(
+  "wss://broker.hivemq.com:8884/mqtt",
+)
 const cliente_mqtt = window.cliente_mqtt
 
 cliente_mqtt.on("connect", () => {
