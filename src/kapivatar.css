@@ -136,6 +136,15 @@ a.ativo {
   justify-content: center;
 }
 
+.login-acao > button:not(.botao-voltar-login) {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.login-acao > button:not(.botao-voltar-login) > span:last-child {
+  text-align: left;
+}
+
 .login-acao .form-perfil {
   width: 100%;
   box-sizing: border-box;
