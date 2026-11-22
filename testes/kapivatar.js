@@ -356,6 +356,20 @@ test('Deve parear dois perfis em dois perfis isolados do Chrome #pareamento #dis
   await expect.poll(() =>
     pagina_b.evaluate(async () => (await window.carregar_dispositivos_pareados()).length)
   ).toBe(1);
+
+  await expect(pagina_b.evaluate(() => window._databasePickerCalls)).resolves.toBeGreaterThan(0);
+  await expect(pagina_b.evaluate(() => window._databasePickerType)).resolves.toBe('save');
+  await expect(pagina_b.evaluate(() => window._databasePickerOptions.suggestedName)).resolves.toBe('perfil.kapivatar');
+  await expect(pagina_b).toHaveURL(/\/$/);
+
+  await pagina_a.evaluate(async () => {
+    await window.gravar_dado_sqlite('teste_sincronizacao_pareamento', 'valor-sincronizado');
+    await window.publicar_alteracao_local('teste_sincronizacao_pareamento', 'valor-sincronizado', 'gravar');
+  });
+  await expect.poll(() =>
+    pagina_b.evaluate(() => window.ler_dado_sqlite('teste_sincronizacao_pareamento'))
+  ).toBe('valor-sincronizado');
+
   await bridge_mqtt.stop();
 
   const pareados_a = await pagina_a.evaluate(() => window.carregar_dispositivos_pareados());

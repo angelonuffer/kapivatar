@@ -303,6 +303,9 @@ const atualizar_perfil_sqlite = async (mudancas) => {
     }
   }
   await gravar_dado_sqlite("perfil", atualizado)
+  publicar_alteracao_local("perfil", atualizado, "gravar").catch((erro) => {
+    console.error("Erro ao sincronizar alteração do perfil:", erro)
+  })
 }
 
 const obter_handle_salvo = async () => {
@@ -1037,6 +1040,9 @@ const publicar_alteracao_local = async (chave, valor, operacao) => {
   const versao = nova_versao_sincronizacao(chave, operacao)
   await publicar_registro_para_pares(chave, { valor, operacao, versao })
 }
+window.ler_dado_sqlite = ler_dado_sqlite
+window.gravar_dado_sqlite = gravar_dado_sqlite
+window.publicar_alteracao_local = publicar_alteracao_local
 
 const sincronizar_banco_com_par = async (topico, chave_secreta) => {
   const dados = await listar_dados_sqlite()
@@ -1215,7 +1221,7 @@ const salvar_perfil_recebido_pareamento = async (perfil_recebido, dispositivo_re
     },
   ]
 
-  const [handle] = await window.showSaveFilePicker({
+  const handle = await window.showSaveFilePicker({
     suggestedName: "perfil.kapivatar",
     ...opcoes_selecao_perfil,
   })
