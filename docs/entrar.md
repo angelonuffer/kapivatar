@@ -5,19 +5,17 @@ Ao entrar, o usuário escolhe um dos três caminhos abaixo.
 
 ## Abrir um perfil existente
 
-O usuário seleciona a opção **Abrir perfil** e escolhe um arquivo `.kapivatar` ou `.sqlite`.
+O usuário seleciona a opção **Abrir perfil** e escolhe qualquer arquivo cujo conteúdo seja SQLite 3.
 
 O navegador solicita acesso de leitura e gravação ao arquivo. Depois da abertura, o
-Kapivatar verifica se o conteúdo possui um perfil válido:
+Kapivatar verifica apenas se o conteúdo é um banco SQLite íntegro. Faltas na estrutura são
+reparadas automaticamente:
 
-- a estrutura SQLite corresponde ao formato descrito em `esquema.md`;
-- os dados obrigatórios do perfil estão presentes;
-- a chave privada e a chave pública podem ser usadas pelo perfil;
-- o arquivo passa na verificação de integridade.
-
-Se o arquivo não tiver o formato esperado, o perfil anterior continua aberto ou o banco
-anteriormente ativo é fechado. O usuário vê uma mensagem informando que não foi possível
-acessar o arquivo selecionado.
+- a tabela `kapivatar_dados` é criada quando não existe;
+- as colunas `chave` e `valor` são criadas ou normalizadas quando necessário;
+- a linha `perfil` é criada quando não existe;
+- campos ausentes do objeto `perfil`, como dispositivo, outros dispositivos e chave privada,
+  são preenchidos automaticamente.
 
 O cancelamento do seletor de arquivos não mostra erro. Após uma abertura válida, o handle
 do arquivo é salvo no IndexedDB e a aplicação navega para a página principal.

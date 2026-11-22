@@ -228,44 +228,25 @@ const obter_valor_atual = (versoes) => {
 
 const ler_perfil_sqlite = async () => {
   const perfil = await ler_dado_sqlite("perfil")
-  if (!perfil || typeof perfil !== "object" || typeof perfil.chave_privada !== "object" || !perfil.chave_privada) {
+  if (!perfil || typeof perfil !== "object" || typeof perfil.chave_privada !== "object" || !perfil.chave_privada) return null
+  let chave_privada
+  let chave_publica
+  try {
+    chave_privada = await importar_chave_privada(perfil.chave_privada)
+    const jwk_publica = Object.fromEntries(
+      Object.entries(perfil.chave_privada).filter(([campo]) => !["d", "p", "q", "dp", "dq", "qi", "oth"].includes(campo)),
+    )
+    jwk_publica.key_ops = ["encrypt"]
+    chave_publica = await crypto.subtle.importKey(
+      "jwk",
+      jwk_publica,
+      { name: "RSA-OAEP", hash: "SHA-256" },
+      true,
+      ["encrypt"],
+    )
+  } catch {
     return null
   }
-  for (const campo of ["capa", "foto", "nome", "bio", "visibilidade_foto"]) {
-    if (perfil[campo] !== undefined) {
-      if (!Array.isArray(perfil[campo])) return null
-      for (const versao of perfil[campo]) {
-        if (!versao || typeof versao.data !== "string" || !Object.hasOwn(versao, "valor")) return null
-        if (["capa", "foto"].includes(campo) && (typeof versao.valor !== "string" || !/^[a-f0-9]{64}$/.test(versao.valor))) return null
-        if (["nome", "bio"].includes(campo) && typeof versao.valor !== "string") return null
-        if (campo === "visibilidade_foto" && !["privado", "publico"].includes(versao.valor)) return null
-      }
-    }
-  }
-  if (!perfil.dispositivo || typeof perfil.dispositivo.id !== "string" || typeof perfil.dispositivo.nome !== "string") return null
-  if (!Array.isArray(perfil.outros_dispositivos)) return null
-  for (const dispositivo of perfil.outros_dispositivos) {
-    if (
-      !dispositivo ||
-      typeof dispositivo.id !== "string" ||
-      typeof dispositivo.nome !== "string" ||
-      typeof dispositivo.pareado_em !== "string" ||
-      (dispositivo.chave_secreta !== undefined && typeof dispositivo.chave_secreta !== "string")
-    ) return null
-  }
-  if (Object.keys(perfil).some(campo => !["capa", "foto", "nome", "bio", "visibilidade_foto", "chave_privada", "dispositivo", "outros_dispositivos"].includes(campo))) return null
-  const chave_privada = await importar_chave_privada(perfil.chave_privada)
-  const jwk_publica = Object.fromEntries(
-    Object.entries(perfil.chave_privada).filter(([campo]) => !["d", "p", "q", "dp", "dq", "qi", "oth"].includes(campo)),
-  )
-  jwk_publica.key_ops = ["encrypt"]
-  const chave_publica = await crypto.subtle.importKey(
-    "jwk",
-    jwk_publica,
-    { name: "RSA-OAEP", hash: "SHA-256" },
-    true,
-    ["encrypt"],
-  )
   const chave_publica_jwk = await exportar_chave(chave_publica)
   const id = await gerar_id_perfil(chave_publica)
   id_dispositivo_local = perfil.dispositivo.id
@@ -302,6 +283,51 @@ const atualizar_perfil_sqlite = async (mudancas) => {
     }
   }
   await gravar_dado_sqlite("perfil", atualizado)
+}
+
+const reparar_perfil_sqlite = async () => {
+  const atual = await ler_dado_sqlite("perfil")
+  const perfil = atual && typeof atual === "object" && !Array.isArray(atual) ? { ...atual } : {}
+  let mudou = !atual || typeof atual !== "object" || Array.isArray(atual)
+
+  for (const campo of ["capa", "foto", "nome", "bio", "visibilidade_foto"]) {
+    if (!Array.isArray(perfil[campo])) {
+      perfil[campo] = []
+      mudou = true
+    }
+  }
+
+  let chave_valida = false
+  if (perfil.chave_privada && typeof perfil.chave_privada === "object") {
+    try {
+      await importar_chave_privada(perfil.chave_privada)
+      chave_valida = true
+    } catch {}
+  }
+  if (!chave_valida) {
+    const chaves = await gerar_chaves()
+    perfil.chave_privada = await exportar_chave(chaves.privateKey)
+    mudou = true
+  }
+
+  if (
+    !perfil.dispositivo ||
+    typeof perfil.dispositivo !== "object" ||
+    typeof perfil.dispositivo.id !== "string" ||
+    typeof perfil.dispositivo.nome !== "string"
+  ) {
+    const id = crypto.randomUUID()
+    perfil.dispositivo = { id, nome: `Dispositivo ${id.slice(0, 8)}` }
+    mudou = true
+  }
+
+  if (!Array.isArray(perfil.outros_dispositivos)) {
+    perfil.outros_dispositivos = []
+    mudou = true
+  }
+
+  if (mudou) await gravar_dado_sqlite("perfil", perfil)
+  return ler_perfil_sqlite()
 }
 
 const obter_handle_salvo = async () => {
@@ -486,9 +512,9 @@ const opcoes_selecao_perfil = {
 }
 
 const validar_perfil_unico = async () => {
-  const perfil = await ler_perfil_sqlite()
+  const perfil = await reparar_perfil_sqlite()
   if (!perfil || !perfil.id || !perfil.chave_privada || !perfil.chave_publica) {
-    throw new Error("Formato de arquivo de perfil não suportado.")
+    throw new Error("Não foi possível preparar o perfil SQLite.")
   }
 }
 
@@ -497,7 +523,6 @@ const abrir_perfil = async () => {
     throw new Error("Este navegador não oferece suporte à seleção de arquivos.")
   }
   const [handle] = await window.showOpenFilePicker({
-    ...opcoes_selecao_perfil,
     multiple: false,
   })
   await handle.requestPermission({ mode: "readwrite" })

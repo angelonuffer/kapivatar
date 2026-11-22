@@ -45,35 +45,58 @@ const enfileirar_gravacao = (operacao) => {
   return atual
 }
 
-const validar_formato_sqlite = (novo_db) => {
+const reparar_tabela_dados = (novo_db) => {
+  const existe = novo_db.selectValue(
+    "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'kapivatar_dados')",
+  ) === 1
+
+  if (!existe) {
+    novo_db.exec("CREATE TABLE kapivatar_dados (chave TEXT PRIMARY KEY, valor BLOB NOT NULL)")
+    return true
+  }
+
   const colunas = []
   novo_db.exec({
     sql: "PRAGMA table_info(kapivatar_dados)",
     rowMode: "array",
     resultRows: colunas,
   })
-  const esquema_novo = colunas.length === 2 &&
-    colunas[0][1] === "chave" &&
-    colunas[0][2]?.toLowerCase() === "text" &&
-    colunas[0][5] === 1 &&
-    colunas[1][1] === "valor" &&
-    colunas[1][3] === 1
-  if (!esquema_novo) {
-    throw new Error("Formato de arquivo de perfil não suportado.")
+  const chave = colunas.find((coluna) => coluna[1] === "chave")
+  const valor = colunas.find((coluna) => coluna[1] === "valor")
+  const esquema_valido =
+    chave && valor &&
+    chave[2]?.toLowerCase() === "text" &&
+    chave[5] === 1 &&
+    valor[3] === 1
+
+  if (esquema_valido) return false
+
+  novo_db.exec("ALTER TABLE kapivatar_dados RENAME TO kapivatar_dados_antiga")
+  novo_db.exec("CREATE TABLE kapivatar_dados (chave TEXT PRIMARY KEY, valor BLOB NOT NULL)")
+  const tem_chave = colunas.some((coluna) => coluna[1] === "chave")
+  const tem_valor = colunas.some((coluna) => coluna[1] === "valor")
+  if (tem_chave && tem_valor) {
+    novo_db.exec(
+      "INSERT OR IGNORE INTO kapivatar_dados (chave, valor) " +
+      "SELECT chave, valor FROM kapivatar_dados_antiga WHERE chave IS NOT NULL AND valor IS NOT NULL",
+    )
   }
-  const tabelas = novo_db.selectValue(
-    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
-  )
-  const tabelas_conhecidas = novo_db.selectValue(
-    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT IN ('kapivatar_dados')",
-  )
-  if (tabelas !== 1 || tabelas_conhecidas !== 0) {
-    throw new Error("Formato de arquivo de perfil não suportado.")
+  novo_db.exec("DROP TABLE kapivatar_dados_antiga")
+  return true
+}
+
+const garantir_linhas_minimas = (novo_db) => {
+  const tem_perfil = novo_db.selectValue(
+    "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave = 'perfil')",
+  ) === 1
+  if (!tem_perfil) {
+    novo_db.exec({
+      sql: "INSERT INTO kapivatar_dados (chave, valor) VALUES ('perfil', ?)",
+      bind: ["{}"],
+    })
+    return true
   }
-  const dados_invalidos = novo_db.selectValue(
-    "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave IS NULL OR valor IS NULL)",
-  )
-  if (dados_invalidos) throw new Error("Formato de arquivo de perfil não suportado.")
+  return false
 }
 
 const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
@@ -87,7 +110,7 @@ const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
     if (arquivo.size === 0) {
       if (!criar) throw new Error("Formato de arquivo de perfil não suportado.")
       novo_db.exec("CREATE TABLE kapivatar_dados (chave TEXT PRIMARY KEY, valor BLOB NOT NULL)")
-      banco_novo = true
+      banco_novo = garantir_linhas_minimas(novo_db) || true
     } else {
       if (criar) throw new Error("Escolha um arquivo novo para criar o perfil.")
       const bytes = new Uint8Array(await arquivo.arrayBuffer())
@@ -105,7 +128,8 @@ const abrir_banco_sqlite_interno = async (handle, { criar = false } = {}) => {
       if (integridade !== "ok") {
         throw new Error("O arquivo SQLite selecionado está corrompido.")
       }
-      validar_formato_sqlite(novo_db)
+      banco_novo = reparar_tabela_dados(novo_db) || banco_novo
+      banco_novo = garantir_linhas_minimas(novo_db) || banco_novo
       const tem_nome_legado = novo_db.selectValue(
         "SELECT EXISTS(SELECT 1 FROM kapivatar_dados WHERE chave = 'kapivatar.dispositivo.nome')",
       ) === 1
