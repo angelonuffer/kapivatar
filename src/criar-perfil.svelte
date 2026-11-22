@@ -124,6 +124,30 @@
   </div>
 
   <div class="form-campo">
+    <label for="foto">Foto</label>
+    <div class="input-arquivo-container">
+      <input
+        type="file"
+        id="foto"
+        name="foto"
+        accept="image/*"
+        hidden
+        onchange={(event) => atualizar_preview("foto", event)}
+      />
+      <button type="button" onclick={() => document.getElementById("foto").click()}>
+        <span class="material-symbols-outlined">upload_file</span>
+        <span>Escolher imagem</span>
+      </button>
+      {#if previews.foto}
+        <div class="preview-container">
+          <img class="preview-imagem" src={previews.foto.url} alt="Prévia da foto" />
+          <span class="nome-arquivo">{previews.foto.nome}</span>
+        </div>
+      {/if}
+    </div>
+  </div>
+
+  <div class="form-campo">
     <label for="nome">Nome</label>
     <input id="nome" name="nome" type="text" bind:value={nome} required />
   </div>
