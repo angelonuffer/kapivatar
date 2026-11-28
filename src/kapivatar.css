@@ -119,17 +119,39 @@ a.ativo {
 
 .login-acao {
   position: relative;
-  flex: 1;
+  flex: 1.5;
+  min-height: 0;
+  max-height: calc(100vh - 16px);
+  box-sizing: border-box;
+  overflow: hidden;
   background-color: #222;
-  margin: 1em;
+  margin: 8px;
   border-radius: 1em;
-  padding: 4em;
+  padding: 8px;
+}
+
+.login-acao-conteudo {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.login-acao-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.login-acao-cabecalho p {
+  margin: 0;
 }
 
 .login-acao .botao-voltar-login {
-  position: absolute;
-  top: 1em;
-  left: 1em;
+  position: static;
+  align-self: flex-start;
+  flex: 0 0 40px;
   width: 40px;
   height: 40px;
   padding: 0;
@@ -199,8 +221,8 @@ a.ativo {
   }
 
   .login-acao {
-    padding: 2em;
-    margin: 1em;
+    padding: 8px;
+    margin: 8px;
   }
 
   .perfil-capa-detalhe {

@@ -49,29 +49,33 @@
 
 <div class="coluna login-acao">
   {#if criando_perfil}
-    <p>Criar perfil</p>
-    <button
-      class="botao-voltar-login"
-      type="button"
-      aria-label="Voltar"
-      onclick={() => criando_perfil = false}
-    >
-      <span class="material-symbols-outlined">arrow_back</span>
-    </button>
-    <CriarPerfil
-      {criar_arquivo_perfil}
-      {obter_diretorio}
-      {gerar_chaves}
-      {exportar_chave}
-      {gerar_id_perfil}
-      {gerar_hash}
-      {escrever_arquivo}
-      {ler_arquivo}
-      {gravar_dado_sqlite}
-      {obter_dispositivo_local}
-      {carregar_dispositivos_pareados}
-      {navegar}
-    />
+    <div class="login-acao-cabecalho">
+      <button
+        class="botao-voltar-login"
+        type="button"
+        aria-label="Voltar"
+        onclick={() => criando_perfil = false}
+      >
+        <span class="material-symbols-outlined">arrow_back</span>
+      </button>
+      <p>Criar perfil</p>
+    </div>
+    <div class="login-acao-conteudo">
+      <CriarPerfil
+        {criar_arquivo_perfil}
+        {obter_diretorio}
+        {gerar_chaves}
+        {exportar_chave}
+        {gerar_id_perfil}
+        {gerar_hash}
+        {escrever_arquivo}
+        {ler_arquivo}
+        {gravar_dado_sqlite}
+        {obter_dispositivo_local}
+        {carregar_dispositivos_pareados}
+        {navegar}
+      />
+    </div>
   {:else}
     <p>Entrar no Kapivatar</p>
     <button onclick={() => criando_perfil = true}>
