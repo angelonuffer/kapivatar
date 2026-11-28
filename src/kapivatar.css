@@ -156,6 +156,12 @@ a.ativo {
   height: 40px;
   padding: 0;
   justify-content: center;
+  background: transparent;
+  color: #eee;
+}
+
+.login-acao .botao-voltar-login:hover {
+  background-color: #333;
 }
 
 .login-acao > button:not(.botao-voltar-login) {
@@ -513,6 +519,22 @@ a.ativo {
   flex-direction: column;
   gap: 0.8em;
   align-items: flex-start;
+}
+
+.input-arquivo-container button {
+  background-color: #333;
+  border: 1px solid #444;
+  color: #eee;
+}
+
+.input-arquivo-container button:hover {
+  background-color: #3a3a3a;
+  border-color: var(--cor-primaria-clara);
+}
+
+.form-perfil > button[type="submit"] {
+  width: 100%;
+  justify-content: center;
 }
 
 .preview-container {
