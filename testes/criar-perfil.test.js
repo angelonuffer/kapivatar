@@ -1,35 +1,34 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/svelte"
 import { describe, expect, it, vi } from "vitest"
 import { tick } from "svelte"
-import CriarPerfil from "../src/criar-perfil.svelte"
+import CriarPerfil from "../src/routes/(login)/perfil/criar/+page.svelte"
 
-const props = () => ({
+const callbacks = vi.hoisted(() => ({
   criar_arquivo_perfil: vi.fn(async () => {}),
   obter_diretorio: vi.fn(async () => ({})),
-  gerar_chaves: vi.fn(async () => ({
-    privateKey: {},
-  })),
+  gerar_chaves: vi.fn(async () => ({ privateKey: {} })),
   exportar_chave: vi.fn(async () => ({ kty: "EC" })),
-  gerar_id_perfil: vi.fn(),
   gerar_hash: vi.fn(async () => "hash"),
   escrever_arquivo: vi.fn(async () => {}),
-  ler_arquivo: vi.fn(),
   gravar_dado_sqlite: vi.fn(async () => {}),
-  navegar: vi.fn(),
   obter_dispositivo_local: vi.fn(async () => ({ id: "dispositivo", nome: "Este dispositivo" })),
   carregar_dispositivos_pareados: vi.fn(async () => []),
-})
+  goto: vi.fn(),
+}))
+
+vi.mock("../src/kapivatar.js", () => callbacks)
+vi.mock("$app/navigation", () => ({ goto: callbacks.goto }))
 
 describe("CriarPerfil", () => {
   it("exibe o campo de foto", () => {
-    render(CriarPerfil, { props: props() })
+    render(CriarPerfil)
 
     expect(screen.getByLabelText("Foto")).toHaveAttribute("type", "file")
     expect(screen.getByLabelText("Foto")).toHaveAttribute("accept", "image/*")
   })
 
   it("valida o campo obrigatório de nome", async () => {
-    render(CriarPerfil, { props: props() })
+    render(CriarPerfil)
     const formulario = screen.getByRole("button", { name: /Salvar Perfil/ }).closest("form")
 
     await fireEvent.submit(formulario)
@@ -38,8 +37,7 @@ describe("CriarPerfil", () => {
   })
 
   it("salva o perfil e navega para a página de perfil", async () => {
-    const callbacks = props()
-    render(CriarPerfil, { props: callbacks })
+    render(CriarPerfil)
 
     await fireEvent.input(screen.getByLabelText("Nome"), { target: { value: "Capivara" } })
     await fireEvent.input(screen.getByLabelText("Bio"), { target: { value: "Uma bio" } })
@@ -49,7 +47,7 @@ describe("CriarPerfil", () => {
     expect(callbacks.criar_arquivo_perfil).toHaveBeenCalledWith("Capivara.kapivatar")
     await waitFor(() => {
       expect(callbacks.gravar_dado_sqlite).toHaveBeenCalled()
-      expect(callbacks.navegar).toHaveBeenCalledWith("/perfil")
+      expect(callbacks.goto).toHaveBeenCalledWith("/perfil")
     })
   })
 })
