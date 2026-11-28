@@ -206,6 +206,10 @@ a.ativo {
 @media (max-width: 767px) {
   body {
     flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
   }
 
   .login-logo {
@@ -227,8 +231,20 @@ a.ativo {
   }
 
   .login-acao {
+    flex: none;
+    min-height: min-content;
+    max-height: none;
+    width: auto;
+    height: auto;
+    overflow: visible;
     padding: 8px;
     margin: 8px;
+  }
+
+  .login-acao-conteudo {
+    flex: none;
+    min-height: min-content;
+    overflow-y: visible;
   }
 
   .perfil-capa-detalhe {
