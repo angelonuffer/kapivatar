@@ -4,6 +4,7 @@
   let {
     url_logo,
     url_capivara,
+    criar_inicial = false,
     abrir_perfil,
     navegar,
     criar_arquivo_perfil,
@@ -19,7 +20,7 @@
     carregar_dispositivos_pareados,
   } = $props()
   let erro_selecao = $state("")
-  let criando_perfil = $state(false)
+  let criando_perfil = $derived(criar_inicial)
 
   const escolher_arquivo = async () => {
     erro_selecao = ""
@@ -54,7 +55,7 @@
         class="botao-voltar-login"
         type="button"
         aria-label="Voltar"
-        onclick={() => criando_perfil = false}
+        onclick={() => navegar("/")}
       >
         <span class="material-symbols-outlined">arrow_back</span>
       </button>
@@ -78,7 +79,7 @@
     </div>
   {:else}
     <p>Entrar no Kapivatar</p>
-    <button onclick={() => criando_perfil = true}>
+    <button onclick={() => navegar("/perfil/criar")}>
       <span class="material-symbols-outlined">person_add</span>
       <span>Criar perfil</span>
     </button>

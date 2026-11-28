@@ -3098,20 +3098,24 @@ const rotear = async () => {
       return
     }
     if (path === "/perfil/criar") {
-      const página_criar_perfil = páginas.find((p) => p.url === path)
-      document.body.className = "criar-perfil-inicial-body"
-      document.body.replaceChildren()
-
-      const container = document.createElement("main")
-      container.classList.add("criar-perfil-inicial")
-      const título = document.createElement("h1")
-      título.textContent = "Criar perfil"
-      const instrução = document.createElement("p")
-      instrução.textContent = "Ao salvar, escolha onde guardar o arquivo do seu perfil."
-      container.append(título, instrução)
-      componente_página_montado = await página_criar_perfil.render(container, params, {}, sinal_rota)
-      if (id_rota !== id_rota_atual) return
-      document.body.appendChild(container)
+      renderizar_tela_inicial({
+        url_logo,
+        url_capivara,
+        criar_inicial: true,
+        abrir_perfil,
+        navegar,
+        criar_arquivo_perfil,
+        obter_diretorio,
+        gerar_chaves,
+        exportar_chave,
+        gerar_id_perfil,
+        gerar_hash,
+        escrever_arquivo,
+        ler_arquivo,
+        gravar_dado_sqlite,
+        obter_dispositivo_local,
+        carregar_dispositivos_pareados,
+      })
       return
     }
     renderizar_tela_inicial({

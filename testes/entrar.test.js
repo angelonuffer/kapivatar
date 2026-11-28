@@ -30,12 +30,28 @@ describe("Entrar", () => {
   })
 
   it("abre o formulário ao criar perfil", async () => {
-    render(Entrar, { props: props() })
+    const callbacks = props()
+    render(Entrar, { props: callbacks })
 
     await fireEvent.click(screen.getByRole("button", { name: /Criar perfil/ }))
 
+    expect(callbacks.navegar).toHaveBeenCalledWith("/perfil/criar")
+  })
+
+  it("abre o formulário diretamente pela URL", () => {
+    render(Entrar, { props: { ...props(), criar_inicial: true } })
+
     expect(screen.getByLabelText("Nome")).toBeInTheDocument()
     expect(screen.getByLabelText("Bio")).toBeInTheDocument()
+  })
+
+  it("volta para o login pela URL", async () => {
+    const callbacks = props()
+    render(Entrar, { props: { ...callbacks, criar_inicial: true } })
+
+    await fireEvent.click(screen.getByRole("button", { name: "Voltar" }))
+
+    expect(callbacks.navegar).toHaveBeenCalledWith("/")
   })
 
   it("navega para parear outro dispositivo", async () => {
