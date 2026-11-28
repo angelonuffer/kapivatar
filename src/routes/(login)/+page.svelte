@@ -25,15 +25,15 @@
 </svelte:head>
 
 <p>Entrar no Kapivatar</p>
-<button onclick={() => navegar("/perfil/criar")}>
+<button class="botao-login-secundario" onclick={() => navegar("/perfil/criar")}>
   <span class="material-symbols-outlined">person_add</span>
   <span>Criar perfil</span>
 </button>
-<button onclick={escolher_arquivo}>
+<button class="botao-login-secundario" onclick={escolher_arquivo}>
   <span class="material-symbols-outlined">person</span>
   <span>Abrir perfil</span>
 </button>
-<button onclick={() => navegar("/dispositivos/parear/receber")}>
+<button class="botao-login-secundario" onclick={() => navegar("/dispositivos/parear/receber")}>
   <span class="material-symbols-outlined">devices</span>
   <span>Perfil de outro dispositivo</span>
 </button>

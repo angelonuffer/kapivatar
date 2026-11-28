@@ -173,6 +173,17 @@ a.ativo {
   text-align: left;
 }
 
+.login-acao > .botao-login-secundario {
+  background-color: #333;
+  border: 1px solid #444;
+  color: #eee;
+}
+
+.login-acao > .botao-login-secundario:hover {
+  background-color: #3a3a3a;
+  border-color: var(--cor-primaria-clara);
+}
+
 .login-acao .form-perfil {
   width: 100%;
   box-sizing: border-box;
