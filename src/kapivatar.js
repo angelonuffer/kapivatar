@@ -9,28 +9,8 @@ import {
   listar_referencias_texto_sqlite,
   listar_dados_sqlite,
 } from "./sqlite.js"
-import { mount, unmount } from "svelte"
-import "material-symbols/outlined.css"
-import TelaInicial from "./entrar.svelte"
-import CriarPerfil from "./criar-perfil.svelte"
-import Perfil from "./perfil.svelte"
-import BaseHorizontal from "./base-horizontal.svelte"
-import BaseVertical from "./base-vertical.svelte"
-import Dispositivos, { metadados as metadados_dispositivos } from "./dispositivos.svelte"
 
-const url_logo = new URL("./kapivatar.svg", import.meta.url).href
-const url_capivara = new URL("./capivara.jpeg", import.meta.url).href
-
-const página_inicial = {
-  nome: "Início",
-  url: "/",
-  ícone: "home",
-  render: (conteudo) => {
-    const p = document.createElement("p")
-    p.textContent = "Bem-vindo ao Kapivatar! Escolha uma opção no menu lateral."
-    conteudo.appendChild(p)
-  }
-}
+export { gravar_dado_sqlite }
 
 const aguardar_rota = (promessa, sinal) => {
   if (!sinal) return Promise.resolve(promessa)
@@ -57,31 +37,6 @@ const aguardar_rota = (promessa, sinal) => {
   })
 }
 
-let tela_inicial_montada
-let base_horizontal_montada
-let base_vertical_montada
-let componente_página_montado
-const renderizar_tela_inicial = (props) => {
-  if (tela_inicial_montada) {
-    unmount(tela_inicial_montada)
-  }
-  if (componente_página_montado) {
-    unmount(componente_página_montado)
-    componente_página_montado = null
-  }
-  if (base_horizontal_montada) {
-    unmount(base_horizontal_montada)
-    base_horizontal_montada = null
-  }
-  if (base_vertical_montada) {
-    unmount(base_vertical_montada)
-    base_vertical_montada = null
-  }
-  document.body.replaceChildren()
-  document.body.className = ""
-  tela_inicial_montada = mount(TelaInicial, { target: document.body, props })
-}
-
 const banco_kapivatar = banco({
   objectStores: [
     {
@@ -95,13 +50,13 @@ let sincronizacao_iniciada = false
 let banco_sqlite_aberto = false
 let nome_dispositivo_local_promise = null
 
-const gerar_hash = async (conteudo) => {
+export const gerar_hash = async (conteudo) => {
   const buffer = typeof conteudo === "string" ? new TextEncoder().encode(conteudo) : conteudo
   const hash_buffer = await crypto.subtle.digest("SHA-256", buffer)
   return Array.from(new Uint8Array(hash_buffer)).map((b) => b.toString(16).padStart(2, "0")).join("")
 }
 
-const gerar_chaves = async () => {
+export const gerar_chaves = async () => {
   return await crypto.subtle.generateKey(
     {
       name: "RSA-OAEP",
@@ -114,7 +69,7 @@ const gerar_chaves = async () => {
   )
 }
 
-const exportar_chave = async (chave) => {
+export const exportar_chave = async (chave) => {
   return await crypto.subtle.exportKey("jwk", chave)
 }
 
@@ -214,7 +169,7 @@ const descriptografar = async (chave_privada, buffer) => {
   return JSON.parse(decoder.decode(buffer_dados))
 }
 
-const gerar_id_perfil = async (chave_publica) => {
+export const gerar_id_perfil = async (chave_publica) => {
   const spki = await crypto.subtle.exportKey("spki", chave_publica)
   return await gerar_hash(spki)
 }
@@ -491,7 +446,7 @@ class VirtualDirectoryHandle {
   }
 }
 
-const obter_diretorio = async (sinal_rota) => {
+export const obter_diretorio = async (sinal_rota) => {
   const handle = await aguardar_rota(obter_diretorio_selecionado(), sinal_rota)
   if (!handle) return null
   if (await handle.queryPermission({ mode: "readwrite" }) === "granted") {
@@ -518,7 +473,7 @@ const validar_perfil_unico = async () => {
   }
 }
 
-const abrir_perfil = async () => {
+export const abrir_perfil = async () => {
   if (typeof window.showOpenFilePicker !== "function") {
     throw new Error("Este navegador não oferece suporte à seleção de arquivos.")
   }
@@ -544,7 +499,7 @@ const abrir_perfil = async () => {
   diretorio_selecionado = handle
 }
 
-const criar_arquivo_perfil = async (nome_sugerido = "kapivatar.kapivatar") => {
+export const criar_arquivo_perfil = async (nome_sugerido = "kapivatar.kapivatar") => {
   if (typeof window.showSaveFilePicker !== "function") {
     throw new Error("Este navegador não oferece suporte à criação de arquivos.")
   }
@@ -559,7 +514,7 @@ const criar_arquivo_perfil = async (nome_sugerido = "kapivatar.kapivatar") => {
   diretorio_selecionado = handle
 }
 
-const ler_arquivo = async (diretorio, nome) => {
+export const ler_arquivo = async (diretorio, nome) => {
   if (!diretorio) return null
   try {
     const handle = await diretorio.getFileHandle(nome)
@@ -571,7 +526,7 @@ const ler_arquivo = async (diretorio, nome) => {
   }
 }
 
-const escrever_arquivo = async (diretorio, nome, conteudo) => {
+export const escrever_arquivo = async (diretorio, nome, conteudo) => {
   const handle = await diretorio.getFileHandle(nome, { create: true })
   const writable = await handle.createWritable()
   await writable.write(conteudo)
@@ -827,12 +782,12 @@ const renomear_dispositivo_local = async (nome) => {
   nome_dispositivo_local_promise = Promise.resolve(nome)
 }
 
-const obter_dispositivo_local = async () => ({
+export const obter_dispositivo_local = async () => ({
   id: obter_id_dispositivo_local(),
   nome: await obter_nome_dispositivo_local(),
 })
 
-const carregar_dispositivos_pareados = async () => {
+export const carregar_dispositivos_pareados = async () => {
   if (dispositivos_pareados_cache_carregado) return [...dispositivos_pareados_cache]
   try {
     const pareados_legado = localStorage.getItem(chave_storage_dispositivos_pareados)
@@ -1342,7 +1297,6 @@ const processar_mensagem_pareamento = async (topico, envelope) => {
     pendente_resposta.status.textContent = `Dispositivo pareado: ${dispositivo_remoto.nome}.`
     await sincronizar_banco_com_par(topico, chave)
     await solicitar_sincronizacao_dispositivo(topico, chave)
-    navegar("/")
   }
 }
 
@@ -1517,7 +1471,6 @@ const enviar_mensagem_chat = async (id_contato, texto, id_mensagem = null) => {
       recebida: false
     })
     await salvar_conversa(id_meu_perfil, id_contato, conversa)
-    rotear()
   }
 }
 
@@ -1541,7 +1494,6 @@ window.processar_mensagem_mqtt = async (dados) => {
             !lista_contatos.contatos.find(p => p.id === dados.meu_perfil.id)) {
           lista_contatos.solicitações_recebidas.push(dados.meu_perfil)
           await salvar_lista_contatos(lista_contatos)
-          rotear()
         } else if (lista_contatos.contatos.find(p => p.id === dados.meu_perfil.id)) {
           // Se já está na lista de contatos, confirmar o aceite para quem solicitou
           await enviar_confirmacao_aceite(dados.adicionar_contato_id, dados.meu_perfil)
@@ -1574,7 +1526,6 @@ window.processar_mensagem_mqtt = async (dados) => {
                   delete lista_contatos.solicitações_enviadas_datas[conteudo.meu_perfil.id]
                 }
                 await salvar_lista_contatos(lista_contatos)
-                rotear()
               }
             }
           }
@@ -1589,7 +1540,6 @@ window.processar_mensagem_mqtt = async (dados) => {
                 data: new Date().toISOString()
               })
               await salvar_conversa(dados.id_destino, conteudo.id_remetente, conversa)
-              rotear()
             }
             await enviar_ack(conteudo.id_remetente, conteudo.id_mensagem)
           }
@@ -1600,7 +1550,6 @@ window.processar_mensagem_mqtt = async (dados) => {
             if (msg && !msg.recebida) {
               msg.recebida = true
               await salvar_conversa(dados.id_destino, conteudo.id_remetente, conversa)
-              rotear()
             }
           }
         } catch (e) {
@@ -1612,33 +1561,37 @@ window.processar_mensagem_mqtt = async (dados) => {
   }
 }
 
-window.cliente_mqtt = mqtt.connect("wss://broker.hivemq.com:8884/mqtt")
+if (typeof mqtt !== "undefined") {
+  window.cliente_mqtt = mqtt.connect("wss://broker.hivemq.com:8884/mqtt")
+}
 const cliente_mqtt = window.cliente_mqtt
 
-cliente_mqtt.on("connect", () => {
-  console.log("Conectado ao MQTT")
-  cliente_mqtt.subscribe("kapivatar.net")
-  sincronizar_pares_conhecidos().catch((erro) => {
-    console.error("Erro ao sincronizar dispositivos pareados após conexão MQTT:", erro)
+if (cliente_mqtt && typeof cliente_mqtt.on === "function") {
+  cliente_mqtt.on("connect", () => {
+    console.log("Conectado ao MQTT")
+    cliente_mqtt.subscribe("kapivatar.net")
+    sincronizar_pares_conhecidos().catch((erro) => {
+      console.error("Erro ao sincronizar dispositivos pareados após conexão MQTT:", erro)
+    })
   })
-})
 
-cliente_mqtt.on("message", (topico, mensagem) => {
-  try {
-    const dados = JSON.parse(mensagem.toString())
-    if (topico === "kapivatar.net") {
-      processar_mensagem_mqtt(dados).catch((erro) => {
-        console.error("Erro ao processar mensagem MQTT:", erro)
-      })
-    } else if (topico.startsWith(prefixo_topico_pareamento)) {
-      processar_mensagem_pareamento(topico, dados).catch((erro) => {
-        console.error("Erro ao processar mensagem de pareamento:", erro)
-      })
+  cliente_mqtt.on("message", (topico, mensagem) => {
+    try {
+      const dados = JSON.parse(mensagem.toString())
+      if (topico === "kapivatar.net") {
+        processar_mensagem_mqtt(dados).catch((erro) => {
+          console.error("Erro ao processar mensagem MQTT:", erro)
+        })
+      } else if (topico.startsWith(prefixo_topico_pareamento)) {
+        processar_mensagem_pareamento(topico, dados).catch((erro) => {
+          console.error("Erro ao processar mensagem de pareamento:", erro)
+        })
+      }
+    } catch (erro) {
+      console.error("Erro ao processar mensagem MQTT:", erro)
     }
-  } catch (erro) {
-    console.error("Erro ao processar mensagem MQTT:", erro)
-  }
-})
+  })
+}
 
 const carregar_lista_assobios = async (diretorio, chave) => {
   const arquivo_lista = await ler_arquivo(diretorio, chave)
@@ -1689,7 +1642,6 @@ const arquivar_assobio = async (id, arquivar) => {
     await salvar_lista_assobios(diretorio, "assobios", [...new Set([...ativos.assobios, id])])
     await salvar_lista_assobios(diretorio, "assobios_arquivados", arquivados.assobios.filter(item => item !== id))
   }
-  rotear()
 }
 
 const carregar_assobios_perfil = async (diretorio, id_perfil, chave_lista, sinal_rota) => {
@@ -1724,1486 +1676,5 @@ const publicar_assobio = async (diretorio, id, dados, nota, arquivo_imagem, atri
   await salvar_assobio(diretorio, id_assobio, dados_assobio)
   const ativos = await carregar_lista_assobios(diretorio, "assobios")
   await salvar_lista_assobios(diretorio, "assobios", [...ativos.assobios, id_assobio])
-  navegar("/perfil")
 }
 
-const páginas = [
-  página_inicial,
-  {
-    ...metadados_dispositivos,
-    render: async (conteudo) => mount(Dispositivos, {
-      target: conteudo,
-      props: {
-        arquivo_nome: diretorio_selecionado.name,
-        nome_dispositivo: await obter_nome_dispositivo_local(),
-        dispositivos_pareados: await carregar_dispositivos_pareados(),
-        renomear_dispositivo: renomear_dispositivo_local,
-        abrir_perfil: async () => {
-          await abrir_perfil()
-          navegar("/")
-        },
-        sair,
-      },
-    })
-  },
-  {
-    nome: "Perfil de outro dispositivo",
-    url: "/dispositivos/parear/receber",
-    ícone: "devices",
-    ocultar_no_menu: true,
-    render: async (conteudo) => {
-      const secao = document.createElement("section")
-      secao.classList.add("pareamento-dispositivo")
-      const título = document.createElement("h1")
-      título.textContent = "Perfil de outro dispositivo"
-      const explicacao = document.createElement("p")
-      explicacao.textContent = "Cole a chave secreta de pareamento exibida no outro dispositivo."
-
-      const form = document.createElement("form")
-      form.classList.add("form-perfil", "pareamento-formulario")
-      const campo = document.createElement("div")
-      campo.classList.add("form-campo")
-      const rotulo = document.createElement("label")
-      rotulo.htmlFor = "chave_secreta_pareamento"
-      rotulo.textContent = "Chave secreta de pareamento"
-      const chave = document.createElement("input")
-      chave.id = "chave_secreta_pareamento"
-      chave.name = "chave_secreta_pareamento"
-      chave.type = "text"
-      chave.required = true
-      chave.autocomplete = "off"
-      chave.spellcheck = false
-      chave.maxLength = 43
-      chave.pattern = "[A-Za-z0-9_-]{43}"
-      campo.append(rotulo, chave)
-      const botao = document.createElement("button")
-      botao.type = "submit"
-      botao.textContent = "Parear"
-      form.append(campo, botao)
-
-      const status = document.createElement("p")
-      status.classList.add("pareamento-status")
-      status.setAttribute("role", "status")
-      status.setAttribute("aria-live", "polite")
-      elemento_status_pareamento = status
-      secao.append(título, explicacao, form, status)
-      conteudo.appendChild(secao)
-
-      form.onsubmit = async (evento) => {
-        evento.preventDefault()
-        botao.disabled = true
-        try {
-          await iniciar_pareamento(chave.value, botao, status)
-        } catch (erro) {
-          console.error("Erro ao iniciar o pareamento:", erro)
-          status.textContent = erro instanceof Error ? erro.message : "Não foi possível iniciar o pareamento."
-          botao.disabled = false
-        }
-      }
-    }
-  },
-  {
-    nome: "Parear dispositivo",
-    url: "/dispositivos/parear",
-    ícone: "sync_alt",
-    ocultar_no_menu: true,
-    ações: [{ nome: "Voltar aos dispositivos", url: "/dispositivos", ícone: "devices" }],
-    render: async (conteudo) => {
-      const secao = document.createElement("section")
-      secao.classList.add("pareamento-dispositivo")
-
-      const explicacao = document.createElement("p")
-      explicacao.textContent = "Compartilhe esta chave de pareamento com o outro dispositivo. Ela expira em 120 segundos e é usada como chave AES-256."
-
-      const campo_chave = document.createElement("div")
-      campo_chave.classList.add("form-campo")
-      const rotulo_chave = document.createElement("label")
-      rotulo_chave.htmlFor = "chave_secreta_dispositivo"
-      rotulo_chave.textContent = "Chave secreta de pareamento"
-      const container_chave = document.createElement("div")
-      container_chave.classList.add("campo-copia-container")
-      const chave_secreta = document.createElement("input")
-      chave_secreta.id = "chave_secreta_dispositivo"
-      chave_secreta.type = "text"
-      chave_secreta.readOnly = true
-      chave_secreta.autocomplete = "off"
-      const botao_copiar = document.createElement("button")
-      botao_copiar.type = "button"
-      botao_copiar.setAttribute("aria-label", "Copiar chave secreta")
-      const icone_copiar = document.createElement("span")
-      icone_copiar.classList.add("material-symbols-outlined")
-      icone_copiar.textContent = "content_copy"
-      botao_copiar.appendChild(icone_copiar)
-      const botao_gerar = document.createElement("button")
-      botao_gerar.type = "button"
-      botao_gerar.setAttribute("aria-label", "Gerar nova chave de pareamento")
-      const icone_gerar = document.createElement("span")
-      icone_gerar.classList.add("material-symbols-outlined")
-      icone_gerar.textContent = "refresh"
-      botao_gerar.appendChild(icone_gerar)
-      container_chave.append(chave_secreta, botao_copiar, botao_gerar)
-      campo_chave.append(rotulo_chave, container_chave)
-      secao.append(explicacao, campo_chave)
-
-      const status = document.createElement("p")
-      status.classList.add("pareamento-status")
-      status.setAttribute("role", "status")
-      status.setAttribute("aria-live", "polite")
-      elemento_status_pareamento = status
-      secao.append(status)
-      conteudo.appendChild(secao)
-
-      const copiar = async () => {
-        try {
-          await navigator.clipboard.writeText(chave_secreta.value)
-          status.textContent = "Chave secreta de pareamento copiada."
-        } catch (erro) {
-          console.error("Erro ao copiar a chave secreta:", erro)
-          status.textContent = "Não foi possível copiar a chave secreta."
-        }
-      }
-
-      botao_copiar.onclick = copiar
-
-      const gerar = async () => {
-        try {
-          const atual = await gerar_chave_pareamento_temporaria()
-          chave_secreta.value = atual.chave
-          await copiar()
-          const restante = () => {
-            if (chave_pareamento_atual?.chave !== atual.chave) return
-            const segundos = Math.max(0, Math.ceil((atual.expiracao - Date.now()) / 1000))
-            if (segundos === 0) {
-              chave_secreta.value = ""
-              status.textContent = "Chave expirada. Gere uma nova chave."
-              if (temporizador_contagem_pareamento) clearInterval(temporizador_contagem_pareamento)
-            } else {
-              status.textContent = `Chave copiada. Expira em ${segundos}s.`
-            }
-          }
-          restante()
-          if (temporizador_contagem_pareamento) clearInterval(temporizador_contagem_pareamento)
-          temporizador_contagem_pareamento = setInterval(restante, 1000)
-        } catch (erro) {
-          console.error("Erro ao gerar a chave de pareamento:", erro)
-          status.textContent = "Não foi possível gerar a chave de pareamento."
-        }
-      }
-
-      botao_gerar.onclick = gerar
-      await gerar()
-    }
-  },
-  {
-    nome: "Criar Perfil",
-    url: "/perfil/criar",
-    ícone: "person_add",
-    ocultar_no_menu: true,
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      if (await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)) {
-        conteudo.innerHTML = '<p>Este arquivo já contém um perfil. <a href="/perfil">Abrir perfil</a></p>'
-        return
-      }
-      return mount(CriarPerfil, {
-        target: conteudo,
-        props: {
-          criar_arquivo_perfil,
-          obter_diretorio,
-          gerar_chaves,
-          exportar_chave,
-          gerar_id_perfil,
-          gerar_hash,
-          escrever_arquivo,
-          ler_arquivo,
-          gravar_dado_sqlite,
-          obter_dispositivo_local,
-          carregar_dispositivos_pareados,
-          navegar,
-        },
-      })
-    }
-  },
-  {
-    nome: "Perfil",
-    url: "/perfil",
-    ícone: "account_circle",
-    ocultar_no_menu: true,
-    ações: async (route_params, sinal_rota) => {
-      const id = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
-      return id
-        ? [
-            { nome: "Assobiar", ícone: "campaign", url: "/assobiar" },
-            { nome: "Editar", ícone: "edit", url: "/perfil/editar" },
-            { nome: "Histórico", ícone: "history", url: "/perfil/histórico" },
-          ]
-        : [{ nome: "Criar perfil", ícone: "person_add", url: "/perfil/criar" }]
-    },
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      const id = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
-      if (!id) {
-        conteudo.innerHTML = '<p>Nenhum perfil encontrado. <a href="/perfil/criar">Criar perfil</a></p>'
-        return
-      }
-      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-
-      const dados = await aguardar_rota(ler_perfil_sqlite(), sinal_rota)
-      if (!dados) {
-        conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
-        return
-      }
-      const imagem_capa = dados.capa
-        ? await aguardar_rota(ler_arquivo(diretorio, dados.capa), sinal_rota)
-        : null
-      const imagem_foto = dados.foto
-        ? await aguardar_rota(ler_arquivo(diretorio, dados.foto), sinal_rota)
-        : null
-      const registros_assobios = await carregar_assobios_perfil(diretorio, id, "assobios", sinal_rota)
-      const registros_assobios_arquivados = await carregar_assobios_perfil(
-        diretorio,
-        id,
-        "assobios_arquivados",
-        sinal_rota,
-      )
-
-      return mount(Perfil, {
-        target: conteudo,
-        props: {
-          modo: "visualizar",
-          dados,
-          imagem_capa,
-          imagem_foto,
-          navegar,
-          registros_assobios,
-          registros_assobios_arquivados,
-          ao_arquivar_assobio: arquivar_assobio,
-        },
-      })
-    }
-  },
-  {
-    nome: "Assobiar",
-    url: "/assobiar",
-    ícone: "campaign",
-    ocultar_no_menu: true,
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      const id = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
-      if (!id) {
-        conteudo.innerHTML = '<p>Nenhum perfil encontrado. <a href="/perfil/criar">Criar perfil</a></p>'
-        return
-      }
-
-      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-      const dados = await aguardar_rota(ler_perfil_sqlite(), sinal_rota)
-      if (!dados) {
-        conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
-        return
-      }
-
-      return mount(Perfil, {
-        target: conteudo,
-        props: {
-          modo: "assobiar",
-          dados,
-          ao_publicar_assobio: (nota, arquivo_imagem, atributos) =>
-            publicar_assobio(diretorio, id, dados, nota, arquivo_imagem, atributos),
-        },
-      })
-    },
-  },
-  {
-    nome: "Editar Perfil",
-    url: "/perfil/editar",
-    ícone: "edit",
-    ocultar_no_menu: true,
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      const id = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
-      if (!id) {
-        conteudo.innerHTML = '<p>Nenhum perfil encontrado. <a href="/perfil/criar">Criar perfil</a></p>'
-        return
-      }
-      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-      const dados_atuais = await aguardar_rota(ler_perfil_sqlite(), sinal_rota)
-      if (!dados_atuais) {
-        conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
-        return
-      }
-      const imagem_capa = dados_atuais.capa
-        ? await aguardar_rota(ler_arquivo(diretorio, dados_atuais.capa), sinal_rota)
-        : null
-      const imagem_foto = dados_atuais.foto
-        ? await aguardar_rota(ler_arquivo(diretorio, dados_atuais.foto), sinal_rota)
-        : null
-
-      return mount(Perfil, {
-        target: conteudo,
-        props: {
-          modo: "editar",
-          dados: dados_atuais,
-          imagem_capa,
-          imagem_foto,
-          id,
-          diretorio,
-          gerar_hash,
-          escrever_arquivo,
-          navegar,
-          atualizar_perfil_sqlite,
-        },
-      })
-    }
-  },
-  {
-    nome: "Editar Foto de Perfil",
-    url: "/perfil/foto/editar",
-    ícone: "account_circle",
-    ocultar_no_menu: true,
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      const id = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
-      if (!id) {
-        conteudo.innerHTML = '<p>Nenhum perfil encontrado. <a href="/perfil/criar">Criar perfil</a></p>'
-        return
-      }
-      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-      const dados_atuais = await aguardar_rota(ler_perfil_sqlite(), sinal_rota)
-      if (!dados_atuais) {
-        conteudo.innerHTML = "<p>Erro ao carregar dados do perfil.</p>"
-        return
-      }
-      const perfil_bruto = await aguardar_rota(ler_dado_sqlite("perfil"), sinal_rota)
-      const fotos_perfil = []
-      for (const versao of Array.isArray(perfil_bruto?.foto) ? perfil_bruto.foto : []) {
-        const arquivo = await aguardar_rota(ler_arquivo(diretorio, versao.valor), sinal_rota)
-        if (arquivo) {
-          fotos_perfil.push({
-            data: versao.data,
-            url: URL.createObjectURL(arquivo),
-          })
-        }
-      }
-
-      const salvar_foto = async (conteudo_foto, visibilidade = "privado") => {
-        const buffer = conteudo_foto instanceof Blob
-          ? await conteudo_foto.arrayBuffer()
-          : conteudo_foto
-        const bytes = buffer instanceof ArrayBuffer ? new Uint8Array(buffer) : buffer
-        const hash = await gerar_hash(bytes)
-        await escrever_arquivo(diretorio, hash, bytes)
-
-        await atualizar_perfil_sqlite({
-          foto: hash,
-          visibilidade_foto: ["privado", "publico"].includes(visibilidade) ? visibilidade : "privado",
-        })
-      }
-
-      return mount(Perfil, {
-        target: conteudo,
-        props: {
-          modo: "editar_foto",
-          dados: dados_atuais,
-          navegar,
-          fotos_perfil,
-          visibilidade_foto: dados_atuais.visibilidade_foto,
-          ao_salvar_foto: salvar_foto,
-          ao_restaurar_foto: salvar_foto,
-        },
-      })
-    }
-  },
-  {
-    nome: "Histórico do Perfil",
-    url: "/perfil/histórico",
-    ícone: "history",
-    ocultar_no_menu: true,
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      const id = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
-      if (!id) {
-        conteudo.innerHTML = '<p>Nenhum perfil encontrado. <a href="/perfil/criar">Criar perfil</a></p>'
-        return
-      }
-      const perfil = await aguardar_rota(ler_dado_sqlite("perfil"), sinal_rota)
-      const historico = []
-      if (perfil && typeof perfil === "object") {
-        for (const campo of ["capa", "foto", "nome", "bio"]) {
-          if (!Array.isArray(perfil[campo])) continue
-          for (const versao of perfil[campo]) {
-            historico.push({ campo, data: versao.data, valor: versao.valor })
-          }
-        }
-      }
-      historico.sort((a, b) => String(b.data).localeCompare(String(a.data)))
-
-      return mount(Perfil, {
-        target: conteudo,
-        props: { modo: "historico", historico },
-      })
-    }
-  },
-  {
-    nome: "Contatos",
-    url: "/contatos",
-    ícone: "contacts",
-    ações: [
-      {
-        nome: "Adicionar",
-        url: "/contatos/adicionar",
-        ícone: "person_add",
-      },
-      {
-        nome: "Solicitações",
-        url: "/contatos/solicitações",
-        ícone: "group_add",
-      },
-    ],
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      const lista = await aguardar_rota(carregar_lista_contatos(undefined, sinal_rota), sinal_rota)
-      if (lista.contatos.length === 0) {
-        conteudo.innerHTML = "<p>Sua lista de contatos está vazia.</p>"
-      } else {
-        const grid = document.createElement("div")
-        grid.classList.add("perfis-grid")
-        conteudo.appendChild(grid)
-
-        const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-
-        for (const contato of lista.contatos) {
-          const card = document.createElement("div")
-          card.classList.add("perfil-card")
-          card.onclick = () => navegar(`/contato/${contato.id}`)
-
-          if (contato.capa) {
-            const img_capa = document.createElement("img")
-            const arquivo_capa = await aguardar_rota(ler_arquivo(diretorio, contato.capa), sinal_rota)
-            if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
-            img_capa.classList.add("perfil-capa")
-            img_capa.alt = `Capa de ${contato.nome}`
-            card.appendChild(img_capa)
-          }
-
-          const info = document.createElement("div")
-          info.classList.add("perfil-info")
-
-          if (contato.foto) {
-            const img_foto = document.createElement("img")
-            const arquivo_foto = await aguardar_rota(ler_arquivo(diretorio, contato.foto), sinal_rota)
-            if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
-            img_foto.classList.add("perfil-foto")
-            img_foto.alt = `Foto de ${contato.nome}`
-            img_foto.style.marginTop = contato.capa ? "-35px" : "0"
-            info.appendChild(img_foto)
-          }
-
-          const nome = document.createElement("h3")
-          nome.textContent = contato.nome
-          nome.classList.add("perfil-nome")
-          info.appendChild(nome)
-
-          const bio = document.createElement("p")
-          bio.textContent = contato.bio
-          bio.classList.add("perfil-bio")
-          info.appendChild(bio)
-
-          card.appendChild(info)
-          grid.appendChild(card)
-        }
-      }
-    }
-  },
-  {
-    nome: "Adicionar Contato",
-    url: "/contatos/adicionar",
-    ícone: "person_add",
-    ocultar_no_menu: true,
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      const id_meu_perfil = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
-      if (!id_meu_perfil) {
-        conteudo.innerHTML = '<p>Crie um perfil primeiro. <a href="/perfil">Criar perfil</a></p>'
-        return
-      }
-
-      const div_meu_id = document.createElement("div")
-      div_meu_id.classList.add("form-campo")
-      const label_meu_id = document.createElement("label")
-      label_meu_id.textContent = "Meu ID de Perfil"
-      div_meu_id.appendChild(label_meu_id)
-
-      const container_input = document.createElement("div")
-      container_input.style.display = "flex"
-      container_input.style.gap = "0.5em"
-
-      const input_meu_id = document.createElement("input")
-      input_meu_id.type = "text"
-      input_meu_id.value = window.isScreenshotTest ? "[MOCKED_ID]" : id_meu_perfil
-      input_meu_id.readOnly = true
-      input_meu_id.style.flex = "1"
-      container_input.appendChild(input_meu_id)
-
-      const botao_copiar = document.createElement("button")
-      botao_copiar.type = "button"
-      const icone_copiar = document.createElement("span")
-      icone_copiar.classList.add("material-symbols-outlined")
-      icone_copiar.textContent = "content_copy"
-      botao_copiar.appendChild(icone_copiar)
-      botao_copiar.onclick = () => {
-        navigator.clipboard.writeText(id_meu_perfil)
-        alert("ID copiado!")
-      }
-      container_input.appendChild(botao_copiar)
-      div_meu_id.appendChild(container_input)
-      conteudo.appendChild(div_meu_id)
-
-      const form = document.createElement("form")
-      form.classList.add("form-perfil")
-      form.style.marginTop = "2em"
-
-      const div_contato_id = document.createElement("div")
-      div_contato_id.classList.add("form-campo")
-      const label_contato_id = document.createElement("label")
-      label_contato_id.textContent = "ID do Contato para Adicionar"
-      label_contato_id.htmlFor = "contato_id"
-      div_contato_id.appendChild(label_contato_id)
-
-      const input_contato_id = document.createElement("input")
-      input_contato_id.type = "text"
-      input_contato_id.id = "contato_id"
-      input_contato_id.name = "contato_id"
-      input_contato_id.required = true
-      div_contato_id.appendChild(input_contato_id)
-      form.appendChild(div_contato_id)
-
-      const botao_adicionar = document.createElement("button")
-      botao_adicionar.type = "submit"
-      const icone_add = document.createElement("span")
-      icone_add.classList.add("material-symbols-outlined")
-      icone_add.textContent = "person_add"
-      botao_adicionar.appendChild(icone_add)
-      const texto_add = document.createElement("span")
-      texto_add.textContent = "Adicionar Contato"
-      botao_adicionar.appendChild(texto_add)
-      form.appendChild(botao_adicionar)
-
-      form.onsubmit = async (e) => {
-        e.preventDefault()
-        const id_alvo = form.contato_id.value
-        await enviar_solicitacao_contato(id_alvo)
-        navegar("/contatos/solicitações")
-      }
-
-      conteudo.appendChild(form)
-    }
-  },
-  {
-    nome: "Solicitações de Contato",
-    url: "/contatos/solicitações",
-    ícone: "group_add",
-    ocultar_no_menu: true,
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      const lista = await aguardar_rota(carregar_lista_contatos(undefined, sinal_rota), sinal_rota)
-
-      const grid = document.createElement("div")
-      grid.style.display = "grid"
-      grid.style.gridTemplateColumns = "1fr 1fr"
-      grid.style.gap = "2em"
-      conteudo.appendChild(grid)
-
-      const div_enviadas = document.createElement("div")
-      const h3_enviadas = document.createElement("h3")
-      h3_enviadas.textContent = "Solicitações Enviadas"
-      div_enviadas.appendChild(h3_enviadas)
-
-      if (lista.solicitações_enviadas.length === 0) {
-        const p = document.createElement("p")
-        p.textContent = "Nenhuma solicitação enviada."
-        div_enviadas.appendChild(p)
-      } else {
-        const ul = document.createElement("ul")
-        ul.classList.add("lista-solicitacoes")
-        lista.solicitações_enviadas.forEach(id => {
-          const li = document.createElement("li")
-          li.classList.add("item-solicitacao")
-
-          const info = document.createElement("div")
-          info.classList.add("item-solicitacao-info")
-          const span_id = document.createElement("span")
-          span_id.classList.add("item-solicitacao-id")
-          span_id.textContent = window.isScreenshotTest ? "[MOCKED_ID]" : id
-          info.appendChild(span_id)
-
-          li.appendChild(info)
-          ul.appendChild(li)
-        })
-        div_enviadas.appendChild(ul)
-      }
-      grid.appendChild(div_enviadas)
-
-      const div_recebidas = document.createElement("div")
-      const h3_recebidas = document.createElement("h3")
-      h3_recebidas.textContent = "Solicitações Recebidas"
-      div_recebidas.appendChild(h3_recebidas)
-
-      if (lista.solicitações_recebidas.length === 0) {
-        const p = document.createElement("p")
-        p.textContent = "Nenhuma solicitação recebida."
-        div_recebidas.appendChild(p)
-      } else {
-        const ul = document.createElement("ul")
-        ul.classList.add("lista-solicitacoes")
-        lista.solicitações_recebidas.forEach(perfil => {
-          const li = document.createElement("li")
-          li.classList.add("item-solicitacao")
-
-          const info = document.createElement("div")
-          info.classList.add("item-solicitacao-info")
-          const nome = document.createElement("span")
-          nome.textContent = perfil.nome || "Sem nome"
-          info.appendChild(nome)
-          const span_id = document.createElement("span")
-          span_id.classList.add("item-solicitacao-id")
-          span_id.textContent = window.isScreenshotTest ? "[MOCKED_ID]" : perfil.id
-          info.appendChild(span_id)
-          li.appendChild(info)
-
-          const botao_aceitar = document.createElement("button")
-          botao_aceitar.textContent = "Aceitar"
-          botao_aceitar.onclick = async () => {
-            await aceitar_solicitacao_contato(perfil)
-            rotear()
-          }
-          li.appendChild(botao_aceitar)
-          ul.appendChild(li)
-        })
-        div_recebidas.appendChild(ul)
-      }
-      grid.appendChild(div_recebidas)
-    }
-  },
-  {
-    nome: "Contato",
-    url: "/contato/:id",
-    ícone: "person",
-    ocultar_no_menu: true,
-    render: async (conteudo, params, route_params, sinal_rota) => {
-      const id_contato = route_params.id
-      const id_meu_perfil = await aguardar_rota(obter_id_perfil_selecionado(sinal_rota), sinal_rota)
-      const diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-
-      const lista_contatos = await aguardar_rota(carregar_lista_contatos(undefined, sinal_rota), sinal_rota)
-      const dados = lista_contatos.contatos.find(c => c.id === id_contato)
-
-      if (!dados) {
-        conteudo.innerHTML = "<p>Contato não encontrado.</p>"
-        return
-      }
-
-      const detalhe = document.createElement("div")
-      detalhe.classList.add("perfil-detalhe")
-
-      if (dados.capa) {
-        const img_capa = document.createElement("img")
-        const arquivo_capa = await aguardar_rota(ler_arquivo(diretorio, dados.capa), sinal_rota)
-        if (arquivo_capa) img_capa.src = URL.createObjectURL(arquivo_capa)
-        img_capa.classList.add("perfil-capa-detalhe")
-        detalhe.appendChild(img_capa)
-      }
-
-      const info = document.createElement("div")
-      info.classList.add("perfil-info-detalhe")
-
-      if (dados.foto) {
-        const img_foto = document.createElement("img")
-        const arquivo_foto = await aguardar_rota(ler_arquivo(diretorio, dados.foto), sinal_rota)
-        if (arquivo_foto) img_foto.src = URL.createObjectURL(arquivo_foto)
-        img_foto.classList.add("perfil-foto-detalhe")
-        img_foto.style.marginTop = dados.capa ? "-50px" : "0"
-        info.appendChild(img_foto)
-      }
-
-      const nome = document.createElement("h2")
-      nome.textContent = dados.nome
-      info.appendChild(nome)
-
-      const bio = document.createElement("p")
-      bio.textContent = dados.bio
-      info.appendChild(bio)
-
-      detalhe.appendChild(info)
-      conteudo.appendChild(detalhe)
-
-      // Chat
-      const chat_container = document.createElement("div")
-      chat_container.classList.add("chat-container")
-
-      const mensagens_div = document.createElement("div")
-      mensagens_div.classList.add("chat-mensagens")
-
-      const conversa = await aguardar_rota(carregar_conversa(id_meu_perfil, id_contato, sinal_rota), sinal_rota)
-      conversa.mensagens.forEach(msg => {
-        const msg_div = document.createElement("div")
-        msg_div.classList.add("chat-mensagem")
-        msg_div.classList.add(msg.id_remetente === id_meu_perfil ? "minha" : "deles")
-
-        const texto = document.createElement("p")
-        texto.textContent = msg.texto
-        msg_div.appendChild(texto)
-
-        const rodape_msg = document.createElement("div")
-        rodape_msg.classList.add("chat-mensagem-rodape")
-
-        const data = document.createElement("span")
-        data.classList.add("chat-mensagem-data")
-        data.textContent = window.isScreenshotTest ? "12:34" : new Date(msg.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        rodape_msg.appendChild(data)
-
-        if (msg.id_remetente === id_meu_perfil) {
-          const status = document.createElement("span")
-          status.classList.add("material-symbols-outlined", "chat-mensagem-status")
-          if (msg.recebida) {
-            status.textContent = "done_all"
-            status.classList.add("recebida")
-          } else {
-            status.textContent = "done"
-          }
-          rodape_msg.appendChild(status)
-        }
-
-        msg_div.appendChild(rodape_msg)
-
-        mensagens_div.appendChild(msg_div)
-      })
-
-      chat_container.appendChild(mensagens_div)
-
-      // Auto scroll para o final
-      setTimeout(() => {
-        mensagens_div.scrollTop = mensagens_div.scrollHeight
-      }, 0)
-
-      const form = document.createElement("form")
-      form.classList.add("chat-form")
-
-      const input = document.createElement("input")
-      input.type = "text"
-      input.placeholder = "Digite uma mensagem..."
-      input.required = true
-      form.appendChild(input)
-
-      const botao = document.createElement("button")
-      botao.type = "submit"
-      const icone = document.createElement("span")
-      icone.classList.add("material-symbols-outlined")
-      icone.textContent = "send"
-      botao.appendChild(icone)
-      form.appendChild(botao)
-
-      form.onsubmit = async (e) => {
-        e.preventDefault()
-        const texto = input.value
-        input.value = ""
-        await enviar_mensagem_chat(id_contato, texto)
-      }
-
-      chat_container.appendChild(form)
-      conteudo.appendChild(chat_container)
-    }
-  },
-]
-
-let id_rota_atual = 0
-let controlador_rota_atual = null
-
-const navegar = (url) => {
-  fechar_sidebar()
-  history.pushState({}, "", url)
-  rotear()
-}
-window.navegar = navegar
-
-const abrir_sidebar = () => {
-  document.body.classList.add("sidebar-aberta")
-}
-
-const fechar_sidebar = () => {
-  document.body.classList.remove("sidebar-aberta")
-}
-
-const sair = async () => {
-  await vfs_remover("arquivo_sqlite")
-  layout_referencias = null
-  document.body.classList.remove("app-logado")
-  navegar("/")
-}
-
-const esta_autenticado = async () => {
-  const diretorio = await obter_diretorio()
-  if (!diretorio) return false
-  try {
-    return await diretorio.queryPermission({ mode: "readwrite" }) === "granted"
-  } catch (e) {
-    return true
-  }
-}
-
-const carregar_tela_permissao = async (diretorio) => {
-  document.body.innerHTML = ""
-  document.body.classList.remove("app-logado")
-  const logo = document.createElement("img")
-  logo.classList.add("login-logo")
-  logo.src = url_logo
-  logo.alt = "Kapivatar Logo"
-  document.body.appendChild(logo)
-  const coluna_1 = document.createElement("div")
-  coluna_1.classList.add("coluna", "login-info")
-  const h1 = document.createElement("h1")
-  h1.textContent = "Permissão Necessária"
-  coluna_1.appendChild(h1)
-  const img = document.createElement("img")
-  img.src = url_capivara
-  img.classList.add("login-imagem")
-  img.alt = "Mascote Capivara"
-  coluna_1.appendChild(img)
-  const p_1 = document.createElement("p")
-  p_1.classList.add("login-descricao")
-  p_1.textContent = "O Kapivatar precisa de permissão para ler e escrever no arquivo do perfil selecionado para que você possa acessar seus dados e mensagens."
-  coluna_1.appendChild(p_1)
-  document.body.appendChild(coluna_1)
-  const coluna_2 = document.createElement("div")
-  coluna_2.classList.add("coluna", "login-acao")
-  const p_2 = document.createElement("p")
-  p_2.textContent = "Reativar acesso"
-  coluna_2.appendChild(p_2)
-  const botão_permitir = document.createElement("button")
-  const icone_permissao = document.createElement("span")
-  icone_permissao.classList.add("material-symbols-outlined")
-  icone_permissao.textContent = "lock_open"
-  botão_permitir.appendChild(icone_permissao)
-  const texto_permitir = document.createElement("span")
-  texto_permitir.textContent = "Permitir Acesso"
-  botão_permitir.appendChild(texto_permitir)
-  botão_permitir.onclick = async () => {
-    const status = await diretorio.requestPermission({ mode: "readwrite" })
-    if (status === "granted") {
-      rotear()
-    }
-  }
-  coluna_2.appendChild(botão_permitir)
-
-  const botão_sair = document.createElement("button")
-  botão_sair.style.marginTop = "1em"
-  botão_sair.style.backgroundColor = "#444"
-  const icone_sair = document.createElement("span")
-  icone_sair.classList.add("material-symbols-outlined")
-  icone_sair.textContent = "logout"
-  botão_sair.appendChild(icone_sair)
-  const texto_sair = document.createElement("span")
-  texto_sair.textContent = "Sair e trocar perfil"
-  botão_sair.appendChild(texto_sair)
-  botão_sair.onclick = async () => {
-    await vfs_remover("arquivo_sqlite")
-    rotear()
-  }
-  coluna_2.appendChild(botão_sair)
-  document.body.appendChild(coluna_2)
-}
-
-let layout_referencias = null
-let sidebar_objetos_url = []
-
-const carregar_layout = () => {
-  document.body.innerHTML = ""
-  document.body.classList.remove("criar-perfil-inicial-body")
-  document.body.classList.add("app-logado")
-
-  base_horizontal_montada = mount(BaseHorizontal, {
-    target: document.body,
-    props: { url_logo, navegar, fechar_sidebar }
-  })
-  const base_horizontal = document.body.querySelector(".sidebar")
-
-  base_vertical_montada = mount(BaseVertical, {
-    target: document.body,
-    props: { navegar, abrir_sidebar }
-  })
-  const base_vertical = document.body.querySelector(".conteudo-principal")
-
-  layout_referencias = {
-    perfil_selecionado: base_horizontal.querySelector(".perfil-selecionado-sidebar"),
-    titulo: base_vertical.querySelector(".titulo-pagina"),
-    botao_menu_acoes: base_vertical.querySelector(".botao-mais-acoes"),
-    menu_acoes: base_vertical.querySelector(".menu-acoes"),
-    conteudo: base_vertical.querySelector(".conteudo-pagina"),
-    elementos_navegacao: [
-      ...base_horizontal.querySelectorAll(".menu a[data-url]"),
-      ...base_vertical.querySelectorAll(".navegacao-inferior-item[data-url]")
-    ]
-  }
-}
-
-const atualizar_sidebar_perfil_selecionado = async () => {
-  const { perfil_selecionado } = layout_referencias
-  if (!perfil_selecionado) return
-
-  sidebar_objetos_url.forEach(url => URL.revokeObjectURL(url))
-  sidebar_objetos_url = []
-
-  const id_selecionado = await obter_id_perfil_selecionado()
-  perfil_selecionado.innerHTML = ""
-
-  if (id_selecionado) {
-    const diretorio = await obter_diretorio()
-    const dados = await ler_perfil_sqlite()
-    if (dados && dados.id === id_selecionado) {
-
-        const container_info = document.createElement("div")
-        container_info.classList.add("perfil-sidebar-info")
-
-        if (dados.foto) {
-          const img_foto = document.createElement("img")
-          const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
-          if (arquivo_foto) {
-            const url = URL.createObjectURL(arquivo_foto)
-            img_foto.src = url
-            sidebar_objetos_url.push(url)
-          }
-          img_foto.classList.add("perfil-sidebar-foto")
-          img_foto.alt = `Foto de ${dados.nome}`
-          container_info.appendChild(img_foto)
-        }
-
-        const nome = document.createElement("span")
-        nome.textContent = dados.nome
-        nome.classList.add("perfil-sidebar-nome")
-        container_info.appendChild(nome)
-
-        const link_perfil = document.createElement("a")
-        link_perfil.href = "/perfil"
-        link_perfil.appendChild(container_info)
-        perfil_selecionado.appendChild(link_perfil)
-      }
-  } else {
-    const link_selecionar = document.createElement("a")
-    link_selecionar.href = "/perfil"
-    const icone_add = document.createElement("span")
-    icone_add.classList.add("material-symbols-outlined")
-    icone_add.textContent = "person_add"
-    link_selecionar.appendChild(icone_add)
-    const texto_add = document.createElement("span")
-    texto_add.textContent = "Criar perfil"
-    link_selecionar.appendChild(texto_add)
-    perfil_selecionado.appendChild(link_selecionar)
-  }
-}
-
-const renderizar_página = async (página, params, route_params, id_rota, sinal_rota) => {
-  const { titulo, botao_menu_acoes, menu_acoes, conteudo, elementos_navegacao } = layout_referencias
-
-  atualizar_sidebar_perfil_selecionado()
-
-  elementos_navegacao.forEach((item) => {
-    const ativo = item.dataset.rotas.split(" ").some((rota) =>
-      rota === "/"
-        ? página.url === rota
-        : página.url === rota || página.url.startsWith(`${rota}/`)
-    )
-    item.classList.toggle("ativo", ativo)
-    if (ativo) {
-      item.setAttribute("aria-current", "page")
-    } else {
-      item.removeAttribute("aria-current")
-    }
-  })
-
-  // Atualiza Título
-  titulo.innerHTML = ""
-  if (página.ícone) {
-    const span_ícone = document.createElement("span")
-    span_ícone.classList.add("material-symbols-outlined")
-    span_ícone.textContent = página.ícone
-    titulo.appendChild(span_ícone)
-  }
-  const span_titulo_texto = document.createElement("span")
-  span_titulo_texto.textContent = página.nome
-  titulo.appendChild(span_titulo_texto)
-
-  // Atualiza Ações
-  menu_acoes.innerHTML = ""
-  menu_acoes.classList.remove("aberto")
-  botao_menu_acoes.setAttribute("aria-expanded", "false")
-  const ações = typeof página.ações === "function"
-    ? await aguardar_rota(página.ações(route_params, sinal_rota), sinal_rota)
-    : página.ações
-  botao_menu_acoes.hidden = !ações?.length
-  ações?.forEach(ação => {
-    const botão_ação = document.createElement("button")
-    if (ação.ícone) {
-      const span_ícone = document.createElement("span")
-      span_ícone.classList.add("material-symbols-outlined")
-      span_ícone.textContent = ação.ícone
-      botão_ação.appendChild(span_ícone)
-    }
-    const span_texto = document.createElement("span")
-    span_texto.textContent = ação.nome
-    botão_ação.appendChild(span_texto)
-    botão_ação.onclick = () => {
-      const url = ação.url_dinamica ? ação.url_dinamica(route_params) : ação.url
-      navegar(url)
-    }
-    menu_acoes.appendChild(botão_ação)
-  })
-
-  // Atualiza Conteúdo
-  if (componente_página_montado) {
-    unmount(componente_página_montado)
-    componente_página_montado = null
-  }
-  conteudo.innerHTML = ""
-  if (página.render) {
-    const conteudo_renderizado = document.createElement("div")
-    let componente_renderizado
-    try {
-      componente_renderizado = await página.render(conteudo_renderizado, params, route_params, sinal_rota)
-    } catch (erro) {
-      if (sinal_rota.aborted) return
-      throw erro
-    }
-    if (sinal_rota.aborted || id_rota !== id_rota_atual) {
-      if (componente_renderizado) unmount(componente_renderizado)
-      return
-    }
-    conteudo.replaceChildren(...conteudo_renderizado.childNodes)
-    componente_página_montado = componente_renderizado
-  }
-}
-
-const renderizar_404 = () => {
-  const { menu, titulo, botao_menu_acoes, menu_acoes, conteudo } = layout_referencias
-
-  // Atualiza Menu (limpa seleção)
-  menu.querySelectorAll("a").forEach(a => a.classList.remove("ativo"))
-
-  titulo.innerHTML = ""
-  const span_ícone = document.createElement("span")
-  span_ícone.classList.add("material-symbols-outlined")
-  span_ícone.textContent = "error"
-  titulo.appendChild(span_ícone)
-  const span_texto = document.createElement("span")
-  span_texto.textContent = "404 - Não Encontrado"
-  titulo.appendChild(span_texto)
-
-  menu_acoes.innerHTML = ""
-  menu_acoes.classList.remove("aberto")
-  botao_menu_acoes.setAttribute("aria-expanded", "false")
-  botao_menu_acoes.hidden = true
-  conteudo.innerHTML = "<p>A página que você procura não existe.</p>"
-}
-
-const obter_origem_externa = () => {
-  const params = new URLSearchParams(location.search)
-  if (params.has("origin")) {
-    return params.get("origin")
-  }
-  if (document.referrer) {
-    try {
-      return new URL(document.referrer).origin
-    } catch (e) {}
-  }
-  return location.origin
-}
-
-const rotear = async () => {
-  controlador_rota_atual?.abort()
-  controlador_rota_atual = new AbortController()
-  const sinal_rota = controlador_rota_atual.signal
-  const id_rota = ++id_rota_atual
-
-  if (tela_inicial_montada) {
-    unmount(tela_inicial_montada)
-    tela_inicial_montada = null
-  }
-  if (componente_página_montado) {
-    unmount(componente_página_montado)
-    componente_página_montado = null
-  }
-
-  const path = decodeURIComponent(location.pathname)
-  const params = new URLSearchParams(location.search)
-
-  if (path === "/perfil-autenticado") {
-    document.body.innerHTML = ""
-    document.body.className = "perfil-autenticado-body"
-
-    const container = document.createElement("div")
-    container.className = "perfil-autenticado-container"
-
-    const renderizar_generico = () => {
-      container.innerHTML = ""
-      const icon = document.createElement("span")
-      icon.className = "material-symbols-outlined perfil-autenticado-icon"
-      icon.textContent = "account_circle"
-      container.appendChild(icon)
-    }
-
-    renderizar_generico()
-    document.body.appendChild(container)
-
-    container.onclick = () => {
-      const origem = obter_origem_externa()
-      const popup = window.open(`/autenticar`, "kapivatar_autenticar", "width=600,height=600")
-
-      const listener = (event) => {
-        if (event.origin !== location.origin) return
-
-        if (event.data && event.data.tipo === "KAPIVATAR_AUTENTICAR_READY") {
-          popup.postMessage({ tipo: "KAPIVATAR_ORIGIN", origem }, location.origin)
-          window.removeEventListener("message", listener)
-        }
-      }
-      window.addEventListener("message", listener)
-    }
-
-    const diretorio = await obter_diretorio()
-    if (diretorio) {
-      try {
-        const permissao = await aguardar_rota(diretorio.queryPermission({ mode: "readwrite" }), sinal_rota)
-        if (permissao === "granted") {
-          const id_selecionado = await obter_id_perfil_selecionado()
-          if (id_selecionado) {
-            const origem = obter_origem_externa()
-            const hash_origem = await gerar_hash(origem)
-
-            let subdiretorio = null
-            try {
-              subdiretorio = await diretorio.getDirectoryHandle(hash_origem, { create: false })
-            } catch (e) {}
-
-            if (subdiretorio) {
-              let foto_exibida = false
-              let dados_perfil = null
-              const dados = await ler_perfil_sqlite()
-              if (dados && dados.id === id_selecionado) {
-                dados_perfil = dados
-                if (dados.foto) {
-                  const arquivo_foto = await ler_arquivo(diretorio, dados.foto)
-                  if (arquivo_foto) {
-                    container.innerHTML = ""
-                    const img = document.createElement("img")
-                    img.src = URL.createObjectURL(arquivo_foto)
-                    img.className = "perfil-autenticado-foto"
-                    img.alt = `Foto de ${dados.nome}`
-                    container.appendChild(img)
-                    foto_exibida = true
-                  }
-                }
-              }
-              if (!foto_exibida) {
-                container.innerHTML = ""
-                const icon = document.createElement("span")
-                icon.className = "material-symbols-outlined perfil-autenticado-icon autorizado"
-                icon.textContent = "account_circle"
-                container.appendChild(icon)
-              }
-              if (dados_perfil) {
-                window.parent.postMessage({
-                  tipo: "KAPIVATAR_CONECTADO",
-                  perfil: {
-                    id: id_selecionado,
-                    nome: dados_perfil.nome,
-                    bio: dados_perfil.bio,
-                    chave_publica: dados_perfil.chave_publica
-                  }
-                }, "*")
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.error(e)
-      }
-    }
-
-    const tratar_mensagem = (event) => {
-      if (event.origin !== location.origin) return
-
-      if (event.data && event.data.tipo === "KAPIVATAR_AUTORIZADO") {
-        window.removeEventListener("message", tratar_mensagem)
-        rotear()
-      }
-    }
-    window.addEventListener("message", tratar_mensagem)
-    return
-  }
-
-  if (path === "/autenticar") {
-    const continuarAutenticacao = async (origem) => {
-      const diretorio = await obter_diretorio()
-      if (!diretorio) {
-        layout_referencias = null
-        renderizar_tela_inicial({
-          url_logo,
-          url_capivara,
-          abrir_perfil,
-          navegar,
-          criar_arquivo_perfil,
-          obter_diretorio,
-          gerar_chaves,
-          exportar_chave,
-          gerar_id_perfil,
-          gerar_hash,
-          escrever_arquivo,
-          ler_arquivo,
-          gravar_dado_sqlite,
-          obter_dispositivo_local,
-          carregar_dispositivos_pareados,
-        })
-        return
-      }
-
-      try {
-        const permissao = await diretorio.queryPermission({ mode: "readwrite" })
-        if (id_rota !== id_rota_atual) return
-        if (permissao !== "granted") {
-          carregar_tela_permissao(diretorio)
-          return
-        }
-      } catch (e) {
-        console.error(e)
-      }
-
-      const id_selecionado = await obter_id_perfil_selecionado()
-      if (!id_selecionado) {
-        document.body.innerHTML = ""
-        document.body.className = "autenticar-body"
-
-        const container = document.createElement("div")
-        container.className = "autenticar-container"
-
-        const h1 = document.createElement("h1")
-        h1.textContent = "Perfil não selecionado"
-        container.appendChild(h1)
-
-        const p = document.createElement("p")
-        p.textContent = "Você precisa criar um perfil no Kapivatar antes de autorizar aplicativos externos."
-        container.appendChild(p)
-
-        const botao = document.createElement("button")
-        botao.textContent = "Fechar"
-        botao.onclick = () => {
-          window.close()
-        }
-        container.appendChild(botao)
-        document.body.appendChild(container)
-        return
-      }
-
-      const dados = await ler_perfil_sqlite()
-      let nome_perfil = "Perfil Sem Nome"
-      if (dados && dados.id === id_selecionado) {
-        nome_perfil = dados.nome
-      }
-
-      document.body.innerHTML = ""
-      document.body.className = "autenticar-body"
-
-      const container = document.createElement("div")
-      container.className = "autenticar-container"
-
-      const logo = document.createElement("img")
-      logo.src = url_logo
-      logo.alt = "Kapivatar Logo"
-      logo.className = "autenticar-logo"
-      container.appendChild(logo)
-
-      const h1 = document.createElement("h1")
-      h1.textContent = "Autorizar Conexão"
-      container.appendChild(h1)
-
-      const p = document.createElement("p")
-      p.innerHTML = `O aplicativo <strong id="app-origin"></strong> deseja se conectar ao seu perfil Kapivatar (<strong id="profile-name"></strong>).`
-      p.querySelector("#app-origin").textContent = origem
-      p.querySelector("#profile-name").textContent = nome_perfil
-      container.appendChild(p)
-
-      const botoes_container = document.createElement("div")
-      botoes_container.className = "autenticar-botoes"
-
-      const botao_autorizar = document.createElement("button")
-      botao_autorizar.textContent = "Autorizar"
-      botao_autorizar.onclick = async () => {
-        const hash_origem = await gerar_hash(origem)
-        const subdiretorio = await diretorio.getDirectoryHandle(hash_origem, { create: true })
-
-        if (window.opener) {
-          window.opener.postMessage({ tipo: "KAPIVATAR_AUTORIZADO" }, location.origin)
-        }
-        window.close()
-      }
-      botoes_container.appendChild(botao_autorizar)
-
-      const botao_cancelar = document.createElement("button")
-      botao_cancelar.textContent = "Cancelar"
-      botao_cancelar.style.backgroundColor = "#444"
-      botao_cancelar.onclick = () => {
-        window.close()
-      }
-      botoes_container.appendChild(botao_cancelar)
-
-      container.appendChild(botoes_container)
-      document.body.appendChild(container)
-    }
-
-    const paramOrigem = obter_origem_externa()
-    if (paramOrigem && location.search.includes("origin=")) {
-      continuarAutenticacao(paramOrigem)
-      return
-    }
-
-    let resolved = false
-    const listener = (event) => {
-      if (event.origin !== location.origin) return
-
-      if (event.data && event.data.tipo === "KAPIVATAR_ORIGIN") {
-        if (!resolved) {
-          resolved = true
-          window.removeEventListener("message", listener)
-          continuarAutenticacao(event.data.origem)
-        }
-      }
-    }
-    window.addEventListener("message", listener)
-
-    if (window.opener) {
-      window.opener.postMessage({ tipo: "KAPIVATAR_AUTENTICAR_READY" }, location.origin)
-    }
-
-    return
-  }
-
-  let diretorio
-  try {
-    diretorio = await aguardar_rota(obter_diretorio(sinal_rota), sinal_rota)
-  } catch (erro) {
-    if (sinal_rota.aborted) return
-    throw erro
-  }
-  if (id_rota !== id_rota_atual) return
-
-  if (!diretorio) {
-    layout_referencias = null
-    if (path === "/dispositivos/parear/receber") {
-      const página_receber = páginas.find((p) => p.url === path)
-      document.body.className = "pareamento-inicial-body"
-      document.body.replaceChildren()
-      const container = document.createElement("main")
-      container.classList.add("pareamento-inicial")
-      componente_página_montado = await página_receber.render(container, params, {}, sinal_rota)
-      if (id_rota !== id_rota_atual) return
-      document.body.appendChild(container)
-      return
-    }
-    if (path === "/perfil/criar") {
-      renderizar_tela_inicial({
-        url_logo,
-        url_capivara,
-        criar_inicial: true,
-        abrir_perfil,
-        navegar,
-        criar_arquivo_perfil,
-        obter_diretorio,
-        gerar_chaves,
-        exportar_chave,
-        gerar_id_perfil,
-        gerar_hash,
-        escrever_arquivo,
-        ler_arquivo,
-        gravar_dado_sqlite,
-        obter_dispositivo_local,
-        carregar_dispositivos_pareados,
-      })
-      return
-    }
-    renderizar_tela_inicial({
-      url_logo,
-      url_capivara,
-      abrir_perfil,
-      navegar,
-      criar_arquivo_perfil,
-      obter_diretorio,
-      gerar_chaves,
-      exportar_chave,
-      gerar_id_perfil,
-      gerar_hash,
-      escrever_arquivo,
-      ler_arquivo,
-      gravar_dado_sqlite,
-      obter_dispositivo_local,
-      carregar_dispositivos_pareados,
-    })
-    return
-  }
-
-  try {
-    const permissao = await diretorio.queryPermission({ mode: "readwrite" })
-    if (permissao !== "granted") {
-      carregar_tela_permissao(diretorio)
-      return
-    }
-  } catch (e) {
-    if (sinal_rota.aborted) return
-    console.error("Erro ao verificar permissão:", e)
-  }
-  if (id_rota !== id_rota_atual) return
-
-  if (!layout_referencias) {
-    carregar_layout()
-  }
-
-  let página = null
-  let route_params = {}
-
-  for (const p of páginas) {
-    const route_parts = p.url.split("/")
-    const path_parts = path.split("/")
-
-    if (route_parts.length === path_parts.length) {
-      let match = true
-      const temp_params = {}
-
-      for (let i = 0; i < route_parts.length; i++) {
-        if (route_parts[i].startsWith(":")) {
-          temp_params[route_parts[i].substring(1)] = path_parts[i]
-        } else if (route_parts[i] !== path_parts[i]) {
-          match = false
-          break
-        }
-      }
-
-      if (match) {
-        página = p
-        route_params = temp_params
-        break
-      }
-    }
-  }
-
-  if (página) {
-    await renderizar_página(página, params, route_params, id_rota, sinal_rota)
-  } else {
-    renderizar_404()
-  }
-}
-
-window.addEventListener("popstate", rotear)
-
-document.addEventListener("click", (e) => {
-  const link = e.target.closest("a")
-  if (link && link.href && link.href.startsWith(location.origin)) {
-    const url = new URL(link.href)
-    if (url.hash === "" && !link.onclick) {
-      e.preventDefault()
-      navegar(url.pathname + url.search)
-    }
-  }
-})
-
-document.fonts.load('24px "Material Symbols Outlined"', 'home')
-  .then(() => rotear())
-  .catch((erro) => {
-    console.error("Não foi possível iniciar o app com a fonte Material Symbols.", erro)
-  })

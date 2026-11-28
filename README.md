@@ -19,7 +19,7 @@ O projeto baseia-se na premissa de que a soberania digital é um direito. Ao uti
 
 ## 🛠 Tecnologias
 
-- **Frontend:** HTML5, CSS3 e JavaScript, com [Vite](https://vite.dev/) para desenvolvimento e build.
+- **Frontend:** HTML5, CSS3 e JavaScript, com [SvelteKit](https://svelte.dev/docs/kit) e [Vite](https://vite.dev/) para roteamento e build.
 - **Persistência de Dados:** Os dados de um único perfil são armazenados no arquivo SQLite escolhido; o [IndexedDB](https://developer.mozilla.org/pt-BR/docs/Web/API/IndexedDB_API) persiste apenas o acesso ao arquivo.
 - **Banco de Dados:** [SQLite WASM oficial](https://sqlite.org/wasm/doc/trunk/index.md) para leitura e gravação do arquivo SQLite no frontend.
 - **Acesso ao Sistema de Arquivos:** [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API) para selecionar ou criar o arquivo do perfil.
