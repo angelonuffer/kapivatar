@@ -3,26 +3,6 @@
 O perfil no Kapivatar é um arquivo local. Não há senha central nem conta criada em um servidor.
 Ao entrar, o usuário escolhe um dos três caminhos abaixo.
 
-## Abrir um perfil existente
-
-O usuário seleciona a opção **Abrir perfil** e escolhe qualquer arquivo cujo conteúdo seja SQLite 3.
-
-O navegador solicita acesso de leitura e gravação ao arquivo. Depois da abertura, o
-Kapivatar verifica apenas se o conteúdo é um banco SQLite íntegro. Faltas na estrutura são
-reparadas automaticamente:
-
-- a tabela `kapivatar_dados` é criada quando não existe;
-- as colunas `chave` e `valor` são criadas ou normalizadas quando necessário;
-- a linha `perfil` é criada quando não existe;
-- campos ausentes do objeto `perfil`, como dispositivo, outros dispositivos e chave privada,
-  são preenchidos automaticamente.
-
-O cancelamento do seletor de arquivos não mostra erro. Após uma abertura válida, o handle
-do arquivo é salvo no IndexedDB e a aplicação navega para a página principal.
-
-Essa opção depende da File System Access API. Navegadores sem `showOpenFilePicker` não
-podem abrir um perfil por este fluxo.
-
 ## Criar um perfil
 
 A opção **Criar perfil** abre o formulário de criação. O usuário pode informar:
@@ -50,6 +30,26 @@ O nome informado é usado para sugerir o nome do arquivo, acrescentando a extens
 
 Se a criação ou gravação falhar, a aplicação permanece no formulário e informa que não foi
 possível salvar o perfil.
+
+## Abrir um perfil existente
+
+O usuário seleciona a opção **Abrir perfil** e escolhe qualquer arquivo cujo conteúdo seja SQLite 3.
+
+O navegador solicita acesso de leitura e gravação ao arquivo. Depois da abertura, o
+Kapivatar verifica apenas se o conteúdo é um banco SQLite íntegro. Faltas na estrutura são
+reparadas automaticamente:
+
+- a tabela `kapivatar_dados` é criada quando não existe;
+- as colunas `chave` e `valor` são criadas ou normalizadas quando necessário;
+- a linha `perfil` é criada quando não existe;
+- campos ausentes do objeto `perfil`, como dispositivo, outros dispositivos e chave privada,
+  são preenchidos automaticamente.
+
+O cancelamento do seletor de arquivos não mostra erro. Após uma abertura válida, o handle
+do arquivo é salvo no IndexedDB e a aplicação navega para a página principal.
+
+Essa opção depende da File System Access API. Navegadores sem `showOpenFilePicker` não
+podem abrir um perfil por este fluxo.
 
 ## Usar o perfil de outro dispositivo
 

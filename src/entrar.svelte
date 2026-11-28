@@ -74,13 +74,13 @@
     />
   {:else}
     <p>Entrar no Kapivatar</p>
-    <button onclick={escolher_arquivo}>
-      <span class="material-symbols-outlined">person</span>
-      <span>Abrir perfil</span>
-    </button>
     <button onclick={() => criando_perfil = true}>
       <span class="material-symbols-outlined">person_add</span>
       <span>Criar perfil</span>
+    </button>
+    <button onclick={escolher_arquivo}>
+      <span class="material-symbols-outlined">person</span>
+      <span>Abrir perfil</span>
     </button>
     <button onclick={() => navegar("/dispositivos/parear/receber")}>
       <span class="material-symbols-outlined">devices</span>

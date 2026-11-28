@@ -21,11 +21,11 @@ const props = () => ({
 })
 
 describe("Entrar", () => {
-  it("oferece abrir perfil, criar perfil e perfil de outro dispositivo", () => {
+  it("oferece criar perfil, abrir perfil e perfil de outro dispositivo", () => {
     render(Entrar, { props: props() })
 
-    expect(screen.getByRole("button", { name: /Abrir perfil/ })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Criar perfil/ })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Abrir perfil/ })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Perfil de outro dispositivo/ })).toBeInTheDocument()
   })
 
